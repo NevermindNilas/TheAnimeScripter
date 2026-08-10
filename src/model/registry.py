@@ -243,7 +243,6 @@ def modelsList() -> list[str]:
         "og_giant_v2-mps",
         "og_distill_small_v2-mps",
         "og_distill_base_v2-mps",
-        "og_distill_large_v2-mps",
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
@@ -965,13 +964,13 @@ def modelsMap(
         case "giant_v2":
             return "depth_anything_v2_vitg.pth"
 
-        case "og_small_v2" | "og_distill_small_v2":
+        case "og_small_v2":
             return "depth_anything_v2_vits.pth"
 
-        case "og_base_v2" | "og_distill_base_v2":
+        case "og_base_v2":
             return "depth_anything_v2_vitb.pth"
 
-        case "og_large_v2" | "og_distill_large_v2":
+        case "og_large_v2":
             return "depth_anything_v2_vitl.pth"
 
         case "og_giant_v2":
@@ -999,6 +998,7 @@ def modelsMap(
             "distill_small_v2"
             | "distill_small_v2-tensorrt"
             | "distill_small_v2-directml"
+            | "og_distill_small_v2"
         ):
             if modelType == "pth":
                 return "distill_small_v2.safetensors"
@@ -1009,7 +1009,10 @@ def modelsMap(
                     return "Distill-Any-Depth-Multi-Teacher-Small_fp32_op17_slim.onnx"
 
         case (
-            "distill_base_v2" | "distill_base_v2-tensorrt" | "distill_base_v2-directml"
+            "distill_base_v2"
+            | "distill_base_v2-tensorrt"
+            | "distill_base_v2-directml"
+            | "og_distill_base_v2"
         ):
             if modelType == "pth":
                 return "distill_base_v2.safetensors"

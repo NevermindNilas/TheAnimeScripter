@@ -196,7 +196,7 @@ def depth(self):
         ):
             from src.depth.backends.cuda import DepthCuda
 
-            DepthCuda(
+            driver = DepthCuda(
                 self.input,
                 self.output,
                 self.width,
@@ -228,7 +228,7 @@ def depth(self):
         ):
             from src.depth.backends.mps import DepthMPS
 
-            DepthMPS(
+            driver = DepthMPS(
                 self.input,
                 self.output,
                 self.width,
@@ -259,7 +259,7 @@ def depth(self):
         ):
             from src.depth.backends.tensorrt import DepthTensorRTV2
 
-            DepthTensorRTV2(
+            driver = DepthTensorRTV2(
                 self.input,
                 self.output,
                 self.width,
@@ -295,7 +295,7 @@ def depth(self):
         ):
             from src.depth.backends.directml import DepthDirectMLV2
 
-            DepthDirectMLV2(
+            driver = DepthDirectMLV2(
                 self.input,
                 self.output,
                 self.width,
@@ -321,11 +321,10 @@ def depth(self):
             | "og_giant_v2"
             | "og_distill_small_v2"
             | "og_distill_base_v2"
-            | "og_distill_large_v2"
         ):
             from src.depth.backends.cuda import OGDepthV2CUDA
 
-            OGDepthV2CUDA(
+            driver = OGDepthV2CUDA(
                 self.input,
                 self.output,
                 self.width,
@@ -353,11 +352,10 @@ def depth(self):
             | "og_giant_v2-mps"
             | "og_distill_small_v2-mps"
             | "og_distill_base_v2-mps"
-            | "og_distill_large_v2-mps"
         ):
             from src.depth.backends.mps import OGDepthV2MPS
 
-            OGDepthV2MPS(
+            driver = OGDepthV2MPS(
                 self.input,
                 self.output,
                 self.width,
@@ -381,7 +379,7 @@ def depth(self):
         case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
             from src.depth.backends.video import VideoDepthAnythingCUDA
 
-            VideoDepthAnythingCUDA(
+            driver = VideoDepthAnythingCUDA(
                 self.input,
                 self.output,
                 self.width,
@@ -404,7 +402,7 @@ def depth(self):
         case "video_small_v2" | "video_large_v2":
             from src.depth.backends.video import VideoDepthAnythingTorch
 
-            VideoDepthAnythingTorch(
+            driver = VideoDepthAnythingTorch(
                 self.input,
                 self.output,
                 self.width,
@@ -436,7 +434,7 @@ def depth(self):
         ):
             from src.depth.backends.tensorrt import OGDepthV2TensorRT
 
-            OGDepthV2TensorRT(
+            driver = OGDepthV2TensorRT(
                 self.input,
                 self.output,
                 self.width,
@@ -466,7 +464,7 @@ def depth(self):
         ):
             from src.depth.backends.directml import OGDepthV2DirectML
 
-            OGDepthV2DirectML(
+            driver = OGDepthV2DirectML(
                 self.input,
                 self.output,
                 self.width,
@@ -488,7 +486,7 @@ def depth(self):
         case "small_v3" | "base_v3" | "large_v3" | "og_large_v3":
             from src.depth.backends.cuda import OGDepthV3Cuda
 
-            OGDepthV3Cuda(
+            driver = OGDepthV3Cuda(
                 self.input,
                 self.output,
                 self.width,
@@ -512,7 +510,7 @@ def depth(self):
         case "small_v3-mps" | "base_v3-mps" | "large_v3-mps" | "og_large_v3-mps":
             from src.depth.backends.mps import OGDepthV3MPS
 
-            OGDepthV3MPS(
+            driver = OGDepthV3MPS(
                 self.input,
                 self.output,
                 self.width,
@@ -539,6 +537,11 @@ def depth(self):
                 f"This value is accepted by the CLI but has no model wired up "
                 f"in initializeModels.depth()."
             )
+
+    # Same contract as segment()/objectDetection()/stabilize(): without it
+    # main.py decides a depth run's outcome purely from the size of a possibly
+    # half-written file, so a failed inference reported success and exited 0.
+    self.processingError = driver.processingError
 
 
 def motionBlur(self):
@@ -570,6 +573,9 @@ def motionBlur(self):
         compile_mode=self.compileMode,
         decode_method=self.decodeMethod,
     )
+    # No processingError read-back: MotionBlurPipeline re-raises, so this line
+    # would be unreachable on failure and always None on success. main()'s
+    # per-video handler catches the raise and counts the run as failed.
 
 
 def stabilize(self):

@@ -1,5 +1,4 @@
 import logging
-import os
 from multiprocessing import get_context
 from queue import Empty
 from threading import Lock
@@ -96,12 +95,9 @@ def reportTerminalStatus(processingError, outputPath, benchmark=False):
     exception OR a missing/0-byte output counts as failed, and benchmark runs
     write no output by design so their size is not checked.
     """
-    wroteOutput = benchmark
-    if not wroteOutput:
-        try:
-            wroteOutput = os.path.getsize(outputPath) > 0
-        except OSError, TypeError:
-            wroteOutput = False
+    from src.io.runOutcome import outputWasWritten
+
+    wroteOutput = benchmark or outputWasWritten(outputPath)
 
     if processingError is not None or not wroteOutput:
         progressState.setFailed(

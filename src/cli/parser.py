@@ -458,13 +458,6 @@ def _buildParser(outputPath):
 
     performanceGroup = argParser.add_argument_group("Performance")
     performanceGroup.add_argument(
-        "--precision",
-        type=str,
-        choices=["fp32", "fp16"],
-        default="fp16",
-        help="NOT IMPLEMENTED YET! Precision for inference, default is fp16",
-    )
-    performanceGroup.add_argument(
         "--decode_method",
         type=str,
         choices=["cpu", "nvdec"],
@@ -865,7 +858,7 @@ def _addSmoothDedupOptions(argParser):
         "--smooth_dedup_max_span",
         type=int,
         default=6,
-        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. Raising it costs memory: one gap buffers span x interpolate_factor frames at once",
+        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. Raising it costs inference time, not memory",
     )
 
 
@@ -1132,14 +1125,12 @@ def _addDepthOptions(argParser):
         "og_giant_v2",
         "og_distill_small_v2",
         "og_distill_base_v2",
-        "og_distill_large_v2",
         "og_small_v2-mps",
         "og_base_v2-mps",
         "og_large_v2-mps",
         "og_giant_v2-mps",
         "og_distill_small_v2-mps",
         "og_distill_base_v2-mps",
-        "og_distill_large_v2-mps",
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",

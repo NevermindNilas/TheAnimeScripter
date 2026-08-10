@@ -6,10 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit`, `--output_scale` or `--depth` now runs the equivalent plain encoder instead, with a warning. Those runs lose the in-process encoder's speed and gain an output that matches what was asked for.
+
+### Added
+- `tests/test_docsDrift.py` fails when a CLI flag or an `--encode_method` choice is missing from `PARAMETERS.MD`, when the docs name a flag the parser does not accept, or when an example uses a value outside a flag's `choices`.
+- `tests/test_depthWriters.py` fails if a depth backend encodes with OpenCV instead of the shared writer.
+- `tests/test_runOutcome.py` fails if a standalone capability stops reporting its own outcome (a structural check — it pins the wiring, not the runtime behaviour).
+
 ### Changed
 - `README.md` documents TAS-Standalone as a shipped edition with install steps and a screenshot, instead of "coming soon".
+- `PARAMETERS.MD` documents `--decode_method`, `--profile`, `--obj_detect_disable_annotations` and the six `*_nelux` encoders. Its debug section told you to run `--preset_list`, and two examples used `--bit_depth 10bit`; neither has ever been accepted.
+
+### Removed
+- `--precision`, which was never implemented and never read. `--half` is the real knob.
+- `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same model — use that.
 
 ### Fixed
+- Any BT.2020/HDR10 source failed its entire render. The colour filter asked zscale for `matrix=bt2020:norm=bt2020`, and neither token exists — the matrix constants are `2020_ncl`/`2020_cl` and there is no `norm` option — so FFmpeg rejected the filtergraph with "Undefined constant" for a 0-byte output. The arm now uses `matrix=bt2020nc`, tags the output with the source's own transfer so PQ, HLG and SDR BT.2020 each keep their curve, and works at 16-bit like the BT.709 arm instead of crushing to 8-bit 4:2:0 inside the filtergraph — a 16-bit ramp went from 220 distinct 10-bit codes, every one a multiple of 4, to a full ladder. A BT.2020 source carrying the matrix but no primaries is also detected now, where it used to be converted to BT.709.
+- Image-sequence input was completely dead: the metadata probe rejected every `frames_%05d.png` pattern as a missing file, before anything opened it. `--input <folder of PNGs>` now works again.
+- A `--json` config auto-enabled capabilities it had itself switched off. The After Effects panel serializes its whole form, so every capability's `*_method` arrives at its default — and each of those counted as "the user asked for this", turning on upscale, depth, segment, dedup and restore for a config that requested interpolation alone. An explicit `"upscale": false` also lost to its own sibling `"upscale_method"`. Both now hold.
+- `--encode_method png` and `--autoclip` printed "Processing FAILED" and exited 1 on every successful run, and reported the render as failed inside After Effects. Both now exit 0; a genuinely empty sequence folder still fails.
+- A `--depth` inference error was logged and then ignored: the run wrote a short file, exited 0 and told After Effects it succeeded. It now exits 1, and a frame loop that raises no longer hangs the run.
+- A `--moblur` worker thread that died took its exception into a discarded future, so the run reported success; a failure in its setup hung the run instead of ending it; and a 0-byte output was still reported to After Effects as completed.
+- A decode that died part-way through finished as a shorter "successful" video, on every capability. It now exits 1 — while a decoder error raised after the last frame still exits 0, because that output is complete.
+- `--segment` and `--obj_detect` swallowed per-frame errors the same way, so a run that dropped every frame reported success.
+- Errors raised outside `start()` — unreadable metadata, a model download out of retries, a validator exit — left the After Effects panel on the last progress string with the run already over. `--depth` never sent a terminal status at all. Every run now sends exactly one.
+- `--output_scale` auto-enabled `--resize`, which applied `--resize_factor`'s default of 2 to the decode: `--upscale --output_scale 1280x720` on a 640x360 source ran the model over 1280x720 to 2560x1440 and then scaled back down. The model now sees 4x fewer pixels for the same output.
+- `--depth` encoded through OpenCV with a hardcoded `mp4v` fourcc on 25 of the `--depth_method` choices — every `og_*` model and the whole `small_v3`/`base_v3`/`large_v3` family — discarding `--encode_method`, `--custom_encoder` and `--bit_depth`. They now use the same writer as every other backend, so `--bit_depth 16bit` gives a 10-bit depth map instead of an 8-bit one. Depth values are unchanged.
+- `--depth` with a `*_nelux` `--encode_method` encoded with the container default instead of the requested encoder: a 1-second 360p depth clip came out 31 KB against 71 KB.
+- `--encode_method *_nelux` silently ignored `--custom_encoder`, `--bit_depth 16bit` and `--output_scale`; `--output_scale 320x180` wrote a 1280x720 file.
+- `--bit_depth 16bit` on `nvenc_h265`, `slow_nvenc_h265`, `nvenc_av1` and `slow_nvenc_av1` uploaded 8-bit `nv12` surfaces to the encoder, so 16-bit depth maps were written 8-bit. They now upload `p010le` and come out 10-bit.
+- `--smooth_dedup` kept a whole widened gap in memory at once, so VRAM grew with the length of the held drawing: 5.1 GB after a 2-second 1080p hold, 10.9 GB after 12 seconds, against a flat 4.5 GB for plain `--interpolate`. `--smooth_dedup_max_span` never bounded it. Now flat at 4.4 GB, with byte-identical output.
+- `--output` with a `.webm` extension kept the default `x264` because the encoder check read the *input* path: FFmpeg refused to write the header and left a 262-byte file that the run reported as a success. It now picks `vp9` from the output, as it always did when the input was already `.webm`.
+- `--dedup_method flownets` and `vmaf-cuda` crashed at model init on macOS and CUDA-less Linux with an error that never named the flag. They now fall back like `--smooth_dedup` already did.
+- `--dedup_method flownets` advanced its reference frame on duplicates, so a slow pan or fade was deleted frame by frame. On a 96-frame fade it kept 52 frames; it now keeps 68.
+- `--interpolate <rife>-directml` set torch's global default dtype to float16 and never restored it, so in a batch run every later stage — including all of videos 2..N — allocated in fp16.
+- `--depth_method og_distill_small_v2` and `og_distill_base_v2` resolved `og_small_v2`'s and `og_base_v2`'s weights, so they produced byte-identical output to those models under a name promising a different one. They now load the real Distill-Any-Depth checkpoints.
+- An `.mp4`/`.m4v` output stream-copied text subtitles, so any source with a `subrip`/`ass` track — an ordinary anime MKV — aborted the mux at header-write and lost the whole render after the models had loaded. Those now transcode to `mov_text`, while a source whose subtitles the container already accepts (`mov_text`, `ttml`) is still copied. Extensions are matched case-insensitively, so `clip.MP4` is handled too.
+- `--segment` pushed its RGBA frames through `yuva420p` before the `yuva444p10le` ProRes 4444 output, discarding half the chroma resolution and two bits ahead of a conversion that cannot recover either. On a 1-pixel chroma pattern the old chain measured 7.3 dB against the source, the new one 48.5 dB. On a real matte that is +0.8 dB of colour and 22% less error along the edges, against -1.6 dB of alpha and 1-3% more file size.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
 ## [2.9.0] - 2026-08-03

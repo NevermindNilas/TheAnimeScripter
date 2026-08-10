@@ -232,9 +232,8 @@ def downloadModels(
         "og_base_v2": "base_v2",
         "og_large_v2": "large_v2",
         "og_giant_v2": "giant_v2",
-        "og_distill_small_v2": "small_v2",
-        "og_distill_base_v2": "base_v2",
-        "og_distill_large_v2": "large_v2",
+        "og_distill_small_v2": "distill_small_v2",
+        "og_distill_base_v2": "distill_base_v2",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)

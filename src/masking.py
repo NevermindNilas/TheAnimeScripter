@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Self
 
 import cv2
 import torch
@@ -140,7 +141,7 @@ class MaskedSink:
         self.sink = None
         self.pristine = None
 
-    def bind(self, sink, pristine: torch.Tensor | None) -> MaskedSink:
+    def bind(self, sink, pristine: torch.Tensor | None) -> Self:
         self.sink = sink
         self.pristine = pristine
         return self

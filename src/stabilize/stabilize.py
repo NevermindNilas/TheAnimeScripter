@@ -15,6 +15,7 @@ from src.io.ffmpegSettings import (
     createWriteBuffer,
     drainReader,
 )
+from src.io.runOutcome import truncatedDecodeError
 from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
@@ -757,4 +758,12 @@ class VideoStabilize:
         finally:
             # Closing the writer alone still left the reader blocked on put()
             # when this loop raised early, so the executor join never returned.
+            # The decoder signals a mid-stream death only by putting its
+            # end-of-stream sentinel, which reads like a clean EOF, so without
+            # this a truncated decode wrote a short file and exited 0.
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
+            if decodeError is not None and self.processingError is None:
+                self.processingError = decodeError
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

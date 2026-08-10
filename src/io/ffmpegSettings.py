@@ -24,8 +24,9 @@ except OSError:
     import nelux
 
 import src.constants as cs
-from src.io.encodingSettings import getPixFMT, matchEncoder
+from src.io.encodingSettings import colorSpaceFilter, getPixFMT, matchEncoder
 from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logWarning
 
 checker = CudaChecker()
 
@@ -128,6 +129,10 @@ class BuildBuffer:
         self.isFinished = False
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
+        # Set when decoding dies with no usable fallback. Consumers only ever
+        # see the end-of-stream sentinel, so without this a truncated decode is
+        # indistinguishable from a clean EOF.
+        self.decodeError: Exception | None = None
         self.toTorch = toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
@@ -181,6 +186,11 @@ class BuildBuffer:
 
         except Exception as e:
             logging.error(f"nelux decoding error: {e}")
+            # The error worth surfacing is the last one, not the first: an
+            # nvdec failure that the CPU retry then died part-way through
+            # should report the retry's error, since that is the one that
+            # truncated the stream.
+            lastError = e
 
             # A fallback re-decode restarts from frame 0. If the failed attempt
             # already emitted frames, re-decoding duplicates them, so only fall
@@ -195,6 +205,7 @@ class BuildBuffer:
                     return
                 except Exception as retry_e:
                     logging.error(f"nelux CPU retry failed: {retry_e}")
+                    lastError = retry_e
 
             if self._emittedFrames == 0:
                 logging.info("Attempting fallback to OpenCV decoder...")
@@ -202,11 +213,18 @@ class BuildBuffer:
                     decodedFrames += self.decodeWithOpenCV()
                 except Exception as fallback_e:
                     logging.error(f"OpenCV fallback failed: {fallback_e}")
+                    self.decodeError = fallback_e
             else:
                 logging.error(
                     f"Decode failed after {self._emittedFrames} frame(s) were already "
                     f"queued; skipping fallback to avoid duplicating frames."
                 )
+                # Every consumer sees only the sentinel below, which is
+                # indistinguishable from a clean EOF, so a decode that died
+                # mid-stream used to finish as a "successful" short video.
+                # src/io/runOutcome.py:truncatedDecodeError promotes this into
+                # the run's processingError, but only when frames are missing.
+                self.decodeError = lastError
 
         finally:
             self.decodeBuffer.put(None)
@@ -486,6 +504,31 @@ class WriteBuffer:
         outputDir = os.path.dirname(self.output)
         if outputDir:
             os.makedirs(outputDir, exist_ok=True)
+        # A *_nelux method reaching this writer means a caller that builds
+        # WriteBuffer directly instead of going through createWriteBuffer --
+        # every depth backend does. matchEncoder has no arm for those names, so
+        # it returned an EMPTY command: no -c:v at all, and FFmpeg quietly
+        # encoded with the container default at its own CRF (23), discarding
+        # the requested encoder and its quality target. The pix_fmt was never
+        # affected -- getPixFMT does not consult matchEncoder. Each *_nelux
+        # method mirrors an FFmpeg twin one-for-one (x264_nelux -> x264,
+        # nvenc_av1_nelux -> nvenc_av1, ...), so fall back to that twin.
+        #
+        # animeSegment also builds WriteBuffer directly but was never affected:
+        # it passes transparent=True, and getPixFMT rewrites the method to
+        # prores_segment before matchEncoder sees it.
+        #
+        # No warning here: src/cli/validator.py:_resolveNeluxEncoder already
+        # resolves this once per run, where a batch of 200 inputs gets one
+        # message instead of 200. This is the last-resort net for a caller that
+        # builds a writer without going through the CLI.
+        if encode_method.endswith("_nelux"):
+            fallback = encode_method[: -len("_nelux")]
+            logging.info(
+                f"{encode_method} needs the Nelux writer, which this operation "
+                f"does not use; encoding with the equivalent {fallback}."
+            )
+            encode_method = fallback
         self.encode_method = encode_method
         self.single_image_output = single_image_output
 
@@ -538,6 +581,10 @@ class WriteBuffer:
         # emptying the queue so the producer's blocking put() can't deadlock
         # the whole run (e.g. prores into an .mp4 container).
         self._sawSentinel = False
+        # Set when encoding fails. Read through
+        # src/io/runOutcome.py:truncatedDecodeError, the same way the decoder's
+        # own failure is.
+        self.encodeError: Exception | None = None
 
     def _shouldUseDirectPngSingleFrame(self) -> bool:
         return (
@@ -728,10 +775,27 @@ class WriteBuffer:
                 # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
                 # -- which matchEncoder already tags "-profile:v main10" -- and
                 # the "10bit" preset encoded 8-bit data. p010le is the CUDA
-                # 10-bit format. Everything else stays on nv12; CUDA has no
-                # yuv444p10le hwframe format, so the 4:4:4 outputs (16-bit,
-                # lossless_nvenc) still subsample here.
-                hwFormat = "p010le" if outputPixFmt == "p010le" else "nv12"
+                # 10-bit format.
+                #
+                # CUDA has no yuv444p10le hwframe format, so a 4:4:4 request
+                # subsamples here either way -- but it used to also fall to
+                # nv12 and lose the two extra bits, which is the half that
+                # actually matters (--depth --bit_depth 16bit on nvenc_h265
+                # wrote an 8-bit depth map: visible banding on the smooth
+                # gradients the 16-bit path exists for). Keep the depth
+                # wherever the encoder can carry it. h264_nvenc cannot encode
+                # 10-bit at all -- getPixFMT already forces "nvenc_h264" back
+                # to 8-bit, but "lossless_nvenc" also runs on h264_nvenc and
+                # does not go through that branch, so gate on the encoder.
+                tenBitNvenc = self.encode_method in (
+                    "nvenc_h265",
+                    "slow_nvenc_h265",
+                    "nvenc_h265_10bit",
+                    "nvenc_av1",
+                    "slow_nvenc_av1",
+                )
+                wantsTenBit = outputPixFmt.endswith(("10le", "12le", "16le"))
+                hwFormat = "p010le" if (tenBitNvenc and wantsTenBit) else "nv12"
                 hwFilters = filterList.copy() if filterList else []
                 hwFilters.append(f"format={hwFormat}")
                 hwFilters.append("hwupload_cuda")
@@ -767,7 +831,14 @@ class WriteBuffer:
                 "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
             )
         if self.transparent:
-            filterList.append("format=yuva420p")
+            # NOT yuva420p: getPixFMT already selects yuva444p10le for this
+            # path and matchEncoder pairs it with prores_ks -profile:v 4
+            # (4444). Routing rgba through 8-bit 2x2-subsampled yuva420p first
+            # threw away half the chroma resolution and two bits of precision
+            # before the 4:4:4 conversion, which cannot recover either -- the
+            # colour fringing showed up along the hard matte edges --segment
+            # exists to produce.
+            filterList.append("format=yuva444p10le")
 
         import json
 
@@ -786,17 +857,16 @@ class WriteBuffer:
             # full color metadata (matrix + primaries + transfer + range) --
             # swscale alone only tags the matrix.
             #
-            # BT.2020 stays on zscale: swscale has no bt2020nc matrix and zimg's
-            # `norm=bt2020` does transfer handling swscale cannot replicate.
-            colorSPaceFilter = {
-                "bt709": (
-                    "scale=in_range=pc:out_range=tv:out_color_matrix=bt709,"
-                    "format=yuv444p16le,"
-                    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
-                ),
-                "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
-            }
-
+            # BT.2020 stays on zscale: swscale has no bt2020nc matrix.
+            #
+            # This arm used to read `matrix=bt2020:norm=bt2020`, and neither
+            # token exists: zscale's matrix constants are 2020_ncl/2020_cl
+            # (aliases bt2020nc/bt2020c) and there is no `norm` option at all.
+            # So the filtergraph could never parse -- FFmpeg died with
+            # "Undefined constant or missing '(' in 'bt2020'" and every
+            # BT.2020/HDR10 source failed the whole render for a 0-byte output.
+            # setparams mirrors the bt709 arm, which already stamps the full
+            # colour metadata rather than the matrix alone.
             metadata = {}
             if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
                 try:
@@ -805,18 +875,7 @@ class WriteBuffer:
                 except Exception as e:
                     logging.warning(f"Failed to read metadata for color space: {e}")
 
-            metadataFields = ["ColorSpace", "PixelFormat", "ColorTRT"]
-            detectedColorSpace = None
-
-            for field in metadataFields:
-                colorValue = metadata.get("metadata", {}).get(field, "unknown")
-                if colorValue in colorSPaceFilter:
-                    detectedColorSpace = colorValue
-                    break
-
-            filterList.append(
-                colorSPaceFilter.get(detectedColorSpace, colorSPaceFilter["bt709"])
-            )
+            filterList.append(colorSpaceFilter(metadata.get("metadata", {})))
 
         return filterList
 
@@ -839,24 +898,78 @@ class WriteBuffer:
 
         return customEncoderArgs
 
+    # Subtitle codecs an ISO-BMFF container carries natively, so a stream copy
+    # is both valid and lossless. Everything else text-based (subrip, ass, ssa)
+    # has to become mov_text or the mux aborts at header-write with "Could not
+    # find tag for codec subrip ... not currently supported in container".
+    _ISO_BMFF_NATIVE_SUBTITLES = frozenset({"mov_text", "ttml", "stpp", "wvtt"})
+
+    def _isoBmffSubtitleCodec(self) -> str:
+        """`copy` or `mov_text` for an .mp4/.m4v/.mov output, by source codec.
+
+        Forcing mov_text unconditionally breaks the containers that already
+        agreed: FFmpeg ships a TTML *encoder* but no TTML decoder, so a
+        TTML-in-MP4 source could not be transcoded at all and the render died
+        with "no decoder found for: ttml" for a 0-byte output -- where a plain
+        copy had worked. Ask the source what it has; a probe failure keeps the
+        transcode, which is right for the common case (an MKV of subrip/ass).
+        """
+        # An image sequence needs no test of its own: the pattern is not a path
+        # on disk, so it fails the existence check below. Testing for a bare
+        # percent instead would divert an ordinary ``50%_off.mkv`` here and
+        # force mov_text on it -- the TTML case this method exists to avoid.
+        if not self.input or not os.path.exists(self.input):
+            return "mov_text"
+        try:
+            probe = subprocess.run(
+                [
+                    cs.FFPROBEPATH,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "s",
+                    "-show_entries",
+                    "stream=codec_name",
+                    "-of",
+                    "csv=p=0",
+                    self.input,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except Exception as e:
+            logging.warning(f"Subtitle probe failed ({e}); transcoding to mov_text.")
+            return "mov_text"
+
+        codecs = [line.strip() for line in probe.stdout.splitlines() if line.strip()]
+        if codecs and all(c in self._ISO_BMFF_NATIVE_SUBTITLES for c in codecs):
+            logging.info(f"Subtitles {codecs} are ISO-BMFF native; stream-copying.")
+            return "copy"
+        return "mov_text"
+
     def _buildAudioSettings(self):
         """Build audio encoding settings"""
         audioSettings = ["-map", "1:a"]
 
+        # Lowercased: inputOutputHandler matches extensions case-insensitively
+        # and copies the input's extension verbatim, so `clip.MP4` from a phone
+        # or drone is an ordinary output name here.
+        output = self.output.lower()
+
         audioCodec = "copy"
         subCodec = "copy"
-        if self.output.endswith(".webm"):
+        if output.endswith(".webm"):
             audioCodec = "libopus"
             subCodec = "webvtt"
-        elif self.output.endswith(".mov"):
-            # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with
-            # "opus only supported in MP4"). The transparent/segment path
-            # always lands here as prores in a .mov, so transcode to a
-            # container-safe codec instead of dropping the muxer. mov_text is
-            # the MOV subtitle codec (copy of webvtt/srt fails the same way).
-            # MP4/M4V are left on copy — they accept opus natively.
-            audioCodec = "aac"
-            subCodec = "mov_text"
+        elif output.endswith((".mov", ".mp4", ".m4v")):
+            subCodec = self._isoBmffSubtitleCodec()
+            if output.endswith(".mov"):
+                # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with "opus
+                # only supported in MP4"). The transparent/segment path always
+                # lands here as prores in a .mov. MP4/M4V accept opus natively,
+                # so they keep `copy`.
+                audioCodec = "aac"
         audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
 
         # No -ss/-to here. These land immediately before the output file, so they
@@ -973,6 +1086,10 @@ class WriteBuffer:
                 logging.error(
                     f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
                 )
+                self.encodeError = RuntimeError(
+                    f"FFmpeg exited immediately with code {ffmpegProc.returncode}: "
+                    f"{stderr_out.strip()[:300]}"
+                )
                 return
 
             logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
@@ -1061,6 +1178,10 @@ class WriteBuffer:
             logging.info(f"Encoded {writtenFrames} frames")
 
         except Exception as e:
+            # Recorded, not just logged: for a single output file a dead
+            # encoder shows up as 0 bytes, but an image sequence that died
+            # after one frame is indistinguishable from a complete one.
+            self.encodeError = e
             logging.error(f"Encoding error: {e}")
             if ffmpegProc is not None:
                 rc = ffmpegProc.poll()
@@ -1139,7 +1260,7 @@ class NeluxWriteBuffer:
         self,
         input: str = "",
         output: str = "",
-        encode_method: str = "h264_nvenc_nelux",
+        encode_method: str = "nvenc_h264_nelux",
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
@@ -1180,6 +1301,7 @@ class NeluxWriteBuffer:
         self.CudaStream = None
         # Same early-death drain contract as WriteBuffer (see its __init__).
         self._sawSentinel = False
+        self.encodeError: Exception | None = None
         self.acceptsHwcUint8 = True
         # Preview is sampled from the frames handed to the encoder, so it works
         # here exactly as it does for WriteBuffer -- nelux needs no preview
@@ -1222,6 +1344,14 @@ class NeluxWriteBuffer:
                 codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p"
             ),  # p1 / cq 15
         }
+        if encode_method not in encoderSettings:
+            # Silently encoding H.264 when the caller asked for something else
+            # is how the FFmpeg writer's *_nelux gap stayed invisible for so
+            # long; do not repeat it on this side.
+            logWarning(
+                f"'{encode_method}' has no Nelux encoder mapping. "
+                "Encoding with nvenc_h264_nelux."
+            )
         self.encoderKwargs = encoderSettings.get(
             encode_method, encoderSettings["nvenc_h264_nelux"]
         )
@@ -1254,7 +1384,10 @@ class NeluxWriteBuffer:
         encoder = self.encoder
         if encoder is None or not cs.AUDIO:
             return
-        if not self.input or "%" in self.input or not os.path.exists(self.input):
+        # Same as _isoBmffSubtitleCodec: an image-sequence pattern is caught by
+        # the existence check, while a literal percent in a real file's name is
+        # not a reason to drop its audio.
+        if not self.input or not os.path.exists(self.input):
             logging.info(
                 f"Nelux passthrough skipped: no usable source file ('{self.input}')."
             )
@@ -1388,6 +1521,7 @@ class NeluxWriteBuffer:
             logging.info(f"Nelux encoded {self.writtenFrames} frames")
 
         except Exception as e:
+            self.encodeError = e
             logging.error(f"Nelux encoding error: {e}")
             import traceback
 
@@ -1426,6 +1560,12 @@ def isNeluxEncoder(encode_method: str) -> bool:
 def createWriteBuffer(encode_method: str, **kwargs):
     """
     Factory function to create the appropriate write buffer.
+
+    A `*_nelux` method only reaches here when it can actually be honored:
+    NeluxWriteBuffer swallows `--custom_encoder`, `--bit_depth` and
+    `--output_scale` through `**kwargs` without reading them, so
+    `src/cli/validator.py:_resolveNeluxEncoder` swaps the method for its
+    FFmpeg twin, once per run, before any writer is built.
 
     Args:
         encode_method: The encoding method string.
