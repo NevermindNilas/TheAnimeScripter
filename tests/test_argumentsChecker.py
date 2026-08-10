@@ -34,8 +34,10 @@ from src.cli.validator import (
     _adjustMethodsBasedOnCuda,
     _applyImpliedFlags,
     _configureProcessingSettings,
+    _downgradeCudaDetector,
     _handleDepthSettings,
     _mapDedupSensitivity,
+    _resolveNeluxEncoder,
     isAnyOtherProcessingMethodEnabled,
 )
 from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
@@ -119,6 +121,119 @@ def testNoProcessingEnabled():
 
 def testSingleProcessingEnabled():
     assert isAnyOtherProcessingMethodEnabled(fullFlags(upscale=True)) is True
+
+
+def testOutputScaleAloneCountsAsProcessing():
+    """It used to count only because it auto-enabled --resize, which also
+    applied --resize_factor's default of 2 to the decode."""
+    assert (
+        isAnyOtherProcessingMethodEnabled(fullFlags(output_scale="1920x1080")) is True
+    )
+    assert isAnyOtherProcessingMethodEnabled(fullFlags(output_scale="")) is False
+
+
+# --------------------------------------------------------------------------- #
+# *_nelux encoder resolution
+# --------------------------------------------------------------------------- #
+
+
+def neluxArgs(**overrides):
+    base = dict(
+        encode_method="x264_nelux",
+        custom_encoder="",
+        bit_depth="8bit",
+        output_scale_width=None,
+        output_scale_height=None,
+        depth=False,
+    )
+    base.update(overrides)
+    return types.SimpleNamespace(**base)
+
+
+def testNeluxKeptWhenEveryOptionIsHonorable():
+    args = neluxArgs()
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264_nelux"
+
+
+def testNonNeluxMethodIsNeverRewritten():
+    args = neluxArgs(encode_method="x264", bit_depth="16bit", depth=True)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        dict(custom_encoder="-c:v libx265 -crf 30"),
+        dict(bit_depth="16bit"),
+        dict(output_scale_width=320, output_scale_height=180),
+        dict(depth=True),
+    ],
+)
+def testNeluxSwappedForItsTwinWhenAnOptionCannotBeHonored(overrides):
+    """NeluxWriteBuffer takes these through **kwargs and never reads them, and
+    --depth does not use it at all, so each used to be dropped in silence."""
+    args = neluxArgs(**overrides)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
+@pytest.mark.parametrize(
+    "method,twin",
+    [
+        ("x264_nelux", "x264"),
+        ("x265_nelux", "x265"),
+        ("av1_nelux", "av1"),
+        ("nvenc_h264_nelux", "nvenc_h264"),
+        ("nvenc_h265_nelux", "nvenc_h265"),
+        ("nvenc_av1_nelux", "nvenc_av1"),
+    ],
+)
+def testEveryNeluxMethodMapsToARealEncodeChoice(method, twin):
+    from src.io.encodingSettings import matchEncoder
+
+    args = neluxArgs(encode_method=method, depth=True)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == twin
+    assert matchEncoder(twin), f"{twin} has no matchEncoder arm"
+
+
+# --------------------------------------------------------------------------- #
+# CUDA-only frame comparators
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("flownets", "ssim"),
+        ("vmaf-cuda", "vmaf"),
+        ("ssim-cuda", "ssim"),
+        ("mse-cuda", "mse"),
+        ("ssim", "ssim"),
+        ("mse", "mse"),
+    ],
+)
+def testCudaOnlyDetectorsDowngradeWithoutCuda(monkeypatch, method, expected):
+    """--dedup used to skip this guard that --smooth_dedup had, so
+    `--dedup --dedup_method flownets` on a Mac downloaded the weights and then
+    died at model init with an error that never named the flag."""
+
+    class _NoCuda:
+        cudaAvailable = False
+
+    monkeypatch.setattr("src.infra.isCudaInit.CudaChecker", _NoCuda)
+    assert _downgradeCudaDetector(method, "dedup_method") == expected
+
+
+@pytest.mark.parametrize("method", ["flownets", "vmaf-cuda", "ssim-cuda", "mse-cuda"])
+def testCudaOnlyDetectorsSurviveWithCuda(monkeypatch, method):
+    class _HasCuda:
+        cudaAvailable = True
+
+    monkeypatch.setattr("src.infra.isCudaInit.CudaChecker", _HasCuda)
+    assert _downgradeCudaDetector(method, "dedup_method") == method
 
 
 def fallbackArgs(**overrides):
@@ -736,3 +851,75 @@ def testBannerOnlyOnFullHelpNotUsage(builtParser):
     # reuses on every error via format_usage) must not carry it.
     assert "AI-powered" in builtParser.format_help()
     assert "AI-powered" not in builtParser.format_usage()
+
+
+# --------------------------------------------------------------------------- #
+# --json capability auto-enabling
+# --------------------------------------------------------------------------- #
+
+
+def _jsonConfig(tmp_path, monkeypatch, payload):
+    import json as _json
+
+    path = tmp_path / "cfg.json"
+    path.write_text(_json.dumps(payload), encoding="utf-8")
+    parser = _buildParser("output")
+    args = parser.parse_args(["--json", str(path)])
+    monkeypatch.setattr("sys.argv", ["main.py", "--json", str(path)])
+    CliConfig.fromArgs(args, parser, ["--json", str(path)])
+    return args
+
+
+def testJsonMethodAtItsDefaultDoesNotEnableACapability(tmp_path, monkeypatch):
+    """The After Effects panel serializes its whole form, so every capability's
+    *_method arrives at its default value. Treating those as 'provided' turned
+    on upscale, depth, segment, dedup and restore for a config that asked for
+    interpolation alone -- the run produced a depth map."""
+    args = _jsonConfig(
+        tmp_path,
+        monkeypatch,
+        {
+            "interpolate": True,
+            "interpolate_factor": 2,
+            "upscale_method": "shufflecugan",
+            "depth_method": "small_v2",
+            "segment_method": "anime",
+            "dedup_method": "ssim",
+        },
+    )
+    assert args.interpolate is True
+    assert (args.upscale, args.depth, args.segment, args.dedup) == (
+        False,
+        False,
+        False,
+        False,
+    )
+
+
+def testJsonExplicitFalseBeatsASiblingMethodKey(tmp_path, monkeypatch):
+    """`"upscale": false` alongside `"upscale_method"` used to upscale anyway."""
+    args = _jsonConfig(
+        tmp_path,
+        monkeypatch,
+        {"upscale": False, "upscale_method": "span", "interpolate": True},
+    )
+    assert args.upscale is False
+
+
+def testJsonNonDefaultMethodStillEnablesItsCapability(tmp_path, monkeypatch):
+    """A config that genuinely asks for a model, without naming the flag, keeps
+    working -- the whole point of the auto-enable. Reaches the parent flag
+    through the `currentValue != defaultValue` fallback rather than jsonKeys,
+    so it holds regardless of which of the two paths fires."""
+    args = _jsonConfig(tmp_path, monkeypatch, {"upscale_method": "span"})
+    assert args.upscale is True
+    assert args.upscale_method == "span"
+
+
+def testJsonExplicitTrueIsNotUndoneByTheNewGuard(tmp_path, monkeypatch):
+    """The guard skips auto-enabling only when the config says the capability
+    is OFF; an explicit true must still run."""
+    args = _jsonConfig(
+        tmp_path, monkeypatch, {"upscale": True, "upscale_method": "shufflecugan"}
+    )
+    assert args.upscale is True

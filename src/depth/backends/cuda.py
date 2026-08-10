@@ -6,7 +6,6 @@ os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 import importlib
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 
 import cv2
 import numpy as np
@@ -19,6 +18,7 @@ from src.depth.backends._shared import (
     MEANTENSOR_HALF,
     STDTENSOR,
     STDTENSOR_HALF,
+    DepthRunOutcome,
     SlidingWindowNormalizer,
     calculateAspectRatio,
 )
@@ -38,7 +38,7 @@ if ADOBE:
 checker = CudaChecker()
 
 
-class DepthCuda:
+class DepthCuda(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -108,10 +108,13 @@ class DepthCuda:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         if ADOBE:
@@ -276,6 +279,7 @@ class DepthCuda:
             for i in range(depth.shape[0]):
                 self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -303,7 +307,7 @@ class DepthCuda:
         self.writeBuffer.close()
 
 
-class OGDepthV2CUDA:
+class OGDepthV2CUDA(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -343,7 +347,6 @@ class OGDepthV2CUDA:
         self.compileMode = compileMode
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.depthBatch = max(1, int(depth_batch))
-        self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
 
@@ -366,33 +369,59 @@ class OGDepthV2CUDA:
                 toTorch=False,
             )
 
-            self.output = cv2.VideoWriter(
+            # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
+            # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
+            # --encode_method said, ignored --custom_encoder and --bit_depth,
+            # and dropped the source audio. WriteBuffer is what every other
+            # depth backend uses, OGDepthV2TensorRT included.
+            self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
                 self.fps,
-                (self.width, self.height),
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.encodeThread)
-                executor.submit(self.process)
+                executor.submit(self.writeBuffer)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         from ..og_dpt_v2 import DepthAnythingV2
 
         match self.depth_method:
-            case "og_small_v2" | "og_distill_small_v2":
+            case "og_small_v2":
                 method = "vits"
                 toDownload = "small_v2"
-            case "og_base_v2" | "og_distill_base_v2":
+            case "og_base_v2":
                 method = "vitb"
                 toDownload = "base_v2"
-            case "og_large_v2" | "og_distill_large_v2":
+            case "og_large_v2":
                 method = "vitl"
                 toDownload = "large_v2"
+            # The og_distill_* pair runs the real Distill-Any-Depth weights
+            # through the reference DepthAnythingV2 implementation, exactly as
+            # og_small_v2 does for the plain checkpoints -- their state_dicts
+            # match this arch key for key. They used to resolve
+            # depth_anything_v2_vit{s,b}.pth instead, i.e. og_small_v2's and
+            # og_base_v2's weights under a name promising a different model.
+            case "og_distill_small_v2":
+                method = "vits"
+                toDownload = "distill_small_v2"
+            case "og_distill_base_v2":
+                method = "vitb"
+                toDownload = "distill_base_v2"
             case "og_giant_v2":
                 method = "vitg"
                 toDownload = "giant_v2"
@@ -427,29 +456,25 @@ class OGDepthV2CUDA:
                 "encoder": "vitg",
                 "features": 384,
                 "out_channels": [1536, 1536, 1536, 1536],
-            }
-            if "distill" not in self.depth_method
-            else {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-                "use_bn": False,
-                "use_clstoken": False,
-                "max_depth": 150.0,
-                "mode": "disparity",
-                "pretrain_type": "dinov2",
-                "del_mask_token": False,
             },
         }
 
-        if "distill" in self.depth_method and "large" in self.depth_method:
-            from src.depth.distillanydepth.modeling.archs.dam.dam import DepthAnything
+        # Every method that reaches this class -- og_{small,base,large,giant}_v2
+        # and og_distill_{small,base}_v2 -- is a DepthAnythingV2 architecture.
+        # There used to be a DistillAnyDepth branch here for a *distill*large*
+        # name, but no og_distill_large_v2 exists (its arch has no reference
+        # implementation, so distill_large_v2 is that model) and the branch was
+        # what turned the misresolved weights into a load_state_dict crash.
+        self.model = DepthAnythingV2(**modelConfigs[method])
 
-            self.model = DepthAnything(**modelConfigs[method])
+        if modelPath.endswith(".safetensors"):
+            # The distill checkpoints ship as safetensors. torch.load happens to
+            # read them today, but only as an accident of the pinned torch.
+            from safetensors.torch import load_file
+
+            self.model.load_state_dict(load_file(modelPath))
         else:
-            self.model = DepthAnythingV2(**modelConfigs[method])
-
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
 
         self.model = self.model.to(checker.device).eval()
 
@@ -508,15 +533,19 @@ class OGDepthV2CUDA:
                 d = F.interpolate(
                     depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
                 )
-                d = d[0, 0]
                 if self.normalizer is not None:
                     d = self.normalizer.normalize(d)
                 else:
-                    d = (d - d.min()) / (d.max() - d.min())
-                d = (d * 255.0).byte()
-                d = d.repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy()
-                self.encodeBuffer.put(d)
+                    minVal = d.min()
+                    d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
+                # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once,
+                # to 8 or 16 bit per --bit_depth, instead of the byte() cast
+                # this path used to hardcode. Land on the CPU first: the writer
+                # copies on its own private stream and never waits on ours, so
+                # .cpu() is both the handoff and the sync.
+                self.writeBuffer.write(d.float().cpu())
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -540,16 +569,7 @@ class OGDepthV2CUDA:
                     break
 
         logging.info(f"Processed {frameCount} frames")
-        self.encodeBuffer.put(None)
-
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            self.output.write(frame)
-
-        self.output.release()
+        self.writeBuffer.close()
 
 
 class OGDepthV3Cuda(OGDepthV2CUDA):
@@ -664,6 +684,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         try:
             rawDepths = self._inferBatch(frames)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
             return
 
@@ -674,8 +695,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                 validMask = depth > 0
 
                 if validMask.sum() <= 10:
-                    gray = np.zeros(depth.shape, dtype=np.uint8)
-                    self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+                    self._writeGray(np.zeros(depth.shape, dtype=np.float32))
                     continue
 
                 disparity = np.zeros_like(depth, dtype=np.float32)
@@ -690,26 +710,20 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                         disp_min -= 1e-6
                         disp_max += 1e-6
                     gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
-                gray = (gray * 255.0).astype(np.uint8)
-                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+                self._writeGray(gray)
             except Exception as e:
+                self.recordFailure(e)
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
                 )
 
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            if frame.ndim == 2:
-                frame = np.stack([frame] * 3, axis=-1)
-            if frame.shape[1] != self.width or frame.shape[0] != self.height:
-                frame = cv2.resize(
-                    frame,
-                    (self.width, self.height),
-                    interpolation=cv2.INTER_LINEAR,
-                )
-            self.output.write(frame)
+    def _writeGray(self, gray):
+        """[H, W] float in [0, 1] -> the [1, 1, H, W] WriteBuffer expects.
 
-        self.output.release()
+        WriteBuffer resizes a frame that does not match the output dimensions,
+        so the cv2.resize the old encode thread did here is not needed."""
+        self.writeBuffer.write(
+            torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))
+            .unsqueeze(0)
+            .unsqueeze(0)
+        )

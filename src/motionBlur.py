@@ -9,10 +9,11 @@ import torch
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+from src.io.runOutcome import truncatedDecodeError
 from src.masking import ProtectionMask
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    from src.server.aeComms import progressState, reportTerminalStatus
 
 
 def generateWeights(numSamples, scheme="gaussian_sym"):
@@ -165,11 +166,20 @@ class MotionBlurPipeline:
             f"linear_blend={self.moblurGamma}, method={self.interpolateMethod}"
         )
 
+        # Read back by the standalone factory so main.py can count a failed run
+        # as failed; this path never reaches start()'s own bookkeeping.
+        self.processingError: Exception | None = None
+
         try:
             self._initInterpolationModel()
             self._run()
         except Exception as e:
+            self.processingError = e
             logging.exception(f"Motion blur pipeline failed: {e}")
+            # No setFailed here: the re-raise reaches main()'s per-video
+            # handler, which reports it. Doing both would emit the terminal
+            # status twice.
+            #
             # Re-raise so a bad config surfaces as a real error instead of a
             # silently empty/corrupt output file.
             raise
@@ -395,14 +405,46 @@ class MotionBlurPipeline:
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.readBuffer)
             executor.submit(self.writeBuffer)
-            executor.submit(self._processFrames)
+            processFuture = executor.submit(self._guardedProcessFrames)
+
+        # .result(): _processFrames deliberately does not catch, so without this
+        # its exception stayed in the discarded future, execution fell through
+        # to setCompleted, and the panel was told a truncated render succeeded.
+        processFuture.result()
+
+        decodeError = truncatedDecodeError(
+            self.readBuffer, self.totalFrames, self.writeBuffer
+        )
+        if decodeError is not None:
+            raise decodeError
 
         elapsed = time() - startTime
         fps = self.totalFrames / elapsed if elapsed > 0 else 0
         logging.info(f"Motion blur done: {elapsed:.2f}s, {fps:.2f} fps")
 
         if ADOBE:
-            progressState.setCompleted(outputPath=self.output)
+            # Not setCompleted: nothing raises when the ENCODER dies, so
+            # `--moblur --encode_method prores --output x.mp4` left a 0-byte
+            # file, exited 1 to the shell, and still told the panel the render
+            # had succeeded -- exactly the lie reportTerminalStatus exists for.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
+
+    def _guardedProcessFrames(self):
+        """Run the frame loop so a raise in its prologue cannot hang the run.
+
+        `_processFrames` only enters its own try/finally after building the
+        blender and the sample plan; a CUDA OOM in that prologue left the
+        writer spinning for a sentinel it would never get, and the executor
+        join never returned. `.result()` is after that join, so it never even
+        got the chance to re-raise.
+        """
+        from src.io.ffmpegSettings import closeWriterAndDrainReader
+
+        try:
+            self._processFrames()
+        except Exception:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
+            raise
 
     def _computeWindow(self):
         """Resolve shutter window → sample counts from prev/next segments.

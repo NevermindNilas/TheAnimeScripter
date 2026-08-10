@@ -283,6 +283,8 @@ C:\Videos\episode3.mp4
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
 | `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/`, at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
+| `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
+| `--profile` | flag | **Developer profiling** - Runs under `torch.profiler` and writes a trace for finding GPU/CPU bottlenecks | Large; profiling only |
 
 ---
 
@@ -445,9 +447,8 @@ source, on 2s:    A   A   B   B   C     24 fps, 5 frames
 
 Runs longer than `--smooth_dedup_max_span` are filled with copies rather than interpolated: the
 frames in such a gap were duplicates anyway, so inference there costs full throughput for no visible
-gain. The cap is also a memory bound — one gap is emitted in a single batch, so it buffers
-`span × interpolate_factor` full-resolution frames at once. Raise it with that in mind; it cannot be
-set below 1.
+gain. Raising it costs inference time, not memory — a long gap is written out as it is produced
+rather than held whole. It cannot be set below 1.
 
 Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop
@@ -521,9 +522,9 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT, OpenVINO, MPS |
 | **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT, OpenVINO, MPS |
 | **og_giant_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 10GB | Original, largest v2 | CUDA, MPS |
-| **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Original distilled | CUDA, TRT, MPS |
-| **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Original distilled | CUDA, TRT, MPS |
-| **og_distill_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Original distilled | CUDA, TRT, MPS |
+| **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
+| **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
+| **og_distill_large_v2-tensorrt** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alias of `distill_large_v2-tensorrt`; there is no CUDA/MPS `og_distill_large_v2` — use `distill_large_v2` | TRT only |
 | **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
 | **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
 | **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
@@ -540,6 +541,7 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 |-----------|------|---------|-------------|
 | `--obj_detect` | flag | False | **Detect objects in video** — automatically enabled when `--obj_detect_method` is specified |
 | `--obj_detect_method` | str | "yolov9_small-directml" | **Object detection model** [see table](#object-detection-methods) — specifying a non-default method auto-enables object detection |
+| `--obj_detect_disable_annotations` | str | False | **Boxes only** — `True` drops the class label and confidence percentage drawn on each box. Takes a value: `--obj_detect_disable_annotations True` |
 
 #### 🎯 Object Detection Methods
 
@@ -834,6 +836,21 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 | **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD HEVC |
 | **hevc_amf_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | AMD GPU | 10-bit AMD HEVC |
 
+#### In-Process Encoders (`*_nelux`)
+
+These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, which removes the pipe copy on GPU-resident frames. The encoder settings match the plain encoder of the same name; the colour pipeline does not — the FFmpeg writer converts RGB to YUV through swscale at 16-bit with dithering and tags matrix/primaries/transfer/range, while the in-process encoder hands the encoder RGB directly.
+
+| Encoder | Equivalent | Requirements |
+|---------|-----------|--------------|
+| **x264_nelux** | x264 | - |
+| **x265_nelux** | x265 | - |
+| **av1_nelux** | av1 | - |
+| **nvenc_h264_nelux** | nvenc_h264 | NVIDIA GPU |
+| **nvenc_h265_nelux** | nvenc_h265 | NVIDIA GPU |
+| **nvenc_av1_nelux** | nvenc_av1 | NVIDIA RTX 40+ |
+
+> **Note:** the in-process encoder cannot apply `--custom_encoder`, `--bit_depth 16bit` or `--output_scale`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's.
+
 #### High-Quality Presets
 
 | Preset | Encoding Time | Quality | File Size | Use Case |
@@ -891,6 +908,8 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 | `--list_presets` | flag | False | **Show available presets** |
 
 > Tip: You can also load a configuration from a JSON file using `--json <path>`. When `--json` is used it must be supplied alone (no other CLI flags) — the script prevents mixing JSON with other CLI arguments.
+>
+> A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.
 
 ### Creating Presets
 
@@ -1038,7 +1057,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 
 **Verify Model Installation:**
 ```bash
-./python.exe ./main.py --preset_list  # Shows available models
+./python.exe ./main.py --list_methods  # Shows every model, grouped by capability
 ```
 
 **Monitor Resource Usage:**
@@ -1077,7 +1096,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
   --interpolate --interpolate_method rife4.25 --ensemble \
   --restore --restore_method nafnet \
   --encode_method x264_animation_10bit \
-  --bit_depth 10bit
+  --bit_depth 16bit
 ```
 **Processing:** Maximum quality with all enhancements  
 **Time:** ~5x video length  
@@ -1126,7 +1145,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
   --restore --restore_method nafnet autocas \
   --dedup --dedup_method ssim \
   --encode_method slow_x265 \
-  --bit_depth 10bit
+  --bit_depth 16bit
 ```
 **Processing:** Maximum restoration and enhancement  
 **Time:** ~6x video length  

@@ -75,17 +75,63 @@ def test_videoFailed_benchmark_ignores_missing_output(tmp_path):
     )
 
 
+def test_videoFailed_false_when_png_sequence_wrote_frames(tmp_path):
+    # --encode_method png resolves the output to an FFmpeg image2 pattern, which
+    # FFmpeg expands itself: the pattern is never a real path, so stat-ing it
+    # raised and every successful sequence export was reported FAILED, exit 1.
+    (tmp_path / "frames_00001.png").write_bytes(b"x" * 64)
+    (tmp_path / "frames_00002.png").write_bytes(b"x" * 64)
+    pattern = str(tmp_path / "frames_%05d.png")
+    assert main._videoFailed(None, pattern) is False
+
+
+def test_videoFailed_true_when_png_sequence_wrote_nothing(tmp_path):
+    pattern = str(tmp_path / "frames_%05d.png")
+    assert main._videoFailed(None, pattern) is True
+    (tmp_path / "frames_00001.png").write_bytes(b"")
+    assert main._videoFailed(None, pattern) is True
+    # A stray unrelated file must not count as a written frame.
+    (tmp_path / "notes.txt").write_bytes(b"x" * 64)
+    assert main._videoFailed(None, pattern) is True
+
+
+def test_videoFailed_ignores_output_path_when_run_writes_no_video(tmp_path):
+    # --autoclip writes autoclipresults.txt and never touches the manufactured
+    # output path, so stat-ing it failed every clean scene-detection run.
+    missing = str(tmp_path / "never-written.mp4")
+    assert main._videoFailed(None, missing, producesVideoFile=False) is False
+    assert (
+        main._videoFailed(RuntimeError("x"), missing, producesVideoFile=False) is True
+    )
+
+
 # --------------------------------------------------------------------------- #
 # BUG B -- _notifyAdobe gating
 # --------------------------------------------------------------------------- #
 
 
-def _bareProcessor(processingError, output, benchmark=False):
+def _bareProcessor(processingError, output, benchmark=False, producesVideoFile=True):
     vp = object.__new__(main.VideoProcessor)
     vp.processingError = processingError
     vp.output = output
     vp.benchmark = benchmark
+    vp.producesVideoFile = producesVideoFile
     return vp
+
+
+def test_notifyAdobe_completes_a_run_that_writes_no_video_file(monkeypatch, tmp_path):
+    """--autoclip produced autoclipresults.txt and was still reported to the AE
+    panel as failed, because the check stat-ed a video path nothing writes."""
+    monkeypatch.setattr(cs, "ADOBE", True, raising=False)
+    state = _RecordingProgressState()
+    vp = _bareProcessor(
+        None, str(tmp_path / "never-written.mp4"), producesVideoFile=False
+    )
+
+    vp._notifyAdobe(state)
+
+    assert state.failedCalls == []
+    assert state.completedCalls == [str(tmp_path / "never-written.mp4")]
 
 
 def test_notifyAdobe_failed_run_does_not_complete(monkeypatch, tmp_path):

@@ -6,7 +6,7 @@ import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.cli.validation import CliValidationError, applyRuntimeValidation
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
 from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
 
 
@@ -24,7 +24,91 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.autoclip,
             args.obj_detect,
             args.moblur,
+            # --output_scale is a real request even though it is applied by the
+            # encoder rather than a model. It used to count by auto-enabling
+            # --resize, which also dragged in --resize_factor's default of 2 and
+            # doubled the decode resolution (see src/cli/config.py).
+            bool(getattr(args, "output_scale", "")),
         ]
+    )
+
+
+def _downgradeCudaDetector(method: str, flagName: str) -> str:
+    """Swap a CUDA-only frame comparator for its CPU twin on a CUDA-less box.
+
+    `--dedup`, `--smooth_dedup` and `--scenechange` drive the same comparators
+    through `src/factories/dedup.py`, and the CUDA ones initialize on
+    `torch.device("cuda")`. Only `--smooth_dedup` used to guard them, so
+    `--dedup --dedup_method flownets` on a Mac or a CUDA-less Linux box ran all
+    the way through startup, downloaded the FlowNetS weights, and then died at
+    model init with a raw "Torch not compiled with CUDA enabled" that never
+    named the flag.
+    """
+    try:
+        from src.infra.isCudaInit import CudaChecker
+
+        cudaAvailable = CudaChecker().cudaAvailable
+    except Exception:
+        # No torch at all (a bare CI venv): leave the pick alone rather than
+        # rewriting it on the strength of a failed probe.
+        return method
+
+    if cudaAvailable:
+        return method
+
+    downgrade = {"ssim-cuda": "ssim", "mse-cuda": "mse", "vmaf-cuda": "vmaf"}
+    if method in downgrade:
+        logging.warning(f"CUDA unavailable; {flagName} {method} -> {downgrade[method]}")
+        return downgrade[method]
+    if method == "flownets":
+        logAndPrint(
+            f"{flagName} flownets requires CUDA, falling back to ssim",
+            "yellow",
+        )
+        return "ssim"
+    return method
+
+
+def _resolveNeluxEncoder(args):
+    """Swap a `*_nelux` encoder for its FFmpeg twin when it cannot be used.
+
+    `NeluxWriteBuffer` takes most of `WriteBuffer`'s keyword arguments through
+    `**kwargs` and then never reads them, and `--depth` does not go through the
+    Nelux writer at all. Both used to fail silently: `--output_scale 320x180`
+    wrote a full-resolution file, `--bit_depth 16bit` wrote 8-bit, and
+    `--custom_encoder` was dropped. Resolve it once here, like every other
+    incompatible-option downgrade, rather than per input file in the writer.
+    """
+    method = getattr(args, "encode_method", "") or ""
+    if not method.endswith("_nelux"):
+        return
+
+    dropped = []
+    if args.custom_encoder:
+        dropped.append("--custom_encoder")
+    if getattr(args, "bit_depth", "8bit") != "8bit":
+        dropped.append("--bit_depth")
+    if args.output_scale_width or args.output_scale_height:
+        dropped.append("--output_scale")
+
+    if dropped:
+        reason = f"cannot apply {', '.join(dropped)}"
+    elif args.depth:
+        reason = "is not available for --depth"
+    else:
+        return
+
+    args.encode_method = method[: -len("_nelux")]
+    # With --custom_encoder the FFmpeg writer runs that encoder verbatim and
+    # never consults the method, so naming a substitute encoder would be a lie.
+    substitute = (
+        "your --custom_encoder"
+        if args.custom_encoder
+        else f"the equivalent {args.encode_method}"
+    )
+    logWarning(
+        f"{method} {reason}. Encoding with {substitute} instead, so the output "
+        "matches what you asked for."
     )
 
 
@@ -213,43 +297,19 @@ def _configureProcessingSettings(args):
         # --dedup is already forced off and --interpolate on, in
         # _applyImpliedFlags, ahead of every guard that reads them.
         #
-        # A widened gap is emitted in one go, and in interpolate-first order the
-        # sink is an unbounded list, so the cap is also the memory bound: one gap
-        # holds span * interpolate_factor full-resolution frames at once. It is
-        # deliberately not allowed to be unlimited -- a multi-second static hold
-        # would otherwise buffer thousands of frames and exhaust VRAM.
+        # The cap chooses copies over inference for a gap wider than it; it is
+        # NOT a memory bound, and never was. What bounds memory is the
+        # interpolate-first sink draining itself as it fills -- see
+        # main.py:_FrameCollector, which is where a long hold used to keep the
+        # whole gap alive at once. 0 would disable the cap entirely, so the
+        # floor of 1 stays.
         args.smooth_dedup_max_span = max(
             1, int(getattr(args, "smooth_dedup_max_span", 6))
         )
 
-        # Device guard, mirroring --scenechange: these are the same comparators
-        # and the CUDA ones initialize on torch.device("cuda"), so downgrade
-        # rather than crash at detector init on a CPU/MPS box. Done before the
-        # sensitivity mapping, which is grouped by metric and so unaffected.
-        try:
-            from src.infra.isCudaInit import CudaChecker
-
-            cudaAvailable = CudaChecker().cudaAvailable
-        except Exception:
-            # No torch at all (a bare CI venv): leave the pick alone rather than
-            # rewriting it on the strength of a failed probe.
-            cudaAvailable = True
-
-        if not cudaAvailable:
-            downgrade = {"ssim-cuda": "ssim", "mse-cuda": "mse", "vmaf-cuda": "vmaf"}
-            if args.smooth_dedup_method in downgrade:
-                logging.warning(
-                    f"CUDA unavailable; smooth_dedup_method "
-                    f"{args.smooth_dedup_method} -> "
-                    f"{downgrade[args.smooth_dedup_method]}"
-                )
-                args.smooth_dedup_method = downgrade[args.smooth_dedup_method]
-            elif args.smooth_dedup_method == "flownets":
-                logAndPrint(
-                    "smooth_dedup_method flownets requires CUDA, falling back to ssim",
-                    "yellow",
-                )
-                args.smooth_dedup_method = "ssim"
+        args.smooth_dedup_method = _downgradeCudaDetector(
+            args.smooth_dedup_method, "smooth_dedup_method"
+        )
 
         # Duration is preserved, so audio stays in sync and is left enabled.
         args.smooth_dedup_sens = _mapDedupSensitivity(
@@ -263,6 +323,9 @@ def _configureProcessingSettings(args):
         cs.AUDIO = False
         logging.info("Deduplication enabled, audio processing disabled")
 
+        # Before the sensitivity mapping, which is grouped by metric and so
+        # unaffected by the swap.
+        args.dedup_method = _downgradeCudaDetector(args.dedup_method, "dedup_method")
         args.dedup_sens = _mapDedupSensitivity(args.dedup_method, args.dedup_sens)
         logging.info(
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
@@ -586,6 +649,8 @@ def prepareRuntimeArgs(args, outputPath, parser):
         logging.info(
             f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
         )
+
+    _resolveNeluxEncoder(args)
 
     if warning:
         logAndPrint(warning, "yellow")

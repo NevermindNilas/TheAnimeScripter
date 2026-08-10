@@ -16,6 +16,7 @@ from src.io.ffmpegSettings import (
     closeWriterAndDrainReader,
     createWriteBuffer,
 )
+from src.io.runOutcome import truncatedDecodeError
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -302,6 +303,11 @@ class ObjectDetectionDML:
             _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
+            # Recorded, not just logged: the loop keeps going, so without this
+            # a run where every frame raised finished with a header-only file
+            # and reported success -- the same hole --depth had.
+            if self.processingError is None:
+                self.processingError = e
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -318,6 +324,14 @@ class ObjectDetectionDML:
 
             logging.info(f"Processed {frameCount} frames")
         finally:
+            # The decoder signals a mid-stream death only by putting its
+            # end-of-stream sentinel, which reads like a clean EOF, so without
+            # this a truncated decode wrote a short file and exited 0.
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
+            if decodeError is not None and self.processingError is None:
+                self.processingError = decodeError
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
@@ -631,6 +645,11 @@ class ObjectDetectionTensorRT:
             _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
+            # Recorded, not just logged: the loop keeps going, so without this
+            # a run where every frame raised finished with a header-only file
+            # and reported success -- the same hole --depth had.
+            if self.processingError is None:
+                self.processingError = e
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -647,6 +666,14 @@ class ObjectDetectionTensorRT:
 
             logging.info(f"Processed {frameCount} frames")
         finally:
+            # The decoder signals a mid-stream death only by putting its
+            # end-of-stream sentinel, which reads like a clean EOF, so without
+            # this a truncated decode wrote a short file and exited 0.
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
+            if decodeError is not None and self.processingError is None:
+                self.processingError = decodeError
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 

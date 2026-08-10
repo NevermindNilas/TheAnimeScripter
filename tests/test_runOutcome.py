@@ -1,0 +1,264 @@
+"""Pin the "a run must not lie about its outcome" contract.
+
+Every capability that bypasses ``main.py:start()`` has to report for itself, or
+the After Effects panel sits on the last progress string and the batch loop
+judges the run purely by the size of a possibly half-written file. ``--segment``,
+``--obj_detect`` and ``--stabilize`` already did; ``--depth`` and ``--moblur``
+did not.
+"""
+
+import ast
+from pathlib import Path
+
+import pytest
+
+from src.io.runOutcome import (
+    isSequencePattern,
+    outputWasWritten,
+    truncatedDecodeError,
+)
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+STANDALONE = REPO_ROOT / "src" / "factories" / "standalone.py"
+BACKENDS = REPO_ROOT / "src" / "depth" / "backends"
+
+# Every standalone capability that writes a video file, swallows its own
+# errors, and therefore owes main.py a processingError. --autoclip writes
+# autoclipresults.txt instead, and --moblur re-raises rather than swallowing,
+# so main()'s per-video handler already counts it as a failure.
+VIDEO_CAPABILITIES = [
+    "objectDetection",
+    "segment",
+    "depth",
+    "stabilize",
+]
+
+
+# --------------------------------------------------------------------------- #
+# outputWasWritten
+# --------------------------------------------------------------------------- #
+
+
+def testOutputWasWrittenForAPlainFile(tmp_path):
+    written = tmp_path / "out.mp4"
+    written.write_bytes(b"x" * 32)
+    assert outputWasWritten(str(written)) is True
+    assert outputWasWritten(str(tmp_path / "missing.mp4")) is False
+
+
+def testOutputWasWrittenForAnImageSequence(tmp_path):
+    pattern = str(tmp_path / "frames_%05d.png")
+    assert outputWasWritten(pattern) is False
+    (tmp_path / "frames_00001.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(pattern) is True
+
+
+def testOutputWasWrittenIgnoresUnrelatedFilesInTheSequenceFolder(tmp_path):
+    (tmp_path / "notes.txt").write_bytes(b"x" * 32)
+    assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is False
+
+
+def testIsSequencePattern():
+    assert isSequencePattern("frames_%05d.png") is True
+    assert isSequencePattern("frames_%d.png") is True
+    assert isSequencePattern("C:/out/frames_%05d.png") is True
+    assert isSequencePattern("50%_off.mp4") is False
+    assert isSequencePattern("clip.mp4") is False
+    assert isSequencePattern("") is False
+    assert isSequencePattern(None) is False
+
+
+def testAPercentInTheNameIsNotASequence(tmp_path):
+    """``50%_off.mp4`` is an ordinary file name; treating it as a pattern
+    skipped its size check for a directory listing."""
+    written = tmp_path / "50%_off.mp4"
+    written.write_bytes(b"x" * 32)
+    assert outputWasWritten(str(written)) is True
+
+    empty = tmp_path / "100%_done.mp4"
+    empty.write_bytes(b"")
+    assert outputWasWritten(str(empty)) is False
+
+
+def testSequenceNeedsTheFrameCounter(tmp_path):
+    """Matching on the prefix and the extension alone counted a file the user
+    had left in the folder as a frame FFmpeg wrote."""
+    pattern = str(tmp_path / "frames_%05d.png")
+    (tmp_path / "frames_old.png").write_bytes(b"x" * 32)
+    (tmp_path / "frames_.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(pattern) is False
+    (tmp_path / "frames_00001.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(pattern) is True
+
+
+def testSequenceAcceptsACounterPastThePaddedWidth(tmp_path):
+    """``%05d`` is a minimum width: FFmpeg writes a sixth digit past 99999."""
+    (tmp_path / "frames_100000.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is True
+
+
+def testUnpaddedCounterIsAlsoASequence(tmp_path):
+    (tmp_path / "frames_7.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(str(tmp_path / "frames_%d.png")) is True
+
+
+# --------------------------------------------------------------------------- #
+# truncatedDecodeError
+# --------------------------------------------------------------------------- #
+
+
+class _Reader:
+    def __init__(self, error=None, delivered=0):
+        self.decodeError = error
+        self._emittedFrames = delivered
+
+
+class _Writer:
+    def __init__(self, error=None):
+        self.encodeError = error
+
+
+def testShortDecodeIsBlamed():
+    error = RuntimeError("decoder died")
+    assert truncatedDecodeError(_Reader(error, 5), 20, _Writer()) is error
+
+
+def testDecodeErrorAfterTheLastFrameIsNot():
+    """A teardown error or a corrupt trailing packet leaves a complete output;
+    failing that run would be a lie in the other direction."""
+    error = RuntimeError("decoder teardown")
+    assert truncatedDecodeError(_Reader(error, 20), 20, _Writer()) is None
+
+
+def testCleanRunBlamesNothing():
+    assert truncatedDecodeError(_Reader(None, 20), 20, _Writer()) is None
+
+
+def testEncodeErrorIsBlamedEvenWithAFullDecode():
+    """The writer logged every encoding exception and left the output file's
+    size as the only signal -- enough for one file, which ends up 0 bytes, but
+    an image sequence that died after one frame looks exactly like success."""
+    error = RuntimeError("encoder died")
+    assert truncatedDecodeError(_Reader(None, 20), 20, _Writer(error)) is error
+
+
+# --------------------------------------------------------------------------- #
+# standalone factory propagation
+# --------------------------------------------------------------------------- #
+
+
+def _functionNode(name):
+    tree = ast.parse(STANDALONE.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{name}() not found in standalone.py")
+
+
+@pytest.mark.parametrize("capability", VIDEO_CAPABILITIES)
+def testStandaloneCapabilityPropagatesItsError(capability):
+    """Without this main.py falls back to the output file's size and counts a
+    failed run as a success."""
+    node = _functionNode(capability)
+    assigns = [
+        target
+        for stmt in ast.walk(node)
+        if isinstance(stmt, ast.Assign)
+        for target in stmt.targets
+        if isinstance(target, ast.Attribute) and target.attr == "processingError"
+    ]
+    assert assigns, (
+        f"standalone.{capability}() never sets self.processingError, so a failed "
+        "run reports success"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# depth backends
+# --------------------------------------------------------------------------- #
+
+
+def _depthClasses():
+    for path in sorted(BACKENDS.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                yield path.name, node
+
+
+def testEveryDepthBackendCarriesTheOutcomeContract():
+    """A depth run reports for itself: it bypasses start()/_notifyAdobe."""
+    missing = []
+    for fileName, node in _depthClasses():
+        bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
+        inheritsFromSibling = any(
+            base.endswith(("CUDA", "MPS", "Cuda", "Mps")) for base in bases
+        )
+        if "DepthRunOutcome" not in bases and not inheritsFromSibling:
+            missing.append(f"{fileName}:{node.name}")
+    assert not missing, f"depth backends without the outcome contract: {missing}"
+
+
+def testDepthFrameLoopsRunUnderTheGuard():
+    """A raise inside process() otherwise leaves the reader blocked on put()
+    and the writer waiting for a sentinel, hanging the executor join."""
+    unguarded = []
+    for path in sorted(BACKENDS.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "executor.submit(self.process)" in text:
+            unguarded.append(path.name)
+        if "executor.submit(self.process_nelux)" in text:
+            unguarded.append(path.name)
+    assert not unguarded, (
+        f"depth frame loops submitted without guardedProcess: {unguarded}"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# image-sequence input
+# --------------------------------------------------------------------------- #
+
+
+def testMetadataAcceptsAnImageSequencePattern(tmp_path, monkeypatch):
+    """An image sequence is an FFmpeg pattern, never a path on disk. Every
+    other layer exempts it; getVideoMetadata did not, and it runs first, so
+    `--input <folder of PNGs>` died with "Video file not found" before anything
+    opened it."""
+    pytest.importorskip("torch")
+    pytest.importorskip("nelux", exc_type=ImportError)
+    from src.io import getVideoMetadata as gvm
+
+    pattern = str(tmp_path / "frame_%05d.png")
+    captured = {}
+
+    def fakeProbe(path):
+        captured["path"] = path
+        raise RuntimeError("probe reached -- the existence guard let the pattern past")
+
+    monkeypatch.setattr(gvm, "saveMetadata", lambda *a, **k: None, raising=False)
+    import nelux
+
+    monkeypatch.setattr(nelux, "probe", fakeProbe, raising=False)
+
+    with pytest.raises(Exception) as excinfo:
+        gvm.getVideoMetadata(pattern, 0, 0)
+    assert not isinstance(excinfo.value, FileNotFoundError), (
+        "the %d pattern was rejected as a missing file again"
+    )
+    assert captured.get("path"), "the pattern never reached the prober"
+
+
+def testMetadataStillRejectsAMissingFileWithAPercentInItsName(tmp_path):
+    """The exemption is for image2 counters, not for every percent sign: a
+    missing 50%_off.mp4 must still fail here, not several seconds later as an
+    opaque probe error."""
+    pytest.importorskip("torch")
+    pytest.importorskip("nelux", exc_type=ImportError)
+    from src.io import getVideoMetadata as gvm
+
+    with pytest.raises(FileNotFoundError):
+        gvm.getVideoMetadata(str(tmp_path / "50%_off.mp4"), 0, 0)

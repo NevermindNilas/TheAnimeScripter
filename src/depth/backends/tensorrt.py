@@ -13,6 +13,7 @@ from src.constants import ADOBE
 from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
+    DepthRunOutcome,
     SlidingWindowNormalizer,
     VideoRangeNormalizer,
     calculateAspectRatio,
@@ -32,7 +33,7 @@ if ADOBE:
 checker = CudaChecker()
 
 
-class DepthTensorRTV2:
+class DepthTensorRTV2(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -111,10 +112,13 @@ class DepthTensorRTV2:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         if ADOBE:
@@ -267,6 +271,7 @@ class DepthTensorRTV2:
             for i in range(real):
                 self.writeBuffer.write(self.normOutputFrame(i))
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -292,7 +297,7 @@ class DepthTensorRTV2:
         self.writeBuffer.close()
 
 
-class OGDepthV2TensorRT:
+class OGDepthV2TensorRT(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -375,9 +380,12 @@ class OGDepthV2TensorRT:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         if "og_" in self.depth_method:
@@ -606,6 +614,7 @@ class OGDepthV2TensorRT:
             )
             self.writeBuffer.write(depthTensor)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     @torch.inference_mode()
@@ -664,6 +673,7 @@ class OGDepthV2TensorRT:
                 )
                 self.writeBuffer.write(depthTensor)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):

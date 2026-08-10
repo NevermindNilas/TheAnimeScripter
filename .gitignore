@@ -228,3 +228,13 @@ graphify-out/
 
 # Local architecture notes (not tracked)
 docs/ARCHITECTURE.md
+docs/audit-2026-08-09-open-findings.md
+
+# --autoclip writes its cut list next to main.py
+autoclipresults.txt
+
+# Subagent/benchmark scratch output
+scratch_out/
+out/
+still1080.png
+out_audit/
