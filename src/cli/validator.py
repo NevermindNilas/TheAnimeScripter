@@ -570,10 +570,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
             )
         except Exception as e:
             logging.error(f"Failed to start AE comms server: {e}")
-            logAndPrint(
-                "Failed to start AE comms server, please check the logs for more details",
-                "red",
-            )
+            logAndPrint(f"Failed to start AE comms server: {e}", "red")
 
     logging.info("\n============== Arguments Checker ==============")
     _handleDependencies(args)
@@ -616,7 +613,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
         if outDir and not os.path.exists(outDir):
             os.makedirs(outDir, exist_ok=True)
 
-    if args.encode_method in ["gif", "png"]:
+    if args.encode_method in ["gif", "png", "jpeg"]:
         logging.info(
             f"Encoding method is set to {args.encode_method}, disabling audio processing"
         )
