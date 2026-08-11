@@ -604,6 +604,8 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 > **Note:** The autoclip sensitivity is inverted internally (the script uses `100 - value`) to match the underlying algorithm. No MPS path — use `pyscenedetect` on macOS.
 
+> **Output:** cut timestamps (seconds, one per line) are written per input video as `<name>-Autoclip.txt` in the output directory; `--output cuts.txt` names the file explicitly. Batches write one file per video.
+
 ### 📏 Resizing & Output Scaling
 
 | Parameter | Type | Default | Range | Description |
