@@ -9,7 +9,7 @@ from scenedetect import FrameTimecode, SceneManager, open_video
 from scenedetect.detectors import AdaptiveDetector
 
 import src.constants as cs
-from src.infra.logAndPrint import logAndPrint
+from src.autoclip._results import writeCutResults
 from src.infra.progressBarLogic import ProgressBarLogic
 
 
@@ -34,8 +34,9 @@ class AutoClip:
     # stay on cv2.
     NELUX_PIXEL_FRAMES_THRESHOLD = 7e8
 
-    def __init__(self, input, autoclip_sens, inPoint, outPoint):
+    def __init__(self, input, output, autoclip_sens, inPoint, outPoint):
         self.input = input
+        self.output = output
         self.autoclip_sens = autoclip_sens
         self.inPoint = inPoint
         self.outPoint = outPoint
@@ -51,8 +52,7 @@ class AutoClip:
             except Exception as e:
                 progressState.setFailed(error=str(e))
                 raise
-            outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
-            progressState.setCompleted(outputPath=outPath)
+            progressState.setCompleted(outputPath=self.output)
         else:
             self._run()
 
@@ -216,14 +216,9 @@ class AutoClip:
             sceneManager = self._detect(video)
 
         sceneList = sceneManager.get_scene_list()
-        outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
         # The last scene's end is the video EOF, not a real cut, so drop it to
         # avoid emitting a spurious boundary at the very end of the video
         # (matching the TransNetV2/Maxxvit behavior).
-        cuts = sceneList[:-1]
-        with open(outPath, "w") as f:
-            for i, scene in enumerate(cuts):
-                endSec = scene[1].get_seconds()
-                logging.info(f"Scene {i + 1}: cut at {endSec:.3f}s")
-                f.write(f"{endSec}\n")
-        logAndPrint(f"AutoClip wrote {len(cuts)} cuts to {outPath}", "green")
+        writeCutResults(
+            [scene[1].get_seconds() for scene in sceneList[:-1]], self.output
+        )
