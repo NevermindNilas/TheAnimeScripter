@@ -11,7 +11,7 @@ import nelux
 
 # isort: on
 import src.constants as cs
-from src.infra.logAndPrint import logAndPrint
+from src.autoclip._results import writeCutResults
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.sceneChange.scorer6ch import SceneChangeScorer6ch
 
@@ -28,7 +28,7 @@ class AutoClipMaxxvit:
     inference via the shared ``SceneChangeScorer6ch`` (the same 6-channel
     classifier used by the streaming interpolation-path detector). Output
     index ``[0][0]`` of the model's softmax is the cut probability; cut
-    timestamps (seconds) are written to ``autoclipresults.txt``.
+    timestamps (seconds) are written to the per-video output path.
     """
 
     H = W = 224
@@ -37,6 +37,7 @@ class AutoClipMaxxvit:
     def __init__(
         self,
         input,
+        output,
         method,
         threshold,
         inPoint,
@@ -44,6 +45,7 @@ class AutoClipMaxxvit:
         half,
     ):
         self.input = input
+        self.output = output
         self.method = method
         self.threshold = threshold
         self.inPoint = inPoint
@@ -65,8 +67,7 @@ class AutoClipMaxxvit:
             except Exception as e:
                 progressState.setFailed(error=str(e))
                 raise
-            outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
-            progressState.setCompleted(outputPath=outPath)
+            progressState.setCompleted(outputPath=self.output)
         else:
             self._run()
 
@@ -166,9 +167,4 @@ class AutoClipMaxxvit:
                             break
                 raise
 
-        outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
-        with open(outPath, "w") as f:
-            for i, t in enumerate(cuts):
-                logging.info(f"Scene {i + 1}: cut at {t:.3f}s")
-                f.write(f"{t}\n")
-        logAndPrint(f"AutoClip wrote {len(cuts)} cuts to {outPath}", "green")
+        writeCutResults(cuts, self.output)

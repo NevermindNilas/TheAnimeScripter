@@ -5,6 +5,7 @@ import nelux
 import torch
 
 import src.constants as cs
+from src.autoclip._results import writeCutResults
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.model.download import downloadModels
@@ -31,8 +32,9 @@ class AutoClipTransnetv2:
     PAD_LEFT = 25
     PAD_RIGHT_BASE = 25
 
-    def __init__(self, input, threshold, inPoint, outPoint, half):
+    def __init__(self, input, output, threshold, inPoint, outPoint, half):
         self.input = input
+        self.output = output
         self.threshold = threshold
         self.inPoint = inPoint
         self.outPoint = outPoint
@@ -57,8 +59,7 @@ class AutoClipTransnetv2:
             except Exception as e:
                 progressState.setFailed(error=str(e))
                 raise
-            outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
-            progressState.setCompleted(outputPath=outPath)
+            progressState.setCompleted(outputPath=self.output)
         else:
             self._run()
 
@@ -281,9 +282,4 @@ class AutoClipTransnetv2:
                 cuts.append(startSec + i / fps)
             prevHigh = high
 
-        outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
-        with open(outPath, "w") as f:
-            for i, t in enumerate(cuts):
-                logging.info(f"Scene {i + 1}: cut at {t:.3f}s")
-                f.write(f"{t}\n")
-        logAndPrint(f"AutoClip wrote {len(cuts)} cuts to {outPath}", "green")
+        writeCutResults(cuts, self.output)
