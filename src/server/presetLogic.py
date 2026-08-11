@@ -44,9 +44,7 @@ def createPreset(args, providedOptions=None, parser=None):
                 if parser is not None:
                     from src.cli.config import validateChoiceForKey
 
-                    validateChoiceForKey(
-                        parser, key, value, f"preset '{args.preset}'"
-                    )
+                    validateChoiceForKey(parser, key, value, f"preset '{args.preset}'")
                 setattr(args, key, value)
         else:
             filteredArgs = {k: v for k, v in vars(args).items() if k not in ignoreList}
