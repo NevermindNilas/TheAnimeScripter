@@ -468,7 +468,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
         # Compute provided options up front (before CliConfig exists) so a
         # loaded preset cannot overwrite flags the user explicitly typed.
         providedOptions = CliConfig.collectProvidedOptions(sys.argv[1:])
-        args = createPreset(args, providedOptions)
+        args = createPreset(args, providedOptions, parser)
 
     cliConfig = CliConfig.fromArgs(args, parser, sys.argv[1:])
     args = cliConfig.args
