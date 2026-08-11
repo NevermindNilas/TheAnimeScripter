@@ -259,6 +259,26 @@ def _mapDedupSensitivity(method, sensitivity):
     return sensitivity
 
 
+def _mapAutoclipSensitivity(method, sensitivity):
+    """Map the 0-100 CLI sensitivity onto each autoclip backend's threshold.
+
+    pyscenedetect: AdaptiveDetector's ``adaptive_threshold`` is a frame-score
+    ratio whose usable range is roughly 0.5-6 (library default 3.0). The old
+    ``100 - sens`` mapping put the DEFAULT sensitivity of 50 at threshold 50 —
+    a value the ratio virtually never reaches — so a default autoclip run
+    detected nothing, not even an artificial testsrc-to-smptebars hard cut.
+    Map linearly so the default lands on the library default: 0 -> 6.0 (least
+    sensitive), 50 -> 3.0, 100 -> 0.5 (floored; a zero threshold would cut on
+    every frame).
+
+    maxxvit / transnetv2 emit a cut probability, so the threshold is the
+    inverted fraction: 50 -> 0.5.
+    """
+    if method == "pyscenedetect":
+        return max(0.5, 3.0 * (100.0 - float(sensitivity)) / 50.0)
+    return float(1.0 - (float(sensitivity) / 100.0))
+
+
 def _configureProcessingSettings(args):
     if args.slowmo:
         cs.AUDIO = False
@@ -332,10 +352,9 @@ def _configureProcessingSettings(args):
         )
 
     if args.autoclip:
-        if args.autoclip_method == "pyscenedetect":
-            args.autoclip_sens = float(100 - args.autoclip_sens)
-        else:
-            args.autoclip_sens = float(1.0 - (args.autoclip_sens / 100.0))
+        args.autoclip_sens = _mapAutoclipSensitivity(
+            args.autoclip_method, args.autoclip_sens
+        )
         logging.info(
             f"New autoclip sensitivity for {args.autoclip_method} is: {args.autoclip_sens}"
         )

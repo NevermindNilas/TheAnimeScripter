@@ -602,7 +602,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 | **maxxvit-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | Fast classifier on NVIDIA | TensorRT |
 | **maxxvit-directml** | ⚡⚡ | ⭐⭐⭐⭐ | Same classifier on AMD/Intel | DirectML |
 
-> **Note:** The autoclip sensitivity is inverted internally (the script uses `100 - value`) to match the underlying algorithm. No MPS path — use `pyscenedetect` on macOS.
+> **Note:** The sensitivity is mapped onto each backend's own threshold scale internally: for `pyscenedetect`, 50 lands on AdaptiveDetector's default ratio of 3.0 (0 → 6.0, 100 → 0.5); for `transnetv2`/`maxxvit`, sens 50 → cut-probability threshold 0.5. Higher sensitivity always means more cuts. No MPS path — use `pyscenedetect` on macOS.
 
 > **Output:** cut timestamps (seconds, one per line) are written per input video as `<name>-Autoclip.txt` in the output directory; `--output cuts.txt` names the file explicitly. Batches write one file per video.
 

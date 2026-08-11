@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same model — use that.
 
 ### Fixed
+- `--autoclip` with `pyscenedetect` (the default) detected nothing at the default sensitivity: `--autoclip_sens 50` mapped to `adaptive_threshold=50` on a scale whose usable range is ~0.5-6, missing even an artificial hard cut. Sensitivity 50 now lands on the detector's default of 3.0 (0 → 6.0, 100 → 0.5). Tuned values change meaning: the old behaviour at `--autoclip_sens 97` is now the default.
 - `--autoclip` over a batch wrote every video's cuts to one fixed `autoclipresults.txt` in the install directory, keeping only the last video's results and ignoring `--output`. Each video now gets its own `<name>-Autoclip.txt` next to the other outputs; an explicit `--output cuts.txt` is honoured.
 - VFR sources (screen captures, phone video, yt-dlp remuxes) were tagged with `r_frame_rate` while the decoder used the average rate, so the output played ~2.3x too fast against full-length audio. The average rate is now used, with a warning; CFR timing is unchanged.
 - `--encode_method png` with an explicit `--output file.mp4` sprayed numbered frames into the parent directory and exited 1 claiming no output; the file's stem now becomes the sequence folder.
