@@ -36,6 +36,7 @@ from src.cli.validator import (
     _configureProcessingSettings,
     _downgradeCudaDetector,
     _handleDepthSettings,
+    _mapAutoclipSensitivity,
     _mapDedupSensitivity,
     _resolveNeluxEncoder,
     isAnyOtherProcessingMethodEnabled,
@@ -403,11 +404,14 @@ def testMseDedupSensUntouched():
     assert a.dedup_sens == 20.0
 
 
-def testPysceneDetectSensInvertedOn0To100Scale():
-    # AdaptiveDetector: higher threshold = fewer cuts, so user sens is flipped.
+def testPysceneDetectSensMappedOntoAdaptiveThresholdScale():
+    # AdaptiveDetector: higher threshold = fewer cuts, so user sens is flipped —
+    # onto the detector's own ~0.5-6 ratio scale, where 50 is the library
+    # default of 3.0. (The old `100 - sens` mapping made the default 50, which
+    # detected nothing.)
     a = makeArgs(autoclip=True, autoclip_method="pyscenedetect", autoclip_sens=30.0)
     _configureProcessingSettings(a)
-    assert a.autoclip_sens == pytest.approx(70.0)
+    assert a.autoclip_sens == pytest.approx(4.2)
 
 
 def testProbabilityBasedAutoclipSensMappedToUnitThreshold():
@@ -486,6 +490,27 @@ def testSmoothDedupSensIsMappedOnTheArgs():
     a = makeArgs(smooth_dedup=True, smooth_dedup_method="mse", smooth_dedup_sens=20.0)
     _configureProcessingSettings(a)
     assert a.smooth_dedup_sens == 20.0
+
+
+@pytest.mark.parametrize(
+    "method, sens, expected",
+    [
+        # pyscenedetect: 50 must land on AdaptiveDetector's library default of
+        # 3.0. The old `100 - sens` mapping made the default threshold 50 -- a
+        # frame-score ratio virtually never reached, so a default run detected
+        # nothing, not even an artificial hard cut.
+        ("pyscenedetect", 50.0, 3.0),
+        ("pyscenedetect", 0.0, 6.0),
+        ("pyscenedetect", 100.0, 0.5),  # floored: 0 would cut on every frame
+        ("pyscenedetect", 97.0, 0.5),  # 0.18 -> floor
+        # probability-threshold backends keep the inverted-fraction mapping
+        ("maxxvit-tensorrt", 50.0, 0.5),
+        ("maxxvit-directml", 30.0, 0.7),
+        ("transnetv2", 50.0, 0.5),
+    ],
+)
+def testAutoclipSensMapsOntoBackendThreshold(method, sens, expected):
+    assert _mapAutoclipSensitivity(method, sens) == pytest.approx(expected)
 
 
 def testSmoothDedupMaxSpanClampedToAtLeastOne():
