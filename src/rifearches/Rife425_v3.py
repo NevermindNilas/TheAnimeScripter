@@ -253,7 +253,7 @@ class IFNet(nn.Module):
                         torch.split(flows, [2, 2], dim=1)[::-1], dim=1
                     )
 
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = torch.nn.functional.grid_sample(
                     imgs2,
                     (
