@@ -95,6 +95,51 @@ def testCorruptPresetsFileIsRecovered(presetDir):
     assert _stored(presetDir)["myPreset"]["upscale"] is True
 
 
+def _makeParser():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--depth_method", choices=["small_v2", "base_v2"])
+    parser.add_argument("--upscale", action="store_true")
+    parser.add_argument("--upscale_factor", type=int)
+    return parser
+
+
+def testLoadedPresetValidatesChoicesAgainstParser(presetDir):
+    # A stale preset naming a since-renamed method must die at parse time
+    # with a --help-style diagnostic, not several seconds into the run.
+    createPreset(makeArgs(depth_method="small_v2"))
+    stored = _stored(presetDir)
+    stored["myPreset"]["depth_method"] = "small_v3-directml"
+    with open(os.path.join(presetDir, "presets.json"), "w") as f:
+        json.dump({"Presets": stored}, f)
+
+    with pytest.raises(SystemExit):
+        createPreset(makeArgs(depth_method=None), parser=_makeParser())
+
+
+def testLoadedPresetValidChoicePassesWithParser(presetDir):
+    createPreset(makeArgs(depth_method="small_v2", upscale=True))
+    args = createPreset(
+        makeArgs(depth_method=None, upscale=False), parser=_makeParser()
+    )
+    assert args.depth_method == "small_v2"
+    assert args.upscale is True
+
+
+def testLoadedPresetSkipsUnknownOptions(presetDir):
+    # presets.json survives upgrades; a key the current parser no longer
+    # defines is warned about and skipped, never setattr'd onto args.
+    createPreset(makeArgs())
+    stored = _stored(presetDir)
+    stored["myPreset"]["some_removed_option"] = 42
+    with open(os.path.join(presetDir, "presets.json"), "w") as f:
+        json.dump({"Presets": stored}, f)
+
+    args = createPreset(makeArgs(), parser=_makeParser())
+    assert not hasattr(args, "some_removed_option")
+
+
 def testListPresetsPrintsNamesAndEnabledFlags(presetDir, capsys):
     createPreset(makeArgs(preset="quality", upscale=True))
     capsys.readouterr()  # drop the "created successfully" line

@@ -5,7 +5,7 @@ import src.constants as cs
 from src.infra.logAndPrint import logAndPrint
 
 
-def createPreset(args, providedOptions=None):
+def createPreset(args, providedOptions=None, parser=None):
     ignoreList = ["input", "output", "inpoint", "outpoint"]
     # Flags the user typed on the command line must beat the preset (explicit
     # CLI flag > preset > default). Without this a loaded preset silently
@@ -31,6 +31,20 @@ def createPreset(args, providedOptions=None):
             for key, value in preset.items():
                 if key in ignoreList or key in providedOptions:
                     continue
+                # presets.json survives TAS upgrades, so an old preset can name
+                # options or method values the current parser no longer has.
+                # Validate like --json does instead of assigning blindly.
+                if not hasattr(args, key):
+                    logAndPrint(
+                        f"Preset '{args.preset}' contains unknown option "
+                        f"'{key}'; ignoring it.",
+                        "yellow",
+                    )
+                    continue
+                if parser is not None:
+                    from src.cli.config import validateChoiceForKey
+
+                    validateChoiceForKey(parser, key, value, f"preset '{args.preset}'")
                 setattr(args, key, value)
         else:
             filteredArgs = {k: v for k, v in vars(args).items() if k not in ignoreList}

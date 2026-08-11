@@ -4,6 +4,7 @@ import os
 import textwrap
 
 import src.constants as cs
+from src.infra.logAndPrint import logAndPrint
 from src.io.runOutcome import isSequencePattern
 
 # Codecs nelux's NVDEC path cannot decode. NVDEC's cuvid covers compressed
@@ -73,6 +74,58 @@ def saveMetadata(metadata, videoDataDump=None):
     cs.METADATAPATH = metadataPath
 
 
+def resolveSourceFps(props):
+    """Pick the fps the pipeline should treat as the source rate.
+
+    Returns ``(fps, warning)`` where ``warning`` is a printable message when
+    the pick deserves a console note, else ``None``.
+
+    Exact fps comes from the integer ratio (e.g. 24000/1001 = 23.9760…);
+    rounding leaked 23.98 into the encoder -r and drifted timing. On VFR
+    sources r_frame_rate is the highest instantaneous rate, not the real one —
+    while the decoder (nelux VideoReader in BuildBuffer) indexes frames with
+    the AVERAGE rate. Tagging the output with r_frame_rate therefore played it
+    several times too fast against full-length audio. Prefer the average rate
+    whenever the container says VFR or the two rates genuinely disagree; CFR
+    sources keep r_frame_rate so its exactness is unchanged.
+    """
+
+    def _prop(key, default=None):
+        val = props.get(key, default)
+        return default if val in (None, "N/A", "") else val
+
+    def _ratio(numKey, denKey):
+        try:
+            num = _prop(numKey)
+            den = _prop(denKey)
+            return float(num) / float(den) if num and den else None
+        except TypeError, ValueError, ZeroDivisionError:
+            return None
+
+    rFps = _ratio("r_frame_rate_num", "r_frame_rate_den")
+    avgFps = _ratio("avg_frame_rate_num", "avg_frame_rate_den")
+    isVfr = bool(_prop("is_vfr", False))
+
+    fps = rFps
+    warning = None
+    ratesDisagree = (
+        rFps is not None
+        and avgFps is not None
+        and abs(rFps - avgFps) > 0.01 * max(rFps, avgFps)
+    )
+    if avgFps and (isVfr or ratesDisagree):
+        if ratesDisagree:
+            warning = (
+                f"Variable frame rate input: using its average rate "
+                f"({avgFps:.3f} fps, r_frame_rate claims {rFps:.3f}); the "
+                f"output will be constant-frame-rate."
+            )
+        fps = avgFps
+    if not fps:
+        fps = float(_prop("fps", 1.0) or 1.0)
+    return fps, warning
+
+
 def getVideoMetadata(inputPath, inPoint, outPoint):
     """
     Get metadata from a video file using ffprobe.
@@ -138,18 +191,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         if width <= 0 or height <= 0:
             raise ValueError(f"nelux returned no video dimensions for {inputPath}")
 
-        # Exact fps from the integer ratio (e.g. 24000/1001 = 23.9760…). Rounding
-        # leaked 23.98 into the encoder -r and drifted timing, so keep it exact.
-        fpsNum = _prop("r_frame_rate_num")
-        fpsDen = _prop("r_frame_rate_den")
-        try:
-            fps = (
-                float(fpsNum) / float(fpsDen)
-                if fpsNum and fpsDen
-                else float(_prop("fps", 1.0) or 1.0)
-            )
-        except TypeError, ZeroDivisionError:
-            fps = float(_prop("fps", 1.0) or 1.0)
+        fps, fpsWarning = resolveSourceFps(props)
+        if fpsWarning:
+            logAndPrint(fpsWarning, "yellow")
 
         try:
             duration = float(_prop("duration", 0.0) or 0.0)

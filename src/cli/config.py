@@ -7,6 +7,44 @@ from dataclasses import dataclass, field
 
 from src.infra.logAndPrint import logAndPrint
 
+def validateChoiceForKey(parser, key, value, sourceLabel):
+    """Reject a value argparse would have rejected on the command line.
+
+    Config sources that assign straight onto the namespace (``--json``,
+    ``--preset``) bypass every ``choices=`` list the parser declares, so a
+    stale or hand-edited value used to travel all the way into a factory
+    before anything noticed. Exits with the same red diagnostic argparse
+    would have produced at parse time.
+    """
+    action = next((a for a in parser._actions if a.dest == key), None)
+    if action is None or not action.choices:
+        return
+
+    choices = list(action.choices)
+    values = value if isinstance(value, list) else [value]
+    for item in values:
+        if item in choices:
+            continue
+
+        message = f"Invalid value for '{key}' in {sourceLabel}: {item!r}."
+        if len(choices) <= 8:
+            message += f" Valid choices: {', '.join(str(c) for c in choices)}."
+        else:
+            close = difflib.get_close_matches(str(item), [str(c) for c in choices], 3)
+            if close:
+                message += f" Did you mean: {', '.join(close)}?"
+            if key.endswith("_method"):
+                capability = key[: -len("_method")]
+                message += (
+                    f" Run --list_methods {capability} to see all "
+                    f"{len(choices)} choices."
+                )
+            else:
+                message += f" {len(choices)} valid choices, see --help."
+        logAndPrint(message, "red")
+        sys.exit(1)
+
+
 PARENT_FLAG_DEFAULTS = {
     "interpolate_method": ("interpolate", "rife4.6"),
     "interpolate_factor": ("interpolate", 2.0),
@@ -151,35 +189,7 @@ class CliConfig:
         choice and no backend class, and the run died several seconds later in
         ``src/factories/standalone.py:depth()`` after decoding metadata.
         """
-        action = self.parserActionsByDest.get(key)
-        if action is None or not action.choices:
-            return
-
-        choices = list(action.choices)
-        values = value if isinstance(value, list) else [value]
-        for item in values:
-            if item in choices:
-                continue
-
-            message = f"Invalid value for '{key}' in JSON config: {item!r}."
-            if len(choices) <= 8:
-                message += f" Valid choices: {', '.join(str(c) for c in choices)}."
-            else:
-                close = difflib.get_close_matches(
-                    str(item), [str(c) for c in choices], 3
-                )
-                if close:
-                    message += f" Did you mean: {', '.join(close)}?"
-                if key.endswith("_method"):
-                    capability = key[: -len("_method")]
-                    message += (
-                        f" Run --list_methods {capability} to see all "
-                        f"{len(choices)} choices."
-                    )
-                else:
-                    message += f" {len(choices)} valid choices, see --help."
-            logAndPrint(message, "red")
-            sys.exit(1)
+        validateChoiceForKey(self.parser, key, value, "JSON config")
 
     def loadJsonConfig(self):
         jsonPath = os.path.abspath(self.args.json)
