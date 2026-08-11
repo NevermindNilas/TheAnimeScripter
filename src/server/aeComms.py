@@ -118,18 +118,52 @@ latestProgressPayload = None
 EMITRATE = 25
 
 
-def runServer(host, queue=None):
+def _exclusiveBindProbe(hostname, port):
+    """Fail fast if another process already owns ``hostname:port``.
+
+    Werkzeug's ``make_server`` sets SO_REUSEADDR, and on Windows that lets a
+    second bind of a busy port *succeed* silently: the server process stays
+    alive while every connection lands on whoever bound first, so the AE panel
+    sits on its initial state forever with no diagnostic (issues #269/#236's
+    failure mode through a different door). SO_EXCLUSIVEADDRUSE makes the
+    conflict raise; on POSIX a plain bind already raises EADDRINUSE.
+    """
+    import socket
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        probe.bind((hostname, port))
+    finally:
+        probe.close()
+
+
+def runServer(host, queue=None, bindStatus=None):
     global socketio
     global app
     global connectedClients
-
-    sio_module = _loadSocketIOStack()
 
     logging.info(f"Starting AE comms server on {host}...")
 
     parsed = urlparse(host if "://" in host else f"//{host}", scheme="http")
     hostname = parsed.hostname or "0.0.0.0"
     port = parsed.port or 8080
+
+    # Probe before the heavy socketio imports so the parent learns the
+    # outcome quickly. A conflicting bind between probe and make_server is a
+    # sub-second race we accept; the deterministic busy-port case is caught.
+    try:
+        _exclusiveBindProbe(hostname, port)
+    except OSError as e:
+        logging.error(f"AE comms server cannot bind {hostname}:{port}: {e}")
+        if bindStatus is not None:
+            bindStatus.put(("error", f"port {port} on {hostname} is in use ({e})"))
+        return
+    if bindStatus is not None:
+        bindStatus.put(("ok", f"{hostname}:{port}"))
+
+    sio_module = _loadSocketIOStack()
 
     socketio = sio_module.Server(
         cors_allowed_origins="*",
@@ -265,7 +299,7 @@ def runServer(host, queue=None):
     httpd.serve_forever()
 
 
-def startServerInThread(host):
+def startServerInThread(host, bindTimeout=15.0):
     global progressQueue
     global serverProcess
 
@@ -274,7 +308,29 @@ def startServerInThread(host):
 
     context = get_context("spawn")
     progressQueue = context.Queue()
-    serverProcess = context.Process(target=runServer, args=(host, progressQueue))
+    bindStatus = context.Queue()
+    serverProcess = context.Process(
+        target=runServer, args=(host, progressQueue, bindStatus)
+    )
     serverProcess.daemon = True
     serverProcess.start()
+
+    # The bind happens in the child, so a busy port used to be invisible to
+    # the caller's try/except: the panel just never received an event. Wait
+    # for the child to report; raise so the failure is loud and actionable.
+    try:
+        status, detail = bindStatus.get(timeout=bindTimeout)
+    except Empty:
+        status = "error"
+        detail = f"server process did not report readiness within {bindTimeout:.0f}s"
+
+    if status != "ok":
+        failed = serverProcess
+        serverProcess = None  # don't let the dead child mask a later retry
+        try:
+            failed.terminate()
+        except Exception:
+            pass
+        raise RuntimeError(f"AE comms server failed to start: {detail}")
+
     return serverProcess
