@@ -121,6 +121,8 @@ def _resolveExtension(args, videoInput):
         return ".mov"
     if getattr(args, "encode_method", "") == "png":
         return ""  # png -> image-sequence directory, handled by the caller
+    if getattr(args, "encode_method", "") == "gif":
+        return ".gif"  # -c:v gif into the input's container fails the muxer
     # URLs and printf-style sequence patterns have no trustworthy extension to
     # copy, so fall back to the container default rather than parsing garbage.
     if _isURL(videoInput) or (videoInput and "%" in str(videoInput)):
@@ -207,16 +209,23 @@ def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
     inputs never resolve to the same output file (e.g. same basename in two
     folders, or one explicit ``--output file.mp4`` for many inputs).
     """
+    pngSequence = getattr(args, "encode_method", "") == "png" and not getattr(
+        args, "png_passthrough", False
+    )
+
     # Explicit, fully-specified output file: honour the exact name the user
     # gave (allow overwriting a prior file), but disambiguate within a batch.
     if output and output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
+        if pngSequence and "%" not in os.path.basename(output):
+            # A single file path cannot hold an image sequence; use its stem
+            # as the sequence folder so frames don't spray into the parent.
+            outputFolder = _makeUniqueDir(os.path.splitext(output)[0], usedPaths)
+            os.makedirs(outputFolder, exist_ok=True)
+            return os.path.join(outputFolder, "frames_%05d.png")
         return _makeUniquePath(output, usedPaths, checkFs=False)
 
     baseDir = output if output and os.path.isdir(output) else defaultOutputPath
 
-    pngSequence = getattr(args, "encode_method", "") == "png" and not getattr(
-        args, "png_passthrough", False
-    )
     if pngSequence:
         outputName = generateOutputName(args, video)
         outputFolder = _makeUniqueDir(os.path.join(baseDir, outputName), usedPaths)

@@ -244,6 +244,37 @@ def test_png_sequence_folder_collision_bumped(tmp_path):
     assert "clip-1" in p2
 
 
+def test_png_sequence_with_explicit_output_file_contained(tmp_path):
+    # --encode_method png --output final.mp4 must not spray frames into the
+    # parent directory: the explicit file's stem becomes the sequence folder.
+    explicit = str(tmp_path / "final.mp4")
+    used = set()
+    p = io.generateOutputPath(
+        "X/clip.mp4", explicit, str(tmp_path), make_args(encode_method="png"), used
+    )
+    assert p == os.path.join(str(tmp_path), "final", "frames_%05d.png")
+    assert os.path.isdir(os.path.dirname(p))
+    assert "%" in os.path.basename(p)  # runOutcome must see a sequence
+
+
+def test_png_sequence_explicit_pattern_honoured(tmp_path):
+    # An explicit printf-style pattern is already a valid sequence target.
+    explicit = str(tmp_path / "frames_%05d.png")
+    used = set()
+    p = io.generateOutputPath(
+        "X/clip.mp4", explicit, str(tmp_path), make_args(encode_method="png"), used
+    )
+    assert p == explicit
+
+
+def test_gif_encode_resolves_gif_extension():
+    # gif into the input's container fails the muxer with a broken pipe.
+    assert (
+        io.generateOutputName(make_args(encode_method="gif", resize=1), "clip.mp4")
+        == "clip-Resize2.gif"
+    )
+
+
 def test_png_passthrough_stays_a_file_not_folder(tmp_path):
     out = str(tmp_path)
     used = set()
