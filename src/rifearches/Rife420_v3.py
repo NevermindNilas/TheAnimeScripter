@@ -258,7 +258,7 @@ class IFNet(nn.Module):
                 .permute(0, 2, 3, 1)
                 .to(dtype=self.dtype)
             )
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warped_imgs = torch.nn.functional.grid_sample(
                     imgs_2,
                     precomp,

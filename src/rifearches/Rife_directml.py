@@ -481,7 +481,7 @@ class IFNet_415(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
@@ -659,7 +659,7 @@ class IFNet_422(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
 
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
@@ -826,7 +826,7 @@ class IFNet_420(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
@@ -1002,7 +1002,7 @@ class IFNet_422_lite(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
