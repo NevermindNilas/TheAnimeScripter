@@ -43,10 +43,15 @@ def _forward(arch, scale, ensemble):
         return model(img0, img1, timestep)
 
 
+@pytest.mark.parametrize("ensemble", [False, True])
 @pytest.mark.parametrize("arch", ARCHES)
-def testUhdScaleForwardCompletes(arch):
-    """scale=0.5 -> scaleList ends at 2; used to raise UnboundLocalError."""
-    out = _forward(arch, scale=0.5, ensemble=False)
+def testUhdScaleForwardCompletes(arch, ensemble):
+    """scale=0.5 -> scaleList ends at 2; used to raise UnboundLocalError.
+
+    Ensemble has its own late-bound wimg_rev/wf_rev on the same path, so both
+    modes run per arch; ensemble=True on IFNet_422 is the exact field config.
+    """
+    out = _forward(arch, scale=0.5, ensemble=ensemble)
     assert out.shape == (1, 3, HEIGHT, WIDTH)
 
 
@@ -54,10 +59,4 @@ def testUhdScaleForwardCompletes(arch):
 def testDefaultScaleForwardStillCompletes(arch):
     """At scale=1 the new guard is equivalent (scaleList[-1] == 1)."""
     out = _forward(arch, scale=1.0, ensemble=False)
-    assert out.shape == (1, 3, HEIGHT, WIDTH)
-
-
-def testUhdScaleForwardCompletesWithEnsemble():
-    """The failing field config: rife4.22 UHD with ensemble on."""
-    out = _forward(IFNet_422, scale=0.5, ensemble=True)
     assert out.shape == (1, 3, HEIGHT, WIDTH)
