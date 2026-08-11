@@ -147,10 +147,10 @@ def _videoFailed(
     A run failed if the frame loop stored an exception, or (for non-benchmark
     runs that write a video) the encoder produced no output file (missing or 0
     bytes). Benchmark runs write no output by design, so their output size is
-    not checked -- and neither is a run whose artifact is not a video file at
-    ``outputPath`` at all: ``--autoclip`` writes ``autoclipresults.txt`` and
-    never touches the manufactured output path, so stat-ing it reported every
-    clean scene-detection run as a failure and exited 1.
+    not checked -- and neither is a run whose artifact is not a video file:
+    ``--autoclip`` writes its cut list to ``outputPath``, but zero cuts is a
+    legitimate 0-byte result, so the non-empty check would report every
+    cut-free scene-detection run as a failure and exit 1.
     """
     if processingError is not None:
         return True
@@ -182,8 +182,9 @@ class VideoProcessor:
         # Set by process() if the frame loop raises. start() reads this to
         # decide whether success stats are meaningful.
         self.processingError: Exception | None = None
-        # --autoclip writes autoclipresults.txt and never touches self.output,
-        # so the "is there a file at outputPath" success check does not apply.
+        # --autoclip writes its cut list to self.output, but a clean run with
+        # zero detected cuts is legitimately a 0-byte file, so the "non-empty
+        # file at outputPath" success check does not apply.
         self.producesVideoFile: bool = not getattr(args, "autoclip", False)
 
         self._initProcessingParams(args)

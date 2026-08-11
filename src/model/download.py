@@ -28,7 +28,7 @@ def downloadAndLog(
 
     import zipfile
     from http.client import IncompleteRead
-    from urllib.error import HTTPError, URLError
+    from urllib.error import HTTPError
     from urllib.request import urlopen
 
     # Imported lazily so registry-only consumers (modelsList/modelsMap, the
@@ -37,7 +37,10 @@ def downloadAndLog(
 
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)
-    tempFilePath = os.path.join(tempFolder, filename)
+    # Process-unique staging name: two concurrent TAS runs fetching the same
+    # missing model must not share a temp file, or they interleave writes and
+    # the loser dies renaming a file the winner still holds open.
+    tempFilePath = os.path.join(tempFolder, f"{filename}.{os.getpid()}.part")
     downloadedBytes = 0
     totalSizeInBytes = 0
     if ADOBE:
@@ -145,7 +148,15 @@ def downloadAndLog(
 
                 os.remove(tempFilePath)
             else:
-                os.rename(tempFilePath, os.path.join(folderPath, filename))
+                destPath = os.path.join(folderPath, filename)
+                if os.path.exists(destPath):
+                    # A concurrent TAS process committed the same model while
+                    # we were downloading. Keep its copy; ours is identical.
+                    os.remove(tempFilePath)
+                else:
+                    # os.replace is atomic and overwrites, so a peer committing
+                    # between the check above and here cannot fail the commit.
+                    os.replace(tempFilePath, destPath)
 
             try:
                 os.rmdir(tempFolder)
@@ -159,20 +170,17 @@ def downloadAndLog(
             return os.path.join(folderPath, filename)
 
         except (
-            URLError,
-            HTTPError,
+            # OSError covers URLError/HTTPError/ConnectionError/TimeoutError
+            # plus filesystem failures (Windows sharing violations, ENOSPC),
+            # which used to escape the loop with no retry and no cleanup.
+            OSError,
             zipfile.BadZipFile,
             IncompleteRead,
-            ConnectionError,
-            TimeoutError,
         ) as e:
             logging.error(f"Error during download: {e}")
-            try:
-                dest_path = os.path.join(folderPath, filename)
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-            except Exception:
-                pass
+            # Never remove the destination here: with the atomic commit above a
+            # file at destPath is always complete, and possibly a concurrent
+            # process's copy.
             try:
                 if os.path.exists(tempFilePath):
                     os.remove(tempFilePath)

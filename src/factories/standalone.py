@@ -74,6 +74,7 @@ def autoClip(self):
 
         AutoClip(
             self.input,
+            self.output,
             self.autoclipSens,
             self.inpoint,
             self.outpoint,
@@ -83,6 +84,7 @@ def autoClip(self):
 
         AutoClipMaxxvit(
             self.input,
+            self.output,
             self.autoclipMethod,
             self.autoclipSens,
             self.inpoint,
@@ -94,6 +96,7 @@ def autoClip(self):
 
         AutoClipTransnetv2(
             self.input,
+            self.output,
             self.autoclipSens,
             self.inpoint,
             self.outpoint,

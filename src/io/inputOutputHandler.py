@@ -5,7 +5,9 @@ import re
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
-OUTPUT_FILE_EXTENSIONS = tuple(EXTENSIONS + IMAGE_EXTENSIONS)
+# .txt is an output-only extension: autoclip writes a cut list, and users may
+# name it explicitly with --output cuts.txt.
+OUTPUT_FILE_EXTENSIONS = tuple(EXTENSIONS + IMAGE_EXTENSIONS) + (".txt",)
 
 # Characters that are illegal in filenames on Windows (and a good idea to avoid
 # everywhere). Argument values get folded into output names, so scrub them.
@@ -114,13 +116,17 @@ def _resolveExtension(args, videoInput):
     """Pick the output file extension consistently for every input kind."""
     if getattr(args, "single_image_input", False):
         return ".png"
+    if getattr(args, "autoclip", False):
+        return ".txt"  # autoclip writes a cut list, not a video
     if (
         getattr(args, "segment", False)
         or getattr(args, "encode_method", "") == "prores"
     ):
         return ".mov"
-    if getattr(args, "encode_method", "") == "png":
-        return ""  # png -> image-sequence directory, handled by the caller
+    if getattr(args, "encode_method", "") in ("png", "jpeg"):
+        return ""  # png/jpeg -> image-sequence directory, handled by the caller
+    if getattr(args, "encode_method", "") == "gif":
+        return ".gif"  # -c:v gif into the input's container fails the muxer
     # URLs and printf-style sequence patterns have no trustworthy extension to
     # copy, so fall back to the container default rather than parsing garbage.
     if _isURL(videoInput) or (videoInput and "%" in str(videoInput)):
@@ -143,6 +149,7 @@ def generateOutputName(args, videoInput):
         ("restore", "Restore", "restore_method"),
         ("segment", "Segment", None),
         ("depth", "Depth", None),
+        ("autoclip", "Autoclip", None),
         ("ytdlp", "YTDLP", None),
     ]
 
@@ -207,21 +214,30 @@ def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
     inputs never resolve to the same output file (e.g. same basename in two
     folders, or one explicit ``--output file.mp4`` for many inputs).
     """
+    sequenceExt = {"png": ".png", "jpeg": ".jpg"}.get(
+        getattr(args, "encode_method", "")
+    )
+    if getattr(args, "png_passthrough", False):
+        sequenceExt = None
+
     # Explicit, fully-specified output file: honour the exact name the user
     # gave (allow overwriting a prior file), but disambiguate within a batch.
     if output and output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
+        if sequenceExt and "%" not in os.path.basename(output):
+            # A single file path cannot hold an image sequence; use its stem
+            # as the sequence folder so frames don't spray into the parent.
+            outputFolder = _makeUniqueDir(os.path.splitext(output)[0], usedPaths)
+            os.makedirs(outputFolder, exist_ok=True)
+            return os.path.join(outputFolder, f"frames_%05d{sequenceExt}")
         return _makeUniquePath(output, usedPaths, checkFs=False)
 
     baseDir = output if output and os.path.isdir(output) else defaultOutputPath
 
-    pngSequence = getattr(args, "encode_method", "") == "png" and not getattr(
-        args, "png_passthrough", False
-    )
-    if pngSequence:
+    if sequenceExt:
         outputName = generateOutputName(args, video)
         outputFolder = _makeUniqueDir(os.path.join(baseDir, outputName), usedPaths)
         os.makedirs(outputFolder, exist_ok=True)
-        return os.path.join(outputFolder, "frames_%05d.png")
+        return os.path.join(outputFolder, f"frames_%05d{sequenceExt}")
 
     return _makeUniquePath(
         os.path.join(baseDir, generateOutputName(args, video)), usedPaths
