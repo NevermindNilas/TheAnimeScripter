@@ -6,15 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
-> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit`, `--output_scale` or `--depth` now runs the equivalent plain encoder instead, with a warning. Those runs lose the in-process encoder's speed and gain an output that matches what was asked for.
+> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit` or `--depth` now runs the equivalent plain encoder instead, with a warning — losing the in-process encoder's speed, gaining an output that matches what was asked for. `--output_scale` no longer triggers the swap (nelux 0.18.0 resizes encoder-side); only an installed nelux older than 0.18.0 still downgrades it.
 
 ### Added
+- 16 new in-process encoders: every `slow_*`, `*_animation*`, 10-bit, `vp9`, `prores`, `gif` and `lossless*` encode method now has a `*_nelux` twin (22 of 32, from 6). Each mirrors its FFmpeg twin's settings — verified within 0.1 dB PSNR on real frames, prores within 0.03% of the twin's size. `png`/`jpeg` (image sequences) and the QSV/AMF families stay FFmpeg-only.
 - `--stabilize_method dut`: DUT deep unsupervised stabilization (RFDet keypoints + PWC-Net flow + learned mesh motion propagation and trajectory smoothing, MIT-licensed, vendored in `src/stabilize/dut/`), rendered as a per-region mesh warp at native resolution. On the 480-frame benchmark clip it cuts camera-path jitter 2.5-3.9x vs `classic` and keeps 87% of content in the worst frame vs 39%; CUDA only, ~19 fps e2e at 360p (24 fps analysis stage) vs classic's ~45.
+- `--encode_method jpeg` writes a JPEG image sequence, mirroring `png`'s folder/pattern and audio handling, as full-range 4:4:4 mjpeg at best quality; 8-bit only, so `--bit_depth 16bit` warns and encodes 8-bit. A single PNG input with processing keeps an explicit `jpeg` choice (writes `.jpg`) instead of being forced to png.
 - `tests/test_docsDrift.py` fails when a CLI flag or an `--encode_method` choice is missing from `PARAMETERS.MD`, when the docs name a flag the parser does not accept, or when an example uses a value outside a flag's `choices`.
 - `tests/test_depthWriters.py` fails if a depth backend encodes with OpenCV instead of the shared writer.
 - `tests/test_runOutcome.py` fails if a standalone capability stops reporting its own outcome (a structural check — it pins the wiring, not the runtime behaviour).
 
 ### Changed
+- `*_nelux` encoders honor `--output_scale` natively via nelux 0.18.0's encoder-side resize instead of downgrading to the FFmpeg twin; nelux pin bumped 0.16.0 → 0.18.0.
+- `*_nelux` encoders now convert and tag colour like their FFmpeg twins: bt709 by default (byte-identical matrix; previously swscale's default bt470bg/601) and bt2020nc with the source's own transfer for a probed BT.2020 source.
+- A `.webm` output no longer swaps `av1_nelux`/`nvenc_av1_nelux` for FFmpeg's `vp9`; webm-compatible `*_nelux` methods are kept, and an incompatible one downgrades to `vp9_nelux`, staying in-process.
 - `README.md` documents TAS-Standalone as a shipped edition with install steps and a screenshot, instead of "coming soon".
 - `PARAMETERS.MD` documents `--decode_method`, `--profile`, `--obj_detect_disable_annotations` and the six `*_nelux` encoders. Its debug section told you to run `--preset_list`, and two examples used `--bit_depth 10bit`; neither has ever been accepted.
 

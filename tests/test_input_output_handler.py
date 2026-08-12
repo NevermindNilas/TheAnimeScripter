@@ -62,9 +62,34 @@ def test_segment_forces_mov():
     assert io.generateOutputName(make_args(segment=1), "clip.mp4") == "clip-Segment.mov"
 
 
+def test_prores_nelux_forces_mov_like_its_twin():
+    assert (
+        io.generateOutputName(make_args(encode_method="prores_nelux"), "clip.mp4")
+        == "clip.mov"
+    )
+
+
+def test_gif_nelux_resolves_gif_extension_like_its_twin():
+    # gif into the input's container fails at header write either way; the
+    # nelux twin needs the same .gif routing as `-c:v gif`.
+    assert (
+        io.generateOutputName(make_args(encode_method="gif_nelux"), "clip.mp4")
+        == "clip.gif"
+    )
+
+
 def test_single_image_forces_png():
     assert (
         io.generateOutputName(make_args(single_image_input=1), "clip.mp4") == "clip.png"
+    )
+
+
+def test_single_image_honours_jpeg():
+    assert (
+        io.generateOutputName(
+            make_args(single_image_input=1, encode_method="jpeg"), "clip.mp4"
+        )
+        == "clip.jpg"
     )
 
 
@@ -271,8 +296,7 @@ def test_autoclip_resolves_txt_extension():
     # autoclip writes a cut list; a fixed install-dir autoclipresults.txt
     # clobbered itself across a batch and ignored --output entirely.
     assert (
-        io.generateOutputName(make_args(autoclip=1), "clip.mp4")
-        == "clip-Autoclip.txt"
+        io.generateOutputName(make_args(autoclip=1), "clip.mp4") == "clip-Autoclip.txt"
     )
 
 
@@ -338,6 +362,20 @@ def test_png_passthrough_stays_a_file_not_folder(tmp_path):
         used,
     )
     assert p.endswith(".png")
+    assert "frames_%05d" not in p
+
+
+def test_jpeg_single_image_stays_a_file_not_folder(tmp_path):
+    out = str(tmp_path)
+    used = set()
+    p = io.generateOutputPath(
+        "X/clip.mp4",
+        None,
+        out,
+        make_args(encode_method="jpeg", png_passthrough=1, single_image_input=1),
+        used,
+    )
+    assert p.endswith(".jpg")
     assert "frames_%05d" not in p
 
 
@@ -421,6 +459,19 @@ def test_webm_with_custom_encoder_kept():
 
 def test_webm_with_compatible_encoder_kept():
     assert io.validateEncoder("x.webm", "nvenc_av1", None) == "nvenc_av1"
+
+
+@pytest.mark.parametrize(
+    "method", ["vp9_nelux", "av1_nelux", "slow_av1_nelux", "nvenc_av1_nelux"]
+)
+def test_webm_keeps_compatible_nelux_encoders(method):
+    # av1_nelux/nvenc_av1_nelux used to be force-swapped to FFmpeg's vp9 on a
+    # .webm output, silently costing the run its in-process writer.
+    assert io.validateEncoder("x.webm", method, None) == method
+
+
+def test_webm_incompatible_nelux_encoder_stays_on_the_nelux_writer():
+    assert io.validateEncoder("x.webm", "x264_nelux", None) == "vp9_nelux"
 
 
 def test_non_webm_untouched():

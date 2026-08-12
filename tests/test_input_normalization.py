@@ -70,6 +70,17 @@ def testSinglePngWithProcessingForcesPngEncode(tmp_path):
     assert args.encode_method == "png"
 
 
+def testSinglePngWithProcessingKeepsExplicitJpeg(tmp_path):
+    # "jpeg" is a valid single-image output format; only non-image encoders
+    # get rewritten to png.
+    image = tmp_path / "frame.png"
+    args = make_args(input=str(image), encode_method="jpeg")
+
+    normalizeInputArgs(args, str(tmp_path), processingEnabled=True)
+
+    assert args.encode_method == "jpeg"
+
+
 def testSingleJpegRaises(tmp_path):
     image = tmp_path / "frame.jpg"
     args = make_args(input=str(image))

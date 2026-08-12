@@ -3,6 +3,7 @@ import os
 from urllib.parse import urlparse
 
 import src.constants as cs
+from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 
 
 class InputNormalizationError(ValueError):
@@ -67,7 +68,7 @@ def normalizeImageInput(args, processingEnabled):
         args.png_passthrough = True
         logging.info("Single PNG input detected, enabling PNG passthrough mode")
 
-        if processingEnabled and args.encode_method != "png":
+        if processingEnabled and args.encode_method not in SEQUENCE_EXTENSIONS:
             logging.info(
                 "Single PNG with processing detected; forcing --encode_method png for valid image output"
             )

@@ -1,5 +1,3 @@
-import logging
-import os
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 

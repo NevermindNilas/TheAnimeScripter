@@ -59,14 +59,131 @@ def testNeluxWriteBufferBenchmarkConsumesFramesWithoutEncoder(monkeypatch, tmp_p
     assert wb.encoder is None
 
 
+def testNeluxWriteBufferBuildsEncoderAtOutputScaleDims(monkeypatch, tmp_path):
+    """--output_scale rides nelux's encoder-side resize (>= 0.18.0): the
+    encoder is built at the target dims with resize=True/bilinear, and the
+    pipeline keeps handing it full-res frames."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        width=1920,
+        height=1080,
+        output_scale_width=1280,
+        output_scale_height=720,
+    )
+
+    assert (wb.outputWidth, wb.outputHeight) == (1280, 720)
+    assert wb.encoderKwargs["resize"] is True
+    assert wb.encoderKwargs["resize_filter"] == "bilinear"
+    # The queue side is untouched: frames still enter at pipeline resolution.
+    assert (wb.width, wb.height) == (1920, 1080)
+
+
+def testNeluxWriteBufferWithoutOutputScaleDoesNotAskForResize(monkeypatch, tmp_path):
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        width=1920,
+        height=1080,
+    )
+
+    assert (wb.outputWidth, wb.outputHeight) == (1920, 1080)
+    assert "resize" not in wb.encoderKwargs
+
+
 NELUX_TWINS = [
     ("x264_nelux", "x264"),
+    ("slow_x264_nelux", "slow_x264"),
+    ("x264_10bit_nelux", "x264_10bit"),
+    ("x264_animation_nelux", "x264_animation"),
+    ("x264_animation_10bit_nelux", "x264_animation_10bit"),
     ("x265_nelux", "x265"),
+    ("slow_x265_nelux", "slow_x265"),
+    ("x265_10bit_nelux", "x265_10bit"),
     ("av1_nelux", "av1"),
+    ("slow_av1_nelux", "slow_av1"),
     ("nvenc_h264_nelux", "nvenc_h264"),
+    ("slow_nvenc_h264_nelux", "slow_nvenc_h264"),
     ("nvenc_h265_nelux", "nvenc_h265"),
+    ("slow_nvenc_h265_nelux", "slow_nvenc_h265"),
+    ("nvenc_h265_10bit_nelux", "nvenc_h265_10bit"),
     ("nvenc_av1_nelux", "nvenc_av1"),
+    ("slow_nvenc_av1_nelux", "slow_nvenc_av1"),
+    ("vp9_nelux", "vp9"),
+    ("prores_nelux", "prores"),
+    ("gif_nelux", "gif"),
+    ("lossless_nelux", "lossless"),
+    ("lossless_nvenc_nelux", "lossless_nvenc"),
 ]
+
+
+def testNeluxWriterMergesColourOptionsUnderMappingOptions(monkeypatch, tmp_path):
+    """The Nelux writer mirrors colorSpaceFilter through encoder AVOptions:
+    bt709 conversion+tags by default, without clobbering the mapping's own
+    quality options."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="slow_x264_nelux",
+    )
+    options = wb.encoderKwargs["options"]
+    assert options["colorspace"] == "bt709"
+    assert options["color_primaries"] == "bt709"
+    assert options["color_trc"] == "bt709"
+    assert options["color_range"] == "tv"
+    # The mapping's own knobs survive the merge.
+    assert options["tune"] == "animation"
+    assert options["g"] == "240"
+    assert wb.encoderKwargs["preset"] == "slow"
+
+
+def testNeluxWriterTagsBt2020FromProbedMetadata(monkeypatch, tmp_path):
+    """A probed BT.2020 source converts and tags bt2020nc with the source's
+    own transfer, mirroring bt2020Filter -- instead of riding the bt709 arm."""
+    import json
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    metadataPath = tmp_path / "metadata.json"
+    metadataPath.write_text(
+        json.dumps({"metadata": {"ColorSpace": "bt2020nc", "ColorTRT": "arib-std-b67"}})
+    )
+    monkeypatch.setattr("src.constants.METADATAPATH", str(metadataPath), raising=False)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x265_nelux",
+    )
+    options = wb.encoderKwargs["options"]
+    assert options["colorspace"] == "bt2020nc"
+    assert options["color_primaries"] == "bt2020"
+    assert options["color_trc"] == "arib-std-b67"
+
+
+def testNeluxWriterStillWarnsAndFallsBackOnAnUnmappedMethod(monkeypatch, tmp_path):
+    """An unmapped name must stay loud (nvenc_h264 fallback + warning), not
+    become a KeyError now that the mapping lives in matchNeluxEncoder."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="qsv_h264_nelux",
+    )
+    assert wb.encoderKwargs["codec"] == "h264_nvenc"
 
 
 def testWriteBufferFallsBackFromNeluxMethodToItsFFmpegTwin(monkeypatch, tmp_path):
@@ -99,11 +216,35 @@ def testWriteBufferLeavesNonNeluxMethodsAlone(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
     ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
 
-    for method in ("x264", "slow_x265", "lossless_nvenc", "prores_segment", "png"):
+    for method in (
+        "x264",
+        "slow_x265",
+        "lossless_nvenc",
+        "prores_segment",
+        "png",
+        "jpeg",
+    ):
         wb = ffmpegSettings.WriteBuffer(
             output=str(tmp_path / "out.mp4"), encode_method=method
         )
         assert wb.encode_method == method
+
+
+def testSingleImageOutputGetsItsFormatExtension(monkeypatch, tmp_path):
+    """An extensionless single-image output is completed with the extension of
+    the requested sequence format, not hardcoded .png."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    for method, ext in (("png", ".png"), ("jpeg", ".jpg")):
+        wb = ffmpegSettings.WriteBuffer(
+            output=str(tmp_path / "frame"),
+            encode_method=method,
+            single_image_output=True,
+        )
+        assert wb.output.endswith(f"frame{ext}"), method
+        assert wb._shouldUseDirectImageSingleFrame(), method
 
 
 def testSegmentStillEncodesProresWithANeluxMethod(monkeypatch, tmp_path):
@@ -202,6 +343,52 @@ def testCreateWriteBufferRoutesNeluxMethodsToTheNeluxWriter(monkeypatch, tmp_pat
             output=str(tmp_path / "out.mp4"), encode_method=twin
         )
         assert isinstance(wb, ffmpegSettings.WriteBuffer)
+
+
+def testMovOutputWithOpusAudioRunsTheFFmpegTwin(monkeypatch, tmp_path):
+    """MOV's query_codec accepts opus/vorbis, so nelux stream-copies and then
+    dies at header write ("opus only supported in MP4") -- poisoning the whole
+    encode for a 0-byte .mov. The FFmpeg twin transcodes those to AAC, so the
+    factory routes such runs there, per input file."""
+    _installFakeTorch(monkeypatch)
+
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+
+    for audioCodec, expected in (
+        ("opus", "WriteBuffer"),
+        ("vorbis", "WriteBuffer"),
+        ("aac", "NeluxWriteBuffer"),
+    ):
+        fakeNelux = types.SimpleNamespace(
+            probe=lambda path, codec=audioCodec: {"audio_codec": codec}
+        )
+        monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+        ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+        monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+        monkeypatch.setattr("src.constants.AUDIO", True, raising=False)
+
+        wb = ffmpegSettings.createWriteBuffer(
+            input=str(src),
+            output=str(tmp_path / "out.mov"),
+            encode_method="prores_nelux",
+        )
+        assert type(wb).__name__ == expected, audioCodec
+        if expected == "WriteBuffer":
+            assert wb.encode_method == "prores"
+
+    # A non-.mov output keeps the Nelux writer even with opus audio: MP4/M4V
+    # and webm both accept it (webm through allow_transcode).
+    fakeNelux = types.SimpleNamespace(probe=lambda path: {"audio_codec": "opus"})
+    monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+    wb = ffmpegSettings.createWriteBuffer(
+        input=str(src),
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+    )
+    assert type(wb).__name__ == "NeluxWriteBuffer"
 
 
 def testEveryWriterCreatesItsOutputDirectory(monkeypatch, tmp_path):

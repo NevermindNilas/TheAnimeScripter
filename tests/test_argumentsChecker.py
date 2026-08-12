@@ -168,7 +168,6 @@ def testNonNeluxMethodIsNeverRewritten():
     [
         dict(custom_encoder="-c:v libx265 -crf 30"),
         dict(bit_depth="16bit"),
-        dict(output_scale_width=320, output_scale_height=180),
         dict(depth=True),
     ],
 )
@@ -180,24 +179,102 @@ def testNeluxSwappedForItsTwinWhenAnOptionCannotBeHonored(overrides):
     assert args.encode_method == "x264"
 
 
+def testOutputScaleKeepsNeluxWhenEncoderResizeIsSupported(monkeypatch):
+    """nelux >= 0.18.0 scales encoder-side, so --output_scale no longer costs
+    the in-process encoder."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr(validator, "_neluxSupportsEncoderResize", lambda: True)
+    args = neluxArgs(output_scale_width=320, output_scale_height=180)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264_nelux"
+
+
+def testOutputScaleStillSwapsOnAPre018Nelux(monkeypatch):
+    """An installed nelux older than 0.18.0 cannot resize encoder-side; keep
+    the loud FFmpeg-twin downgrade instead of a silent drop or a raw TypeError
+    from VideoEncoder(resize=...)."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr(validator, "_neluxSupportsEncoderResize", lambda: False)
+    args = neluxArgs(output_scale_width=320, output_scale_height=180)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
 @pytest.mark.parametrize(
-    "method,twin",
+    "installed,expected",
     [
-        ("x264_nelux", "x264"),
-        ("x265_nelux", "x265"),
-        ("av1_nelux", "av1"),
-        ("nvenc_h264_nelux", "nvenc_h264"),
-        ("nvenc_h265_nelux", "nvenc_h265"),
-        ("nvenc_av1_nelux", "nvenc_av1"),
+        ("0.17.0", False),
+        ("0.18.0", True),
+        ("0.18.1", True),
+        ("1.0.0", True),
     ],
 )
-def testEveryNeluxMethodMapsToARealEncodeChoice(method, twin):
-    from src.io.encodingSettings import matchEncoder
+def testNeluxEncoderResizeVersionGate(monkeypatch, installed, expected):
+    import src.cli.validator as validator
 
-    args = neluxArgs(encode_method=method, depth=True)
-    _resolveNeluxEncoder(args)
-    assert args.encode_method == twin
-    assert matchEncoder(twin), f"{twin} has no matchEncoder arm"
+    monkeypatch.setattr("importlib.metadata.version", lambda name: installed)
+    assert validator._neluxSupportsEncoderResize() is expected
+
+
+def testNeluxEncoderResizeGateOpenWhenNeluxIsAbsent(monkeypatch):
+    """No nelux installed (bare CI venv): the run dies at `import nelux` long
+    before the writer matters, so don't rewrite the method on a failed probe."""
+    from importlib.metadata import PackageNotFoundError
+
+    import src.cli.validator as validator
+
+    def raiser(name):
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr("importlib.metadata.version", raiser)
+    assert validator._neluxSupportsEncoderResize() is True
+
+
+def testNeluxEncoderResizeGateClosedOnUnparseableVersion(monkeypatch):
+    """A version string the gate cannot parse downgrades loudly instead of
+    letting a pre-0.18 build raise a raw TypeError at VideoEncoder(resize=...)."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "unknowable")
+    assert validator._neluxSupportsEncoderResize() is False
+
+
+def _encodeMethodChoices():
+    """The parser's --encode_method choices, straight from the built parser."""
+    parser = _buildParser(".")
+    for action in parser._actions:
+        if "--encode_method" in action.option_strings:
+            return list(action.choices)
+    raise AssertionError("--encode_method not found in parser")
+
+
+def testEveryNeluxMethodMapsToARealEncodeChoice():
+    """Derived from the parser so a new *_nelux choice cannot ship without its
+    FFmpeg twin: the twin must itself be a CLI choice with a matchEncoder arm,
+    a matchNeluxEncoder mapping must exist, and that mapping must target the
+    same codec the twin's FFmpeg arm names."""
+    from src.io.encodingSettings import matchEncoder, matchNeluxEncoder
+
+    choices = _encodeMethodChoices()
+    neluxMethods = [m for m in choices if m.endswith("_nelux")]
+    assert neluxMethods, "parser lost its *_nelux choices"
+
+    for method in neluxMethods:
+        args = neluxArgs(encode_method=method, depth=True)
+        _resolveNeluxEncoder(args)
+        twin = args.encode_method
+        assert twin == method[: -len("_nelux")]
+        assert twin in choices, f"{method} downgrades to non-choice {twin}"
+        twinArgs = matchEncoder(twin)
+        assert twinArgs, f"{twin} has no matchEncoder arm"
+
+        mapping = matchNeluxEncoder(method)
+        assert mapping is not None, f"{method} has no Nelux encoder mapping"
+        assert mapping["codec"] in twinArgs, (
+            f"{method} encodes {mapping['codec']} but its twin {twin} runs {twinArgs}"
+        )
 
 
 # --------------------------------------------------------------------------- #
