@@ -582,7 +582,10 @@ def motionBlur(self):
 
 
 def stabilize(self):
-    from src.stabilize.stabilize import VideoStabilize
+    if self.stabilizeMethod == "dut":
+        from src.stabilize.dutStabilizer import VideoStabilizeDUT as VideoStabilize
+    else:
+        from src.stabilize.stabilize import VideoStabilize
 
     stabilizer = VideoStabilize(
         self.input,

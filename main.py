@@ -209,6 +209,7 @@ class VideoProcessor:
         self.segment: bool = args.segment
         self.objDetect: bool = args.obj_detect
         self.stabilize: bool = args.stabilize
+        self.stabilizeMethod: str = args.stabilize_method
 
         # Processing parameters
         self.interpolateFactor: int = args.interpolate_factor

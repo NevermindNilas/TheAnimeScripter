@@ -225,6 +225,7 @@ def modelsList() -> list[str]:
         "transnetv2",
         "gmfss",
         "flownets",
+        "dut",
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
@@ -287,6 +288,18 @@ def modelsMap(
     match model:
         case "flownets":
             return "flownets.pth"
+
+        # DUT stabilization is four small nets; "dut" (the CLI method) aliases
+        # the keypoint detector so registry drift checks resolve, and the
+        # driver downloads each component by its own name.
+        case "dut" | "dut_rfdet":
+            return "dut_rfdet.pth"
+        case "dut_pwcnet":
+            return "dut_pwcnet.pth"
+        case "dut_motionpro":
+            return "dut_motionpro.pth"
+        case "dut_smoother":
+            return "dut_smoother.pth"
 
         case "shufflespan" | "shufflespan-directml" | "shufflespan-tensorrt":
             if modelType == "pth":

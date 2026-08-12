@@ -36,7 +36,7 @@ python build.py
 | Object detect | `src/objectDetection/objectDetection.py` | TRT, DML, OpenVINO (the plain `ObjectDetection` class has no CLI choice) |
 | Autoclip | `src/autoclip/` | PySceneDetect CPU, TRT, DML, TransNetV2 |
 | Scene-cut (interp) | `src/sceneChange/` | streaming per-pair cut detector for `--scenechange`; ssim/mse + maxxvit 6ch (shared `scorer6ch.py`); holds instead of morphing across cuts |
-| Stabilize | `src/stabilize/` | SuperPoint with ORB/LK fallback |
+| Stabilize | `src/stabilize/` | `--stabilize_method`: classic (ORB/LK global similarity, CPU; SuperPoint disabled) or dut (`dutStabilizer.py`, CUDA mesh warp, vendored net in `src/stabilize/dut/`) |
 | Motion blur | `src/motionBlur.py` | `MotionBlurPipeline` |
 
 URL input is handled by `src/ytdlp.py`.
@@ -69,6 +69,7 @@ Do not read, search, summarize, lint, or modify these trees unless the task expl
 
 - `src/spandrel/`, `src/gmfss/`, `src/rifearches/`
 - `src/depth/{distillanydepth,depth_anything_3,video_depth_anything,dinov2_layers}/`
+- `src/stabilize/dut/` (unlike the others it is a heavily-modified port, ruff-clean and NOT excluded in pyproject; provenance and deviations in its `NOTICE.md`)
 
 `src/spandrel/` is the in-repo fork of TNTwise/spandrel at `e747f27` (`adding_extra_archs`), not a submodule; provenance is in `src/spandrel/NOTICE.md`. It is exposed through `src/spandrelCompat.py`. Restrictive `spandrel_extra_arches` code was removed. Keep architecture changes ONNX-exportable and FP16-capable. Other model code lives in `src/rifearches/`, `src/gmfss/`, and `src/extraArches/`; torch.fx optimization lives in `src/model/modelOptimizer.py`.
 

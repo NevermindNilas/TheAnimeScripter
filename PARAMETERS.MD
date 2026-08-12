@@ -460,7 +460,8 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 |-----------|------|---------|---------|-------------|
 | `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
 | `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
-| `--stabilize` | flag | False | - | **Enable conservative video stabilization** (translation/rotation with black border fill) |
+| `--stabilize` | flag | False | - | **Enable video stabilization** (black border fill, no crop) |
+| `--stabilize_method` | str | "classic" | ["classic", "dut"] | **Stabilization method** — specifying it auto-enables `--stabilize`. `classic`: feature-point global translation/rotation smoothing (CPU); `dut`: DUT deep unsupervised stabilization with per-region mesh warping — markedly smoother output and less content pushed off-frame, CUDA only, slower, downloads ~57MB of weights on first use |
 
 #### 🎯 Restoration Models
 

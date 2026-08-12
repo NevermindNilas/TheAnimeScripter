@@ -129,6 +129,9 @@ KNOWN_UNREGISTERED_METHODS = {
     "autoclip": {
         "pyscenedetect",  # CPU PySceneDetect, no weights
     },
+    "stabilize": {
+        "classic",  # CPU ORB/LK feature tracking, no weights
+    },
     "dedup": {
         # algorithmic comparators, no weights (only flownets downloads)
         "ssim",

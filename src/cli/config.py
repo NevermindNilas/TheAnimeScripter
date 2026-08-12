@@ -57,6 +57,7 @@ PARENT_FLAG_DEFAULTS = {
     "smooth_dedup_max_span": ("smooth_dedup", 6),
     "restore_method": ("restore", ["anime1080fixer"]),
     "segment_method": ("segment", "anime"),
+    "stabilize_method": ("stabilize", "classic"),
     "depth_method": ("depth", "small_v2"),
     "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
     "resize_factor": ("resize", 2),

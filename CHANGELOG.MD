@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 > **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit`, `--output_scale` or `--depth` now runs the equivalent plain encoder instead, with a warning. Those runs lose the in-process encoder's speed and gain an output that matches what was asked for.
 
 ### Added
+- `--stabilize_method dut`: DUT deep unsupervised stabilization (RFDet keypoints + PWC-Net flow + learned mesh motion propagation and trajectory smoothing, MIT-licensed, vendored in `src/stabilize/dut/`), rendered as a per-region mesh warp at native resolution. On the 480-frame benchmark clip it cuts camera-path jitter 2.5-3.9x vs `classic` and keeps 87% of content in the worst frame vs 39%; CUDA only, ~19 fps e2e at 360p (24 fps analysis stage) vs classic's ~45.
 - `tests/test_docsDrift.py` fails when a CLI flag or an `--encode_method` choice is missing from `PARAMETERS.MD`, when the docs name a flag the parser does not accept, or when an example uses a value outside a flag's `choices`.
 - `tests/test_depthWriters.py` fails if a depth backend encodes with OpenCV instead of the shared writer.
 - `tests/test_runOutcome.py` fails if a standalone capability stops reporting its own outcome (a structural check — it pins the wiring, not the runtime behaviour).
