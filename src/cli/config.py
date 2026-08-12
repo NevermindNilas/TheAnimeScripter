@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from src.infra.logAndPrint import logAndPrint
 
+
 def validateChoiceForKey(parser, key, value, sourceLabel):
     """Reject a value argparse would have rejected on the command line.
 

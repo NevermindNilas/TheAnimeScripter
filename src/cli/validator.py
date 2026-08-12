@@ -8,6 +8,7 @@ from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSele
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
+from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -69,6 +70,30 @@ def _downgradeCudaDetector(method: str, flagName: str) -> str:
     return method
 
 
+def _neluxSupportsEncoderResize() -> bool:
+    """True when the installed nelux can honor `--output_scale` itself.
+
+    Encoder-side resize (`VideoEncoder(resize=True)`) exists since nelux
+    0.18.0. Read the version from package metadata rather than importing
+    nelux, which is heavy and demands torch be imported first. When nelux is
+    not installed (a bare CI venv) the run dies at `import nelux` long before
+    the writer matters, so report support rather than downgrading the method.
+    An unparseable version reports no support: the loud FFmpeg-twin downgrade
+    beats a raw TypeError from `VideoEncoder(resize=...)` mid-run.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        installed = version("nelux")
+    except PackageNotFoundError:
+        return True
+    try:
+        major, minor = installed.split(".")[:2]
+        return (int(major), int(minor)) >= (0, 18)
+    except ValueError:
+        return False
+
+
 def _resolveNeluxEncoder(args):
     """Swap a `*_nelux` encoder for its FFmpeg twin when it cannot be used.
 
@@ -78,6 +103,9 @@ def _resolveNeluxEncoder(args):
     wrote a full-resolution file, `--bit_depth 16bit` wrote 8-bit, and
     `--custom_encoder` was dropped. Resolve it once here, like every other
     incompatible-option downgrade, rather than per input file in the writer.
+
+    `--output_scale` is honored natively since nelux 0.18.0 (encoder-side
+    resize) and only downgrades when the installed nelux predates it.
     """
     method = getattr(args, "encode_method", "") or ""
     if not method.endswith("_nelux"):
@@ -88,8 +116,10 @@ def _resolveNeluxEncoder(args):
         dropped.append("--custom_encoder")
     if getattr(args, "bit_depth", "8bit") != "8bit":
         dropped.append("--bit_depth")
-    if args.output_scale_width or args.output_scale_height:
-        dropped.append("--output_scale")
+    if (
+        args.output_scale_width or args.output_scale_height
+    ) and not _neluxSupportsEncoderResize():
+        dropped.append("--output_scale (nelux < 0.18.0)")
 
     if dropped:
         reason = f"cannot apply {', '.join(dropped)}"
@@ -648,7 +678,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
         if outDir and not os.path.exists(outDir):
             os.makedirs(outDir, exist_ok=True)
 
-    if args.encode_method in ["gif", "png", "jpeg"]:
+    if args.encode_method == "gif" or args.encode_method in SEQUENCE_EXTENSIONS:
         logging.info(
             f"Encoding method is set to {args.encode_method}, disabling audio processing"
         )

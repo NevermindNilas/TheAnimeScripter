@@ -15,6 +15,13 @@ _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 _SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
 
+# Image-sequence encoders and the per-frame extension each one writes. The
+# single source for every sequence special case: extension resolution and
+# folder containment here, the writer's pattern rewrite in
+# src/io/ffmpegSettings.py, the audio-off rule in src/cli/validator.py, and
+# the single-image guard in src/io/inputNormalization.py.
+SEQUENCE_EXTENSIONS = {"png": ".png", "jpeg": ".jpg"}
+
 
 def _isURL(value):
     """True if the input string is an http(s) URL."""
@@ -114,18 +121,23 @@ def _baseName(videoInput):
 
 def _resolveExtension(args, videoInput):
     """Pick the output file extension consistently for every input kind."""
+    # A *_nelux method needs the container its FFmpeg twin gets: prores_nelux
+    # into the input's .mp4 would be legal, but gif_nelux into it fails at
+    # header write exactly like `-c:v gif` does.
+    encodeMethod = getattr(args, "encode_method", "") or ""
+    if encodeMethod.endswith("_nelux"):
+        encodeMethod = encodeMethod[: -len("_nelux")]
     if getattr(args, "single_image_input", False):
-        return ".png"
+        # A single-image run keeps a sequence-format --encode_method for its
+        # one-frame output (png or jpeg); every other method writes PNG.
+        return SEQUENCE_EXTENSIONS.get(encodeMethod, ".png")
     if getattr(args, "autoclip", False):
         return ".txt"  # autoclip writes a cut list, not a video
-    if (
-        getattr(args, "segment", False)
-        or getattr(args, "encode_method", "") == "prores"
-    ):
+    if getattr(args, "segment", False) or encodeMethod == "prores":
         return ".mov"
-    if getattr(args, "encode_method", "") in ("png", "jpeg"):
-        return ""  # png/jpeg -> image-sequence directory, handled by the caller
-    if getattr(args, "encode_method", "") == "gif":
+    if encodeMethod in SEQUENCE_EXTENSIONS:
+        return ""  # image-sequence directory, handled by the caller
+    if encodeMethod == "gif":
         return ".gif"  # -c:v gif into the input's container fails the muxer
     # URLs and printf-style sequence patterns have no trustworthy extension to
     # copy, so fall back to the container default rather than parsing garbage.
@@ -214,10 +226,9 @@ def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
     inputs never resolve to the same output file (e.g. same basename in two
     folders, or one explicit ``--output file.mp4`` for many inputs).
     """
-    sequenceExt = {"png": ".png", "jpeg": ".jpg"}.get(
-        getattr(args, "encode_method", "")
-    )
+    sequenceExt = SEQUENCE_EXTENSIONS.get(getattr(args, "encode_method", ""))
     if getattr(args, "png_passthrough", False):
+        # A single-image run writes one file, never a sequence folder.
         sequenceExt = None
 
     # Explicit, fully-specified output file: honour the exact name the user
@@ -251,6 +262,11 @@ WEBM_COMPATIBLE_ENCODERS = (
     "slow_av1",
     "nvenc_av1",
     "slow_nvenc_av1",
+    "vp9_nelux",
+    "av1_nelux",
+    "slow_av1_nelux",
+    "nvenc_av1_nelux",
+    "slow_nvenc_av1_nelux",
 )
 
 
@@ -263,11 +279,15 @@ def validateEncoder(video, encodeMethod, customEncoder):
     ):
         from src.infra.logAndPrint import logAndPrint
 
+        # An incompatible *_nelux method stays on the Nelux writer: its VP9
+        # twin exists, and downgrading the writer as a side effect of a
+        # container fix would silently cost the run its encoder path.
+        substitute = "vp9_nelux" if encodeMethod.endswith("_nelux") else "vp9"
         logAndPrint(
-            f"Video {video} is a Webm file, encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)} and `--custom_encoder` is None, defaulting to 'vp9'.",
+            f"Video {video} is a Webm file, encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)} and `--custom_encoder` is None, defaulting to '{substitute}'.",
             colorFunc="yellow",
         )
-        return "vp9"
+        return substitute
     return encodeMethod
 
 

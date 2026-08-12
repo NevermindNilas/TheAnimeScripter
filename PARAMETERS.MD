@@ -841,18 +841,34 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 
 #### In-Process Encoders (`*_nelux`)
 
-These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, which removes the pipe copy on GPU-resident frames. The encoder settings match the plain encoder of the same name; the colour pipeline does not — the FFmpeg writer converts RGB to YUV through swscale at 16-bit with dithering and tags matrix/primaries/transfer/range, while the in-process encoder hands the encoder RGB directly.
+These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, which removes the pipe copy on GPU-resident frames. The encoder settings match the plain encoder of the same name, and so does the colour pipeline: the in-process encoder converts and tags BT.709 exactly like the plain encoders' filter chain (byte-identical matrix), and a probed BT.2020 source is converted and tagged bt2020nc with its own transfer copied, mirroring the FFmpeg writer's zscale path.
 
 | Encoder | Equivalent | Requirements |
 |---------|-----------|--------------|
 | **x264_nelux** | x264 | - |
+| **slow_x264_nelux** | slow_x264 | - |
+| **x264_10bit_nelux** | x264_10bit | - |
+| **x264_animation_nelux** | x264_animation | - |
+| **x264_animation_10bit_nelux** | x264_animation_10bit | - |
 | **x265_nelux** | x265 | - |
+| **slow_x265_nelux** | slow_x265 | - |
+| **x265_10bit_nelux** | x265_10bit | - |
 | **av1_nelux** | av1 | - |
+| **slow_av1_nelux** | slow_av1 | - |
+| **vp9_nelux** | vp9 | - |
+| **prores_nelux** | prores | - |
+| **gif_nelux** | gif | - |
+| **lossless_nelux** | lossless | - |
 | **nvenc_h264_nelux** | nvenc_h264 | NVIDIA GPU |
+| **slow_nvenc_h264_nelux** | slow_nvenc_h264 | NVIDIA GPU |
 | **nvenc_h265_nelux** | nvenc_h265 | NVIDIA GPU |
+| **slow_nvenc_h265_nelux** | slow_nvenc_h265 | NVIDIA GPU |
+| **nvenc_h265_10bit_nelux** | nvenc_h265_10bit | NVIDIA RTX |
 | **nvenc_av1_nelux** | nvenc_av1 | NVIDIA RTX 40+ |
+| **slow_nvenc_av1_nelux** | slow_nvenc_av1 | NVIDIA RTX 40+ |
+| **lossless_nvenc_nelux** | lossless_nvenc | NVIDIA GPU |
 
-> **Note:** the in-process encoder cannot apply `--custom_encoder`, `--bit_depth 16bit` or `--output_scale`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's.
+> **Note:** the in-process encoder cannot apply `--custom_encoder` or `--bit_depth 16bit`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter); an older installed nelux falls back to the plain encoder the same way. `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
 
 #### High-Quality Presets
 
@@ -873,6 +889,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **prores_segment** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Segmentation output | With alpha channel |
 | **gif** | ⚡⚡⚡ | ⭐⭐ | Web/social media | Animated GIF |
 | **png** | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | Image sequence | Lossless frames |
+| **jpeg** | ⚡⚡⚡ | ⭐⭐⭐⭐ | Image sequence | Much smaller frames, 8-bit lossy |
 | **vp9** | ⚡⚡ | ⭐⭐⭐⭐ | Web delivery | Open codec |
 | **lossless** | ⚡ | ⭐⭐⭐⭐⭐ | Archival | No compression |
 | **lossless_nvenc** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Fast lossless | Hardware lossless |

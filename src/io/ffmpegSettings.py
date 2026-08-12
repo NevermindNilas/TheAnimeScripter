@@ -24,7 +24,14 @@ except OSError:
     import nelux
 
 import src.constants as cs
-from src.io.encodingSettings import colorSpaceFilter, getPixFMT, matchEncoder
+from src.io.encodingSettings import (
+    colorSpaceFilter,
+    colorSpaceOptions,
+    getPixFMT,
+    matchEncoder,
+    matchNeluxEncoder,
+)
+from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logWarning
 
@@ -57,6 +64,25 @@ def _drainQueueUntilSentinel(queue) -> None:
             return
         if item is None:
             return
+
+
+def _probedMetadata() -> dict:
+    """The current input's probed metadata dict, or {} when unavailable.
+
+    getVideoMetadata.saveMetadata writes the file and points cs.METADATAPATH
+    at it before any writer is built, once per input in a batch. Both writers
+    read it for their colour-space decision: WriteBuffer via colorSpaceFilter,
+    NeluxWriteBuffer via colorSpaceOptions.
+    """
+    import json
+
+    if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
+        try:
+            with open(cs.METADATAPATH, encoding="utf-8") as f:
+                return json.load(f).get("metadata", {}) or {}
+        except Exception as e:
+            logging.warning(f"Failed to read metadata for color space: {e}")
+    return {}
 
 
 def drainReader(readBuffer) -> None:
@@ -471,8 +497,8 @@ class WriteBuffer:
         inpoint: float = 0.0,
         outpoint: float = 0.0,
         slowmo: bool = False,
-        output_scale_width: int = None,
-        output_scale_height: int = None,
+        output_scale_width: int | None = None,
+        output_scale_height: int | None = None,
         enablePreview: bool = False,
         previewSink=None,
         single_image_output: bool = False,
@@ -532,22 +558,23 @@ class WriteBuffer:
         self.encode_method = encode_method
         self.single_image_output = single_image_output
 
+        sequenceExt = SEQUENCE_EXTENSIONS.get(self.encode_method)
         if (
-            self.encode_method == "png"
+            sequenceExt is not None
             and not self.single_image_output
             and "%" not in self.output
         ):
             _, ext = os.path.splitext(self.output)
             if not ext:
-                self.output = os.path.join(self.output, "%08d.png")
+                self.output = os.path.join(self.output, f"%08d{sequenceExt}")
             else:
                 base, _ = os.path.splitext(self.output)
-                self.output = f"{base}_%08d.png"
+                self.output = f"{base}_%08d{sequenceExt}"
 
-        if self.encode_method == "png" and self.single_image_output:
+        if sequenceExt is not None and self.single_image_output:
             _, ext = os.path.splitext(self.output)
             if not ext:
-                self.output = f"{self.output}.png"
+                self.output = f"{self.output}{sequenceExt}"
 
         self.custom_encoder = custom_encoder
         self.grayscale = grayscale
@@ -586,9 +613,9 @@ class WriteBuffer:
         # own failure is.
         self.encodeError: Exception | None = None
 
-    def _shouldUseDirectPngSingleFrame(self) -> bool:
+    def _shouldUseDirectImageSingleFrame(self) -> bool:
         return (
-            self.encode_method == "png"
+            self.encode_method in SEQUENCE_EXTENSIONS
             and self.single_image_output
             and not self.custom_encoder
             and not self.benchmark
@@ -611,10 +638,17 @@ class WriteBuffer:
             frame = frame.float()
         return frame.mul(multiplier).clamp(0, multiplier).to(dtype).contiguous()
 
-    def _writeSinglePngDirect(
+    def _writeSingleImageDirect(
         self, frameTensor, needsResize: bool, multiplier: int, dtype
     ):
         from torch.nn import functional as F
+
+        if self.encode_method == "jpeg" and multiplier > 255:
+            # JPEG is 8-bit only; a --bit_depth 16bit single-image run would
+            # otherwise hand cv2/PIL a uint16 array neither can encode. Warn
+            # like getPixFMT does on the sequence path.
+            logWarning("JPEG only supports 8-bit encoding. Falling back to 8-bit.")
+            multiplier, dtype = 255, torch.uint8
 
         if needsResize:
             frameTensor = F.interpolate(
@@ -629,7 +663,7 @@ class WriteBuffer:
         if frameArray.ndim == 3 and frameArray.shape[2] == 1:
             frameArray = frameArray[:, :, 0]
 
-        import cv2  # lazy: only needed for single-image (PNG) output
+        import cv2  # lazy: only needed for single-image output
 
         cvWriteFrame = frameArray
         if frameArray.ndim == 3 and frameArray.shape[2] == 3:
@@ -637,11 +671,20 @@ class WriteBuffer:
         elif frameArray.ndim == 3 and frameArray.shape[2] == 4:
             cvWriteFrame = cv2.cvtColor(frameArray, cv2.COLOR_RGBA2BGRA)
 
-        writeOk = cv2.imwrite(self.output, cvWriteFrame)
+        if self.encode_method == "jpeg":
+            writeParams = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        else:
+            writeParams = []
+        writeOk = cv2.imwrite(self.output, cvWriteFrame, writeParams)
         if not writeOk:
             from PIL import Image
 
-            Image.fromarray(frameArray).save(self.output, format="PNG")
+            if self.encode_method == "jpeg":
+                Image.fromarray(frameArray).save(
+                    self.output, format="JPEG", quality=100
+                )
+            else:
+                Image.fromarray(frameArray).save(self.output, format="PNG")
 
     def encodeSettings(self) -> list:
         """
@@ -840,8 +883,6 @@ class WriteBuffer:
             # exists to produce.
             filterList.append("format=yuva444p10le")
 
-        import json
-
         if not self.grayscale and not self.transparent:
             # RGB->YUV colorspace conversion + dithering.
             #
@@ -867,15 +908,7 @@ class WriteBuffer:
             # BT.2020/HDR10 source failed the whole render for a 0-byte output.
             # setparams mirrors the bt709 arm, which already stamps the full
             # colour metadata rather than the matrix alone.
-            metadata = {}
-            if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
-                try:
-                    with open(cs.METADATAPATH, encoding="utf-8") as f:
-                        metadata = json.load(f)
-                except Exception as e:
-                    logging.warning(f"Failed to read metadata for color space: {e}")
-
-            filterList.append(colorSpaceFilter(metadata.get("metadata", {})))
+            filterList.append(colorSpaceFilter(_probedMetadata()))
 
         return filterList
 
@@ -1017,8 +1050,8 @@ class WriteBuffer:
                     f"Frame size mismatch. Frame: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output: {self.width}x{self.height}"
                 )
 
-            if self._shouldUseDirectPngSingleFrame():
-                logging.info("Using direct single-frame PNG encoder (ffmpeg bypass)")
+            if self._shouldUseDirectImageSingleFrame():
+                logging.info("Using direct single-frame image encoder (ffmpeg bypass)")
 
                 firstFrame = None
                 while firstFrame is None:
@@ -1029,7 +1062,7 @@ class WriteBuffer:
                         continue
 
                 if firstFrame is not None:
-                    self._writeSinglePngDirect(
+                    self._writeSingleImageDirect(
                         firstFrame,
                         needsResize=needsResize,
                         multiplier=multiplier,
@@ -1252,7 +1285,7 @@ class WriteBuffer:
 class NeluxWriteBuffer:
     """
     Write buffer that uses Nelux VideoEncoder for NVENC (hardware) or
-    libx264/libx265/libaom-av1 (software) encoding.
+    libx264/libx265/libsvtav1/libvpx-vp9/prores_ks/gif (software) encoding.
     More efficient than FFmpeg pipe for GPU-resident frames.
     """
 
@@ -1270,6 +1303,8 @@ class NeluxWriteBuffer:
         grayscale: bool = False,
         enablePreview: bool = False,
         previewSink=None,
+        output_scale_width: int | None = None,
+        output_scale_height: int | None = None,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
         """
@@ -1278,8 +1313,9 @@ class NeluxWriteBuffer:
         Args:
             input: Source video path (audio/subtitle passthrough; see _setupPassthrough).
             output: Output video path.
-            encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux
-                (hardware) or x264_nelux, x265_nelux, av1_nelux (software).
+            encode_method: Any *_nelux method with a matchNeluxEncoder mapping
+                (the NVENC families plus the libx264/libx265/libsvtav1/
+                libvpx-vp9/prores_ks/gif software twins).
             width: Output width.
             height: Output height.
             fps: Output framerate.
@@ -1287,6 +1323,10 @@ class NeluxWriteBuffer:
             outpoint: Trim end in seconds (--to); applied to passthrough streams.
             enablePreview: Whether to sample preview frames for the preview server.
             previewSink: PreviewSink the sampler pushes preview JPEGs to.
+            output_scale_width/output_scale_height: `--output_scale` target. The
+                encoder is built at these dims with nelux's encoder-side
+                `resize=True` (nelux >= 0.18.0), which scales incoming frames
+                inside the libswscale convert pass it already runs.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -1324,37 +1364,11 @@ class NeluxWriteBuffer:
 
             self.previewSampler = PreviewSampler(previewSink)
 
-        # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
-        # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
-        # nelux takes an INTEGER preset and maps it per-codec
-        # internally (Encoder.cpp): x264/x265 1=ultrafast..9=veryslow so 3=veryfast;
-        # libsvtav1 preset = 13-n so n=5 -> svt preset 8; NVENC -> p<n> so 1 -> p1.
-        # cq maps to `-crf` (software) / NVENC CQ; cq=15 == FFmpeg `-crf/-cq 15`.
-        # pixel_format is passed explicitly to match getPixFMT's 8-bit default
-        # (yuv420p) rather than relying on the encoder's internal default.
-        #   ffmpeg `x264`: -c:v libx264 -preset veryfast -crf 15  (yuv420p)
-        # Verified: x264 preset=3,cq=15 -> within ~2% of ffmpeg veryfast/crf15.
-        encoderSettings = {
-            "x264_nelux": dict(
-                codec="libx264", preset=3, cq=15, pixel_format="yuv420p"
-            ),  # veryfast / crf 15
-            "x265_nelux": dict(
-                codec="libx265", preset=3, cq=15, pixel_format="yuv420p"
-            ),  # veryfast / crf 15
-            "av1_nelux": dict(
-                codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"
-            ),  # svt preset 8 / crf 15
-            "nvenc_h264_nelux": dict(
-                codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"
-            ),  # p1 / cq 15
-            "nvenc_h265_nelux": dict(
-                codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p"
-            ),  # p1 / cq 15
-            "nvenc_av1_nelux": dict(
-                codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p"
-            ),  # p1 / cq 15
-        }
-        if encode_method not in encoderSettings:
+        # The Nelux mirror of encodingSettings.matchEncoder, one mapping per
+        # FFmpeg twin; matchNeluxEncoder documents the knob translation and
+        # returns a fresh dict, so the mutations below stay per-instance.
+        self.encoderKwargs = matchNeluxEncoder(encode_method)
+        if self.encoderKwargs is None:
             # Silently encoding H.264 when the caller asked for something else
             # is how the FFmpeg writer's *_nelux gap stayed invisible for so
             # long; do not repeat it on this side.
@@ -1362,9 +1376,32 @@ class NeluxWriteBuffer:
                 f"'{encode_method}' has no Nelux encoder mapping. "
                 "Encoding with nvenc_h264_nelux."
             )
-        self.encoderKwargs = encoderSettings.get(
-            encode_method, encoderSettings["nvenc_h264_nelux"]
-        )
+            self.encoderKwargs = matchNeluxEncoder("nvenc_h264_nelux")
+        # The Nelux mirror of the FFmpeg writer's colorSpaceFilter: convert
+        # and tag bt709 (or bt2020nc for a probed BT.2020 source) instead of
+        # riding swscale's default bt470bg/601 matrix, which produced a
+        # correctly-tagged file that still did not match the FFmpeg twin's
+        # conversion. Mapping options stay on top only where keys collide
+        # (they never do today -- colour keys and quality keys are disjoint).
+        colourOptions = colorSpaceOptions(_probedMetadata())
+        self.encoderKwargs["options"] = {
+            **colourOptions,
+            **(self.encoderKwargs.get("options") or {}),
+        }
+        # --output_scale: build the encoder at the target dims and let nelux
+        # scale each incoming pipeline-res frame inside the libswscale convert
+        # pass it already runs (encoder-side resize, nelux >= 0.18.0). bilinear
+        # matches the FFmpeg twin's `scale=w:h:flags=bilinear` byte-identically.
+        # NVENC caveat: a CUDA frame whose size differs from the output takes
+        # nelux's CPU staging path (the fused NVENC kernel converts but does
+        # not scale).
+        self.outputWidth = width
+        self.outputHeight = height
+        if output_scale_width and output_scale_height:
+            self.outputWidth = output_scale_width
+            self.outputHeight = output_scale_height
+            self.encoderKwargs["resize"] = True
+            self.encoderKwargs["resize_filter"] = "bilinear"
         self.codec = self.encoderKwargs["codec"]
         # NVENC variants expect a hardware encoder; software (libx*/libsvtav1) do not.
         self.expectHardware = self.codec.endswith("_nvenc")
@@ -1373,8 +1410,14 @@ class NeluxWriteBuffer:
         if checker.cudaAvailable:
             self.CudaStream = torch.cuda.Stream()
 
+        scaleNote = (
+            f" -> {self.outputWidth}x{self.outputHeight} (encoder-side resize)"
+            if self.encoderKwargs.get("resize")
+            else ""
+        )
         logging.info(
-            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
+            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps{scaleNote}, "
+            f"codec={self.codec}"
         )
 
     def _setupPassthrough(self):
@@ -1454,10 +1497,11 @@ class NeluxWriteBuffer:
 
             self.encoder = nelux.VideoEncoder(
                 self.output,
-                width=self.width,
-                height=self.height,
+                width=self.outputWidth,
+                height=self.outputHeight,
                 fps=self.fps,
-                **self.encoderKwargs,  # codec, preset, cq, pixel_format
+                # codec, preset, cq, pixel_format, options [, resize]
+                **self.encoderKwargs,
             )
 
             if hasattr(self.encoder, "is_hardware_encoder"):
@@ -1563,8 +1607,37 @@ class NeluxWriteBuffer:
 
 
 def isNeluxEncoder(encode_method: str) -> bool:
-    """Check if the encode method uses Nelux NVENC."""
+    """Check if the encode method routes to the Nelux writer."""
     return encode_method.endswith("_nelux")
+
+
+# The MOV muxer answers avformat_query_codec "yes" for these but then rejects
+# the stream copy at header write ("opus only supported in MP4" -- both need
+# strict=experimental), so nelux's allow_transcode never kicks in and the
+# FAILURE poisons the whole encode: the header is written on the first frame,
+# every encode_frame after it errors, and the run ends with a 0-byte .mov.
+# The FFmpeg writer's _buildAudioSettings transcodes these to AAC for .mov.
+_MOV_UNCOPYABLE_AUDIO = ("opus", "vorbis")
+
+
+def _neluxMovAudioBlocker(input: str, output: str) -> str | None:
+    """The source's audio codec when a .mov output cannot carry it through
+    nelux's passthrough, else None.
+
+    Probed with nelux.probe (metadata-only open, no subprocess); any probe
+    failure returns None so an unreadable source degrades to the behaviour it
+    had anyway (passthrough skips a source it cannot open).
+    """
+    if not str(output).lower().endswith(".mov") or not cs.AUDIO:
+        return None
+    if not input or not os.path.exists(input):
+        return None
+    try:
+        audioCodec = str(nelux.probe(input).get("audio_codec", "") or "").lower()
+    except Exception as e:
+        logging.warning(f"nelux audio probe failed for '{input}': {e}")
+        return None
+    return audioCodec if audioCodec in _MOV_UNCOPYABLE_AUDIO else None
 
 
 def createWriteBuffer(encode_method: str, **kwargs):
@@ -1572,10 +1645,18 @@ def createWriteBuffer(encode_method: str, **kwargs):
     Factory function to create the appropriate write buffer.
 
     A `*_nelux` method only reaches here when it can actually be honored:
-    NeluxWriteBuffer swallows `--custom_encoder`, `--bit_depth` and
-    `--output_scale` through `**kwargs` without reading them, so
-    `src/cli/validator.py:_resolveNeluxEncoder` swaps the method for its
-    FFmpeg twin, once per run, before any writer is built.
+    NeluxWriteBuffer swallows `--custom_encoder` and `--bit_depth` through
+    `**kwargs` without reading them, so `src/cli/validator.py:_resolveNeluxEncoder`
+    swaps the method for its FFmpeg twin, once per run, before any writer is
+    built. (`--output_scale` is honored natively via nelux's encoder-side
+    resize since nelux 0.18.0; the validator only downgrades it on an older
+    installed nelux.)
+
+    One downgrade lives here instead: a .mov output whose source carries
+    opus/vorbis audio runs the FFmpeg twin, because that combination breaks
+    nelux's passthrough at header write (see _neluxMovAudioBlocker) and it
+    depends on the individual input, which the once-per-run validator cannot
+    see in a batch.
 
     Args:
         encode_method: The encoding method string.
@@ -1596,6 +1677,20 @@ def createWriteBuffer(encode_method: str, **kwargs):
         )
     """
     if isNeluxEncoder(encode_method):
+        # Per-file, not in the validator: whether the audio survives a .mov
+        # depends on THIS input's audio codec, and a batch mixes sources.
+        blockedAudio = _neluxMovAudioBlocker(
+            kwargs.get("input", ""), kwargs.get("output", "")
+        )
+        if blockedAudio:
+            twin = encode_method[: -len("_nelux")]
+            logWarning(
+                f"{encode_method} cannot carry this source's {blockedAudio} "
+                f"audio into a .mov (the muxer rejects the copy at header "
+                f"write). Encoding with the equivalent {twin}, which "
+                "transcodes the audio to AAC, so the output keeps its sound."
+            )
+            return WriteBuffer(encode_method=twin, **kwargs)
         logging.info(f"Using NeluxWriteBuffer for {encode_method}")
         return NeluxWriteBuffer(encode_method=encode_method, **kwargs)
     else:
