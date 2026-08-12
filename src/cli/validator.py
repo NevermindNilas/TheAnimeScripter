@@ -351,6 +351,22 @@ def _configureProcessingSettings(args):
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
 
+    if getattr(args, "stabilize", False) and args.stabilize_method == "dut":
+        # DUT initializes four torch models on torch.device("cuda"); same
+        # visible-downgrade contract as the CUDA frame comparators above.
+        try:
+            from src.infra.isCudaInit import CudaChecker
+
+            cudaAvailable = CudaChecker().cudaAvailable
+        except Exception:
+            cudaAvailable = False
+        if not cudaAvailable:
+            logAndPrint(
+                "stabilize_method dut requires CUDA, falling back to classic",
+                "yellow",
+            )
+            args.stabilize_method = "classic"
+
     if args.autoclip:
         args.autoclip_sens = _mapAutoclipSensitivity(
             args.autoclip_method, args.autoclip_sens

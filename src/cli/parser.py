@@ -870,6 +870,18 @@ def _addVideoProcessingOptions(argParser):
     processingGroup.add_argument(
         "--stabilize", action="store_true", help="Stabilize the video"
     )
+    processingGroup.add_argument(
+        "--stabilize_method",
+        type=str,
+        default="classic",
+        choices=["classic", "dut"],
+        help=(
+            "Stabilization method. classic: feature-point global "
+            "translation/rotation smoothing (CPU). dut: DUT deep unsupervised "
+            "stabilization with per-region mesh warping (CUDA only, downloads "
+            "weights on first use). Specifying this auto-enables --stabilize"
+        ),
+    )
 
     restoreMethods = [
         "scunet",
