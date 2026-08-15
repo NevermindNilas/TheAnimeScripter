@@ -211,7 +211,11 @@ class VideoStabilizeDUT:
         analysisStart = time.perf_counter()
         pending = deque()
         with ThreadPoolExecutor(max_workers=1) as propagator:
-            for _ in range(self.totalFrames):
+            # Read to the sentinel, not to the frame-count estimate, which is
+            # only an estimate on VFR sources and containers with no nb_frames
+            # header. Unbounded together with the render pass below, never one
+            # alone -- see the same pairing in src/stabilize/stabilize.py.
+            while True:
                 frame = self.readBuffer.read()
                 if frame is None:
                     break
@@ -334,11 +338,18 @@ class VideoStabilizeDUT:
             )
             numCorrected = 0 if disp is None else disp.shape[2]
 
-            for i in range(self.totalFrames):
+            # frameCount is this frame's index: incremented exactly once per
+            # iteration below, with no `continue`, so it indexes `disp` the way
+            # the loop variable used to. Motion is per-PAIR, so numCorrected is
+            # one short of the frame count by design and the last frame is
+            # written unwarped -- unbounding this pass alone would widen that
+            # to two, which is why the analysis pass above is unbounded too.
+            while True:
                 frame = self.readBuffer.read()
                 if frame is None:
                     break
 
+                i = frameCount
                 if i < numCorrected:
                     frameTensor = (
                         torch.from_numpy(frame)

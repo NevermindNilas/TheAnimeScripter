@@ -542,7 +542,12 @@ class MotionBlurPipeline:
 
         with ProgressBarLogic(self.totalFrames, title=self.input) as bar:
             try:
-                for _ in range(self.totalFrames):
+                # Read to the sentinel, not to the frame-count estimate: that
+                # count is an estimate on VFR sources and on containers with no
+                # nb_frames header, and using it as a hard bound silently
+                # truncated the tail. Loop header only -- the body's prevSegs
+                # retention is deliberate (cross-stream CUDA races).
+                while True:
                     nextFrame = self.readBuffer.read()
                     if nextFrame is None:
                         break

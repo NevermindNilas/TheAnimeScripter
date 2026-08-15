@@ -410,3 +410,380 @@ def testEveryWriterCreatesItsOutputDirectory(monkeypatch, tmp_path):
 
         assert target.parent.is_dir(), f"{method} left its output folder missing"
         assert os.path.normpath(wb.output) == os.path.normpath(str(target))
+
+
+def _recordingWriterRegistry(monkeypatch, ffmpegSettings):
+    """Swap the live-writer registry for a fresh one that records every add().
+
+    Both writers leave it empty once they are done -- the Nelux one discards
+    itself in its finally -- so a plain "is it empty afterwards" check cannot
+    tell "never registered" from "registered and already gone".
+    """
+    import weakref
+
+    class RecordingRegistry(weakref.WeakSet):
+        def __init__(self):
+            super().__init__()
+            self.added = []
+
+        def add(self, item):
+            self.added.append(type(item).__name__)
+            super().add(item)
+
+    registry = RecordingRegistry()
+    monkeypatch.setattr(ffmpegSettings, "_LIVE_NELUX_WRITERS", registry)
+    return registry
+
+
+def _uint8HwcFrame(monkeypatch):
+    """A frame the Nelux encode loop takes on its HWC-uint8 fast path, under
+    real torch and under this file's stub alike (the stub has no Tensor type)."""
+    if importlib.util.find_spec("torch") is not None:
+        import torch
+
+        return torch.zeros((4, 4, 3), dtype=torch.uint8)
+
+    class FakeFrame:
+        ndim = 3
+        dtype = "uint8"
+        shape = (4, 4, 3)
+
+        def is_contiguous(self):
+            return True
+
+    monkeypatch.setattr(sys.modules["torch"], "Tensor", FakeFrame, raising=False)
+    return FakeFrame()
+
+
+def testFinalizeLiveWritersReturnsTrueImmediatelyWhenNothingIsLive(
+    monkeypatch, tmp_path
+):
+    """A Ctrl-C on the x264 path (or before any writer exists) must not spend
+    the handler's deadline on an empty registry before os._exit."""
+    import time
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    start = time.monotonic()
+    assert ffmpegSettings.finalizeLiveWriters(timeout=5.0) is True
+    assert time.monotonic() - start < 1.0
+
+
+def testFinalizeLiveWritersStopsAParkedWriterAndClosesItsEncoderOnce(
+    monkeypatch, tmp_path
+):
+    """Cancelling a *_nelux render left a multi-hundred-MB file with no moov
+    atom: the encoder runs in this process and finalizes only in its worker
+    thread's finally, which os._exit(130) never runs. The writer is parked in
+    its encode loop, so the handshake has to reach it from outside -- _stopNow
+    breaks the loop, the finally writes the trailer, _finalized reports it."""
+    import threading
+    import time
+
+    _installFakeTorch(monkeypatch)
+    closes = []
+
+    class FakeEncoder:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def encode_frame(self, frame):
+            pass
+
+        def close(self):
+            closes.append(1)
+
+    fakeNelux = types.SimpleNamespace(VideoEncoder=FakeEncoder)
+    monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    monkeypatch.setattr("src.constants.AUDIO", False, raising=False)
+    registry = _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+        width=4,
+        height=4,
+    )
+    wb.write(_uint8HwcFrame(monkeypatch))
+
+    worker = threading.Thread(target=wb, daemon=True)
+    worker.start()
+    deadline = time.monotonic() + 10.0
+    while wb.writtenFrames == 0 and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert wb.writtenFrames == 1, "writer never reached its encode loop"
+    assert registry.added == ["NeluxWriteBuffer"]
+
+    assert ffmpegSettings.finalizeLiveWriters(timeout=5.0) is True
+    assert wb._stopNow.is_set()
+    assert wb._finalized.is_set()
+    worker.join(timeout=5.0)
+    assert not worker.is_alive()
+    # Exactly once: the trailer is written by the worker's finally and nothing
+    # else, so a second close from the cancel path would be a double-free.
+    assert closes == [1]
+
+
+def testFinalizeLiveWritersGivesUpWithinItsTimeout(monkeypatch, tmp_path):
+    """The regression that matters most. A writer can be parked inside a native
+    encode_frame that no Python-level flag preempts, so this wait has to be
+    bounded: an unbounded one would reintroduce the very hang os._exit exists
+    to dodge, leaving the user on Ctrl-C with a process that never leaves."""
+    import threading
+    import time
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    registry = _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    class StuckWriter:
+        """A writer wedged in native code: it accepts the stop request but its
+        trailer never gets written, so waitFinalized always times out."""
+
+        def __init__(self):
+            self._stopNow = threading.Event()
+            self._finalized = threading.Event()  # never set
+
+        def requestStop(self):
+            self._stopNow.set()
+
+        def waitFinalized(self, timeout):
+            return self._finalized.wait(timeout)
+
+    stuck = [StuckWriter(), StuckWriter()]
+    for writer in stuck:
+        registry.add(writer)
+
+    start = time.monotonic()
+    assert ffmpegSettings.finalizeLiveWriters(timeout=0.25) is False
+    elapsed = time.monotonic() - start
+    # The deadline is shared across writers, so two wedged ones still cost one
+    # timeout, not one each.
+    assert elapsed < 2.0, f"waited {elapsed:.2f}s for a 0.25s deadline"
+    assert all(writer._stopNow.is_set() for writer in stuck)
+
+
+def testFinalizeLiveWritersNeverRaisesOnABrokenRegistryEntry(monkeypatch, tmp_path):
+    """It runs on the way to os._exit(130), so it answers for its own failures:
+    an exception escaping here would skip the exit and change the process exit
+    code that batch callers and the AE panel read."""
+    import threading
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    registry = _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    class BrokenWriter:
+        def __init__(self):
+            self._stopNow = threading.Event()
+
+        def requestStop(self):
+            self._stopNow.set()
+
+        def waitFinalized(self, timeout):
+            raise RuntimeError("registry entry is garbage")
+
+    class UnstoppableWriter:
+        """Raises on the stop request itself -- the earlier of the two loops."""
+
+        def requestStop(self):
+            raise RuntimeError("registry entry is garbage")
+
+        def waitFinalized(self, timeout):
+            return True
+
+    # Bound to locals: the registry is a WeakSet and would drop them otherwise.
+    broken = BrokenWriter()
+    unstoppable = UnstoppableWriter()
+    registry.add(broken)
+    registry.add(unstoppable)
+
+    assert ffmpegSettings.finalizeLiveWriters(timeout=0.25) is False
+
+
+def testOneBadEntryStillLetsHealthyWritersFinalize(monkeypatch, tmp_path):
+    """A writer that raises on requestStop must not abort the stop loop and
+    leave the healthy writers un-asked -- they would then just time out."""
+    import threading
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    registry = _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    class Healthy:
+        def __init__(self):
+            self.stopped = threading.Event()
+
+        def requestStop(self):
+            self.stopped.set()
+
+        def waitFinalized(self, timeout):
+            return self.stopped.is_set()
+
+    class Poisoned:
+        def requestStop(self):
+            raise RuntimeError("garbage")
+
+        def waitFinalized(self, timeout):
+            return False
+
+    # Bind both to locals: the registry is a WeakSet, so an entry added inline
+    # is collected before finalizeLiveWriters ever sees it.
+    healthy = Healthy()
+    poisoned = Poisoned()
+    registry.add(poisoned)
+    registry.add(healthy)
+
+    assert ffmpegSettings.finalizeLiveWriters(timeout=0.25) is False
+    assert healthy.stopped.is_set(), "the bad entry swallowed the healthy one's stop"
+
+
+def testPlainFFmpegWriteBufferIsNeverRegisteredAsALiveWriter(monkeypatch, tmp_path):
+    """Only in-process encoders belong in the registry. WriteBuffer's close()
+    waits on the FFmpeg subprocess -- exactly the join os._exit exists to skip
+    -- and its child finalizes the container itself on stdin EOF, so a partial
+    x264 file is already playable. Registering it would be an outright
+    regression, not extra safety."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+    registry = _recordingWriterRegistry(monkeypatch, ffmpegSettings)
+
+    wb = ffmpegSettings.WriteBuffer(output=str(tmp_path / "out.mp4"))
+    wb.writeBuffer.put(None)
+    wb()  # returns on the sentinel, before any ffmpeg subprocess is spawned
+
+    assert registry.added == []
+    assert ffmpegSettings.finalizeLiveWriters(timeout=0.25) is True
+
+    # Contrast, so the emptiness above means something: the Nelux writer does
+    # register itself for the run of its loop.
+    nwb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out2.mp4"), benchmark=True
+    )
+    nwb.writeBuffer.put(None)
+    nwb()
+    assert registry.added == ["NeluxWriteBuffer"]
+
+
+def _saveProbe(monkeypatch, tmp_path, probe):
+    """Run getVideoMetadata.saveMetadata against a tmp install dir.
+
+    WHEREAMIRUNFROM and the METADATAPATH saveMetadata sets from it both go
+    through monkeypatch so the session's real values come back afterwards.
+    """
+    import src.constants as cs
+
+    getVideoMetadata = importlib.import_module("src.io.getVideoMetadata")
+    monkeypatch.setattr(cs, "WHEREAMIRUNFROM", str(tmp_path))
+    monkeypatch.setattr(cs, "METADATAPATH", "", raising=False)
+    getVideoMetadata.saveMetadata(probe)
+    return cs
+
+
+def testSaveMetadataFeedsTheColourDecisionInProcess(monkeypatch, tmp_path):
+    """The writers' colour decision now comes from cs.PROBED_METADATA, set by
+    saveMetadata before any writer is built, instead of a file round-trip."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    probe = {"ColorSpace": "bt2020nc", "ColorTRT": "arib-std-b67"}
+    cs = _saveProbe(monkeypatch, tmp_path, probe)
+
+    assert cs.PROBED_METADATA == probe
+    assert ffmpegSettings._probedMetadata() == probe
+
+
+def testAConcurrentRunOverwritingMetadataJsonCannotFlipThisRunsColourSpace(
+    monkeypatch, tmp_path
+):
+    """The race: metadata.json is one fixed install-dir path identical for every
+    TAS process on the machine, so a second run starting mid-render overwrote
+    this run's probe between saveMetadata and the writer's read -- a BT.2020
+    source got converted and tagged bt709 (or the reverse), silently."""
+    import json
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    _saveProbe(
+        monkeypatch,
+        tmp_path,
+        {"ColorSpace": "bt2020nc", "ColorTRT": "arib-std-b67"},
+    )
+
+    # The other run lands on the shared path with its own bt709 source.
+    (tmp_path / "metadata.json").write_text(
+        json.dumps({"metadata": {"ColorSpace": "bt709", "ColorTRT": "bt709"}})
+    )
+
+    assert ffmpegSettings._probedMetadata()["ColorSpace"] == "bt2020nc"
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x265_nelux",
+    )
+    options = wb.encoderKwargs["options"]
+    assert options["colorspace"] == "bt2020nc"
+    assert options["color_primaries"] == "bt2020"
+    assert options["color_trc"] == "arib-std-b67"
+
+
+def testSaveMetadataStoresACopyOfTheProbeDict(monkeypatch, tmp_path):
+    """getVideoMetadata hands saveMetadata the same dict it returns to main.py
+    and callers keep using it, so aliasing would let a later mutation rewrite
+    the colour decision the writers already committed to."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    probe = {"ColorSpace": "bt2020nc"}
+    cs = _saveProbe(monkeypatch, tmp_path, probe)
+
+    probe["ColorSpace"] = "bt709"
+    probe["Width"] = 1920
+
+    assert cs.PROBED_METADATA == {"ColorSpace": "bt2020nc"}
+    assert ffmpegSettings._probedMetadata() == {"ColorSpace": "bt2020nc"}
+
+
+def testProbedMetadataStillFallsBackToTheMetadataFile(monkeypatch, tmp_path):
+    """Callers that point cs.METADATAPATH at a file without ever going through
+    saveMetadata (the bt2020 test above, and tests/test_ffmpegColorspace.py)
+    must keep working -- hence the "unset" sentinel stays None: a {} would be
+    returned as a real answer and kill the file read silently."""
+    import json
+
+    import src.constants as cs
+
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    metadataPath = tmp_path / "metadata.json"
+    metadataPath.write_text(
+        json.dumps({"metadata": {"ColorSpace": "bt2020nc", "ColorTRT": "smpte2084"}})
+    )
+    monkeypatch.setattr(cs, "METADATAPATH", str(metadataPath), raising=False)
+
+    assert cs.PROBED_METADATA is None
+    assert ffmpegSettings._probedMetadata() == {
+        "ColorSpace": "bt2020nc",
+        "ColorTRT": "smpte2084",
+    }
+
+    # An empty probe recorded in-process is an answer ("nothing to tag"), not
+    # "unset", so the stale file must not be consulted behind it.
+    monkeypatch.setattr(cs, "PROBED_METADATA", {})
+    assert ffmpegSettings._probedMetadata() == {}

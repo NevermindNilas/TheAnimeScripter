@@ -570,7 +570,10 @@ class OGDepthV2DirectML(DepthRunOutcome):
         frameCount = 0
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
+            # Read to the sentinel, not to the frame-count estimate: that count
+            # is an estimate on VFR sources and on containers with no nb_frames
+            # header, and using it as a hard bound silently truncated the tail.
+            while True:
                 frame = self.readBuffer.read()
                 if frame is None:
                     break

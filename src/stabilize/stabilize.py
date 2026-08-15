@@ -479,7 +479,10 @@ class VideoStabilize:
         frameCount = 0
         prevGray = None
 
-        for _ in range(self.totalFrames):
+        # Unbounded to match _renderFrames -- one transform is appended per
+        # frame read, so the two passes must agree on how many frames they read
+        # or the render pass indexes past the end of the transform arrays.
+        while True:
             frame = self.readBuffer.read()
             if frame is None:
                 break
@@ -710,15 +713,24 @@ class VideoStabilize:
             centerX = self.width / 2.0
             centerY = self.height / 2.0
 
-            for i in range(self.totalFrames):
+            # Read to the sentinel, not to the frame-count estimate, which is
+            # only an estimate on VFR sources and containers with no nb_frames
+            # header. frameCount is this frame's index: it is incremented
+            # exactly once per iteration below and there is no `continue`, so
+            # it indexes the analysis pass's transform arrays 1:1 the way the
+            # loop variable used to. Both passes are unbounded together on
+            # purpose -- unbounding only this one would push the surplus frame
+            # past the guard below and write it unstabilized, a visible pop at
+            # the tail rather than a silently missing frame.
+            while True:
                 frame = self.readBuffer.read()
                 if frame is None:
                     break
 
-                if self.shiftXFix is not None and i < self.shiftXFix.shape[0]:
-                    dx = float(self.shiftXFix[i])
-                    dy = float(self.shiftYFix[i])
-                    da = float(self.angleFix[i])
+                if self.shiftXFix is not None and frameCount < self.shiftXFix.shape[0]:
+                    dx = float(self.shiftXFix[frameCount])
+                    dy = float(self.shiftYFix[frameCount])
+                    da = float(self.angleFix[frameCount])
                 else:
                     dx, dy, da = (0.0, 0.0, 0.0)
 

@@ -281,6 +281,12 @@ class VideoProcessor:
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
         self.preview: bool = args.preview
+        requestedPort = getattr(args, "preview_port", None)
+        # An explicitly given port is honoured or reported busy; an unset one
+        # may fall back to a free port. The parser default is None precisely so
+        # these two are distinguishable.
+        self.previewPortPinned: bool = requestedPort is not None
+        self.previewPort: int | None = requestedPort
         self.profile: bool = args.profile
         self.singleImageInput: bool = getattr(args, "single_image_input", False)
 
@@ -929,9 +935,19 @@ class VideoProcessor:
             )
 
             if self.preview and getattr(self.writeBuffer, "enablePreview", False):
-                from src.server.previewSettings import Preview
+                from src.server.previewSettings import DEFAULT_PREVIEW_PORT, Preview
 
-                self.preview = Preview(previewSink=previewSink)
+                self.preview = Preview(
+                    previewSink=previewSink,
+                    port=(
+                        self.previewPort
+                        if self.previewPort is not None
+                        else DEFAULT_PREVIEW_PORT
+                    ),
+                    # A pinned port is a request, not a suggestion: report it
+                    # busy rather than silently serving somewhere else.
+                    allowPortFallback=not self.previewPortPinned,
+                )
                 self.preview.start()
             else:
                 # Nothing to start, and nothing for process() to close.
@@ -1328,6 +1344,22 @@ def main():
     except KeyboardInterrupt:
         logWarning("Process interrupted by user")
         _notifyAdobeOfFatalError(KeyboardInterrupt("Cancelled"))
+        # A *_nelux encoder runs in this process and writes its container
+        # trailer in a worker thread's finally, which os._exit skips -- so a
+        # cancelled render used to leave a large file with no moov atom that no
+        # player could open. Bounded and best-effort: it never joins, never
+        # raises, and the force-exit below happens either way.
+        try:
+            from src.io.ffmpegSettings import finalizeLiveWriters
+
+            if not finalizeLiveWriters(timeout=5.0):
+                logWarning(
+                    "The in-process encoder did not finish writing the output "
+                    "container in time; the partial file may not be playable."
+                )
+        except BaseException:
+            # Must not preempt the force-exit below.
+            pass
         # Force-exit: bypass blocked thread joins (TRT inference, ffmpeg subprocess
         # wait, nelux decoder) which sys.exit() would hang on.
         os._exit(130)

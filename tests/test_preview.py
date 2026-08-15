@@ -255,3 +255,109 @@ def test_samplerDropsFrameWhenWorkerBusy():
     start = time.monotonic()
     sampler.submit(_frame())
     assert (time.monotonic() - start) < 0.5  # returned immediately, did not block
+
+
+def _squatter():
+    """A live listener on an otherwise-free port, holding SO_REUSEADDR.
+
+    Port 0 first, so the test never collides with something genuinely running on
+    the runner. SO_REUSEADDR on the holder is the exact shape of the Windows
+    bug: it is what let a second bind succeed on top of a live listener.
+    """
+    sock = socket.socket()
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    return sock, sock.getsockname()[1]
+
+
+def test_previewNeverBindsOnTopOfALiveListener():
+    # Regression: ThreadingHTTPServer inherits allow_reuse_address = True, and on
+    # Windows SO_REUSEADDR lets a second bind SUCCEED against a live listener.
+    # TAS printed a green "Preview URL" for a server that never received a single
+    # connection -- the page just hung with nothing in the console. Asserting the
+    # port merely changed is not enough: reachability is what broke, so fetch it.
+    import urllib.request
+
+    squatter, busyPort = _squatter()
+    server = Preview(previewSink=PreviewSink(), port=busyPort)
+    try:
+        server.start()
+        assert server.server is not None
+        assert server.port != busyPort
+        body = urllib.request.urlopen(
+            f"http://127.0.0.1:{server.port}/", timeout=5
+        ).read()
+        assert b"TAS Preview" in body
+    finally:
+        server.close()
+        squatter.close()
+
+
+def test_pinnedPortDoesNotFallBackAndSaysWhy(capsys, caplog):
+    # --preview_port means "that port or nothing": silently serving a different
+    # one breaks whoever pinned it. The old except branch was logging.error only,
+    # so on a failed bind (macOS AirPlay owns 5000 by default) the user saw
+    # absolutely nothing on the console.
+    import logging
+
+    squatter, busyPort = _squatter()
+    server = Preview(previewSink=PreviewSink(), port=busyPort, allowPortFallback=False)
+    try:
+        with caplog.at_level(logging.ERROR):
+            server.start()
+        assert server.server is None
+        out = capsys.readouterr().out
+        assert str(busyPort) in out
+        assert "Preview URL" not in out
+        assert any(
+            record.levelno == logging.ERROR and str(busyPort) in record.getMessage()
+            for record in caplog.records
+        )
+    finally:
+        server.close()
+        squatter.close()
+
+
+def test_closeAfterFailedStartReportsNothing(capsys):
+    # close() used to print a green "Preview server stopped" unconditionally --
+    # a clean-shutdown message for a server that never bound at all.
+    squatter, busyPort = _squatter()
+    server = Preview(previewSink=PreviewSink(), port=busyPort, allowPortFallback=False)
+    try:
+        server.start()
+        assert server.server is None
+        capsys.readouterr()  # discard start()'s error message
+        server.close()
+        assert capsys.readouterr().out == ""
+    finally:
+        squatter.close()
+
+
+def test_freePortIsUsedWithoutFallback(capsys):
+    # The fallback must stay invisible when the requested port is actually free:
+    # no warning, and the printed URL names the port that was asked for.
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    freePort = probe.getsockname()[1]
+    probe.close()  # a listener that never accepted leaves no TIME_WAIT behind
+
+    server = Preview(previewSink=PreviewSink(), port=freePort)
+    try:
+        server.start()
+        assert server.port == freePort
+        out = capsys.readouterr().out
+        assert f"http://127.0.0.1:{freePort}/" in out
+        assert "already in use" not in out
+    finally:
+        server.close()
+
+
+def test_addressReuseIsOffOnWindowsOnly():
+    # Windows-only on purpose: on POSIX SO_REUSEADDR cannot steal a live listener
+    # anyway, and dropping it there would make two back-to-back runs fail to bind
+    # for ~60s on the TIME_WAIT left by the previous one.
+    import sys
+
+    expected = sys.platform != "win32"
+    assert previewSettings._PreviewHTTPServer.allow_reuse_address is expected

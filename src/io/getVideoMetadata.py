@@ -63,6 +63,15 @@ def isNvdecCompatible(codec: str | None, pixFmt: str | None) -> bool:
 
 
 def saveMetadata(metadata, videoDataDump=None):
+    # Hand the writers an in-process copy first. The file below stays for
+    # external consumers (the .jsx panel lives in another repo), but it is a
+    # single fixed install-dir path shared by every TAS process on the machine,
+    # so it cannot be the input to this run's colour decision -- a concurrent
+    # run overwriting it between this write and the writer's read is what made
+    # a BT.2020 source encode as bt709. Copy rather than alias: the caller keeps
+    # using this dict.
+    cs.PROBED_METADATA = dict(metadata)
+
     metadataPath = os.path.join(cs.WHEREAMIRUNFROM, "metadata.json")
     with open(metadataPath, "w") as jsonFile:
         data = {
@@ -124,6 +133,31 @@ def resolveSourceFps(props):
     if not fps:
         fps = float(_prop("fps", 1.0) or 1.0)
     return fps, warning
+
+
+def trimFrameRange(fps, inPoint, outPoint):
+    """The ``[start, end)`` source frame indices ``--inpoint``/``--outpoint`` select.
+
+    The single definition of the trim arithmetic. It used to be written twice:
+    ``BuildBuffer`` rounded each endpoint independently while this module
+    floored the product, so for any non-integer ``(outpoint-inpoint)*fps`` --
+    which on 23.976/29.97 material is nearly every trim -- the decoder emitted
+    one more frame than ``TotalFramesToBeProcessed`` claimed, and the drivers
+    that use that number as a hard ``range()`` bound stopped a frame early.
+
+    ``end`` is ``None`` when no ``--outpoint`` was given, meaning "decode to
+    EOF". Otherwise it is floored to at least one frame past ``start``: the
+    end test used to be gated on the derived index (``endFrame > 0``) rather
+    than on whether a trim was requested, so an ``--outpoint`` under half a
+    frame (20.9 ms at 23.98 fps, but 0.5 s on a 1 fps timelapse) collapsed to
+    0 and read as "no limit", re-encoding the whole file against a fraction of
+    a second of audio. With a non-zero ``--inpoint`` the same collapse made
+    ``end == start`` and emitted no frames at all.
+    """
+    startFrame = int(round(float(inPoint) * fps)) if inPoint and inPoint > 0 else 0
+    if not outPoint or float(outPoint) <= 0:
+        return startFrame, None
+    return startFrame, max(startFrame + 1, int(round(float(outPoint) * fps)))
 
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
@@ -225,10 +259,17 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         ColorTRT = _prop("color_transfer", "unknown")
         ColorRange = _prop("color_range", "unknown")
 
-        if outPoint != 0 and not isImageInput:
-            totalFramesToProcess = int((outPoint - inPoint) * fps)
-        else:
+        if isImageInput:
             totalFramesToProcess = totalFrames
+        else:
+            # Same helper the decoder uses, so the count and the decode agree.
+            startFrame, endFrame = trimFrameRange(fps, inPoint, outPoint)
+            if endFrame is not None:
+                totalFramesToProcess = endFrame - startFrame
+            elif totalFrames:
+                totalFramesToProcess = max(totalFrames - startFrame, 0)
+            else:
+                totalFramesToProcess = totalFrames
 
         if isImageInput and totalFramesToProcess < 1:
             totalFramesToProcess = 1
