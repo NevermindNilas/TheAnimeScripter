@@ -42,9 +42,15 @@ def createPreset(args, providedOptions=None, parser=None):
                     )
                     continue
                 if parser is not None:
-                    from src.cli.config import validateChoiceForKey
+                    from src.cli.config import coerceValueForKey, validateChoiceForKey
 
-                    validateChoiceForKey(parser, key, value, f"preset '{args.preset}'")
+                    label = f"preset '{args.preset}'"
+                    # Both return the corrected value; assigning the original
+                    # silently threw away the coercion and the canonical
+                    # casing, which is how presets.json kept feeding the
+                    # namespace raw strings after --json stopped doing so.
+                    value = coerceValueForKey(parser, key, value, label)
+                    value = validateChoiceForKey(parser, key, value, label)
                 setattr(args, key, value)
         else:
             filteredArgs = {k: v for k, v in vars(args).items() if k not in ignoreList}
