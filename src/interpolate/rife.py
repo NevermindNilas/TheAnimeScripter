@@ -272,6 +272,18 @@ class RifeCuda:
             self.useGraph = False
             return
 
+        # Factor 1 (--smooth_dedup --interpolate_factor 1, the baked-slowdown
+        # regeneration path) replays that same frozen branch: measured 22 dB
+        # min divergence vs eager on rife4.25 over a dup-run clip, while the
+        # headless rife4.6 replays bit-identically. Only head-bearing arches
+        # carry the counter, so gate on the encoder head.
+        if (
+            self.interpolateFactor == 1
+            and getattr(self.model, "encode", None) is not None
+        ):
+            self.useGraph = False
+            return
+
         scales = DYNAMIC_SCALES if self.dynamicScale else (None,)
         try:
             pool = None

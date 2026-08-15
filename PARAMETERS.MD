@@ -421,7 +421,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate`, disables `--dedup`, keeps audio |
 | `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup` |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
-| `--smooth_dedup_max_span` | int | 6 | 1+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies |
+| `--smooth_dedup_max_span` | int | 6 | 0+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies. 0 = no cap, interpolate every run |
 
 Anime is animated on twos or threes: a 24 fps master carries 8–12 unique drawings per second, each
 held for 2–3 identical frames. Plain interpolation synthesizes frames *between two identical
@@ -448,11 +448,24 @@ source, on 2s:    A   A   B   B   C     24 fps, 5 frames
 Runs longer than `--smooth_dedup_max_span` are filled with copies rather than interpolated: the
 frames in such a gap were duplicates anyway, so inference there costs full throughput for no visible
 gain. Raising it costs inference time, not memory — a long gap is written out as it is produced
-rather than held whole. It cannot be set below 1.
+rather than held whole. `0` removes the cap entirely, so every duplicate run is interpolated no
+matter how long; useful when the "duplicates" are really slow motion (a pan misdetected at high
+sensitivity, a baked slowdown) rather than static holds. Negative values are treated as 0.
 
 Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop
 (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`).
+
+> **💡 Baked slowdowns:** a clip that was slowed *before* export (e.g. an After Effects precomp
+> with time remap baked in) is already at the target frame rate and mostly duplicate frames. Use
+> `--smooth_dedup --interpolate_factor 1 --smooth_dedup_sens 1 --smooth_dedup_max_span 0` to
+> regenerate each duplicated slot as a true in-between while keeping duration and fps unchanged.
+> `--smooth_dedup_max_span 0` removes the run-length cap: a heavy slowdown (4x and beyond) holds
+> each drawing for many frames, and any run past the cap would be kept as copies — exactly the
+> stutter being removed. The strict sensitivity matters too: baked duplicates are (near-)exact,
+> and the default of 35 also swallows slow *real* motion, merging real movement into the duplicate
+> runs. It cannot tell slowdown duplicates from intentional animation holds (twos/threes), so
+> motion comes out fully smoothed.
 
 ### 🔧 Restoration & Enhancement
 

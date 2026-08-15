@@ -351,10 +351,11 @@ def _configureProcessingSettings(args):
         # NOT a memory bound, and never was. What bounds memory is the
         # interpolate-first sink draining itself as it fills -- see
         # main.py:_FrameCollector, which is where a long hold used to keep the
-        # whole gap alive at once. 0 would disable the cap entirely, so the
-        # floor of 1 stays.
+        # whole gap alive at once. 0 disables the cap (every run is
+        # interpolated, however long); negatives normalize to 0 rather than
+        # inverting the span comparison into "hold everything".
         args.smooth_dedup_max_span = max(
-            1, int(getattr(args, "smooth_dedup_max_span", 6))
+            0, int(getattr(args, "smooth_dedup_max_span", 6))
         )
 
         args.smooth_dedup_method = _downgradeCudaDetector(
