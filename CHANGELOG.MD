@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `*_nelux` encoders honor `--output_scale` natively via nelux 0.18.0's encoder-side resize instead of downgrading to the FFmpeg twin; nelux pin bumped 0.16.0 → 0.18.0.
 - `*_nelux` encoders now convert and tag colour like their FFmpeg twins: bt709 by default (byte-identical matrix; previously swscale's default bt470bg/601) and bt2020nc with the source's own transfer for a probed BT.2020 source.
 - A `.webm` output no longer swaps `av1_nelux`/`nvenc_av1_nelux` for FFmpeg's `vp9`; webm-compatible `*_nelux` methods are kept, and an incompatible one downgrades to `vp9_nelux`, staying in-process.
+- `frame-analytics` pin bumped 0.3.0 → 0.6.0; `ssim`/`mse` keep the same signatures and return bit-identical scores on CPU fp32 and CUDA fp16/fp32, so dedup and scene-cut thresholds are unchanged.
 - `numpy` pin bumped 2.3.2 → 2.4.6, the version every backend profile already resolves to: `vmaf-torch` pulls in pandas 3.x, which needs `numpy>=2.3.3` on Python 3.14, so the core install's numpy was uninstalled and re-downloaded during every backend install.
 - `README.md` documents TAS-Standalone as a shipped edition with install steps and a screenshot, instead of "coming soon".
 - `PARAMETERS.MD` documents `--decode_method`, `--profile`, `--obj_detect_disable_annotations` and the six `*_nelux` encoders. Its debug section told you to run `--preset_list`, and two examples used `--bit_depth 10bit`; neither has ever been accepted.
