@@ -590,13 +590,14 @@ def testAutoclipSensMapsOntoBackendThreshold(method, sens, expected):
     assert _mapAutoclipSensitivity(method, sens) == pytest.approx(expected)
 
 
-def testSmoothDedupMaxSpanClampedToAtLeastOne():
-    # 0 used to mean "no cap", which let one widened gap buffer thousands of
-    # full-resolution frames in the interpolate-first sink and exhaust VRAM.
-    for given in (-3, 0):
+def testSmoothDedupMaxSpanZeroMeansUncappedAndNegativesNormalize():
+    # 0 disables the cap (main.py's truthiness guard skips the span check);
+    # negatives must normalize to 0, not survive to make `span > cap`
+    # always-true and hold every gap.
+    for given, expected in ((-3, 0), (0, 0), (1, 1), (6, 6)):
         a = makeArgs(smooth_dedup=True, smooth_dedup_max_span=given)
         _configureProcessingSettings(a)
-        assert a.smooth_dedup_max_span == 1
+        assert a.smooth_dedup_max_span == expected
 
 
 # --------------------------------------------------------------------------- #

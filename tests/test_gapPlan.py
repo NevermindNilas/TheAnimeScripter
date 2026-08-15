@@ -115,6 +115,51 @@ def testMixedTwosAndThreesPreservesDuration():
 
 
 # --------------------------------------------------------------------------- #
+# Factor 1: --smooth_dedup --interpolate_factor 1 regenerates duplicate slots
+# in place -- the route for After Effects renders where a time remap was baked
+# into the clip before interpolation (already at comp fps, full of dup runs).
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("prevPos", [0, 1, 7, 1000])
+def testUnitGapAtFactorOneEmitsNothing(prevPos):
+    # A non-duplicate frame passes straight through: no inserts, no resample.
+    count, timesteps = gapPlan(prevPos, prevPos + 1, 1, 1)
+
+    assert count == 0
+    assert timesteps == []
+
+
+@pytest.mark.parametrize("span", [2, 3, 4, 8, 12])
+def testWidenedGapAtFactorOneRegeneratesEachDuplicateSlot(span):
+    # A run of span-1 dropped duplicates earns exactly span-1 synthesized
+    # frames at k/span -- one true in-between per duplicated slot, so the
+    # baked slowdown keeps its duration and fps.
+    count, timesteps = gapPlan(0, span, 1, 1)
+
+    assert count == span - 1
+    assert timesteps == pytest.approx([k / span for k in range(1, span)])
+
+
+def testFactorOnePreservesDuration():
+    # Baked 4x slowdown: every unique frame is followed by 3 dropped dups.
+    spans = [4] * 6
+    total, sourceFrames = runPattern(spans, 1)
+
+    assert total == sourceFrames + 1
+
+
+def testFactorOneCutSplitKeepsNothingForTheIncomingShot():
+    # count - fromPrev == factor - 1 == 0: on a cut the whole widened gap
+    # belongs to the outgoing shot, matching the span-1 invariant below.
+    for span in (2, 4, 9):
+        count, _ = gapPlan(0, span, 1, 1)
+        fromPrev = cutHoldSplit(0, span, 1, 1)
+        assert count - fromPrev == 0
+        assert 0 <= fromPrev <= count
+
+
+# --------------------------------------------------------------------------- #
 # Fractional factors
 # --------------------------------------------------------------------------- #
 

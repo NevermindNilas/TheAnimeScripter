@@ -16,15 +16,31 @@ def validateChoiceForKey(parser, key, value, sourceLabel):
     stale or hand-edited value used to travel all the way into a factory
     before anything noticed. Exits with the same red diagnostic argparse
     would have produced at parse time.
+
+    Returns the value normalized to the parser's canonical casing: the AE
+    panel serialized its decode dropdown label as ``"CPU"``, which the JSON
+    path tolerated for years before this validation existed, so a
+    case-insensitive match is accepted and mapped onto the declared choice.
+    Callers must assign the return value, not the original.
     """
     action = next((a for a in parser._actions if a.dest == key), None)
     if action is None or not action.choices:
-        return
+        return value
 
     choices = list(action.choices)
+    canonicalByLower = {c.lower(): c for c in choices if isinstance(c, str)}
     values = value if isinstance(value, list) else [value]
+    normalized = []
     for item in values:
         if item in choices:
+            normalized.append(item)
+            continue
+        if isinstance(item, str) and item.lower() in canonicalByLower:
+            canonical = canonicalByLower[item.lower()]
+            logging.info(
+                f"Normalized '{key}' in {sourceLabel}: {item!r} -> {canonical!r}"
+            )
+            normalized.append(canonical)
             continue
 
         message = f"Invalid value for '{key}' in {sourceLabel}: {item!r}."
@@ -44,6 +60,8 @@ def validateChoiceForKey(parser, key, value, sourceLabel):
                 message += f" {len(choices)} valid choices, see --help."
         logAndPrint(message, "red")
         sys.exit(1)
+
+    return normalized if isinstance(value, list) else normalized[0]
 
 
 PARENT_FLAG_DEFAULTS = {
@@ -156,7 +174,7 @@ class CliConfig:
             if key == "json":
                 continue
 
-            self.validateJsonChoice(key, value)
+            value = self.validateJsonChoice(key, value)
 
             if hasattr(self.args, key):
                 presentKeys.add(key)
@@ -190,8 +208,11 @@ class CliConfig:
         bridge sent ``depth_method: "small_v3-directml"``, a method with no CLI
         choice and no backend class, and the run died several seconds later in
         ``src/factories/standalone.py:depth()`` after decoding metadata.
+
+        Returns the value with any case-insensitive matches normalized to the
+        parser's canonical casing (the AE panel sends ``decode_method: "CPU"``).
         """
-        validateChoiceForKey(self.parser, key, value, "JSON config")
+        return validateChoiceForKey(self.parser, key, value, "JSON config")
 
     def loadJsonConfig(self):
         jsonPath = os.path.abspath(self.args.json)
