@@ -1,5 +1,7 @@
+import errno
 import logging
 import queue
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -343,50 +345,132 @@ class PreviewHTTPHandler(BaseHTTPRequestHandler):
         pass
 
 
+# The port --preview serves on when the user names none. Heavily contested:
+# Flask/uvicorn dev servers default to it and macOS AirPlay Receiver owns it,
+# which is why an unpinned run falls back to an OS-assigned port.
+DEFAULT_PREVIEW_PORT = 5000
+
+
+def _isPortInUse(error: OSError) -> bool:
+    """True if a bind failure really is an address-in-use conflict."""
+    codes = {errno.EADDRINUSE}
+    for name in ("WSAEADDRINUSE", "WSAEACCES"):
+        # WSAEACCES is what Windows returns when another socket holds the
+        # address exclusively, which is the same user-visible situation.
+        code = getattr(errno, name, None)
+        if code is not None:
+            codes.add(code)
+    return error.errno in codes
+
+
+class _PreviewHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer that refuses to share an already-bound port.
+
+    ``HTTPServer`` sets ``allow_reuse_address``, and on Windows SO_REUSEADDR
+    lets a second bind *succeed* against a live listener: the bind returned
+    cleanly, a green "Preview URL" was printed, and every request went to
+    whoever bound first, so the page just hung. Turning it off makes the bind
+    raise so the failure can be reported.
+
+    Windows only. On POSIX, SO_REUSEADDR cannot steal a live listener in the
+    first place, and it is what allows rebinding a port left in TIME_WAIT by
+    the previous run -- dropping it there would make two back-to-back runs fail
+    to bind for ~60s, trading this bug for a new one.
+    """
+
+    allow_reuse_address = sys.platform != "win32"
+
+
 class Preview:
     def __init__(
         self,
         previewSink: PreviewSink,
         localHost: str = "127.0.0.1",
-        port: int = 5000,
+        port: int = DEFAULT_PREVIEW_PORT,
+        allowPortFallback: bool = True,
     ) -> None:
         self.localHost = localHost
         self.port = port
         self.previewSink = previewSink
         self.server = None
         self.serverThread = None
+        # Only fall back to an OS-assigned port when the user did not pin one:
+        # a caller that passed --preview_port asked for that port specifically
+        # and would rather hear that it is busy than get a different one.
+        self.allowPortFallback = allowPortFallback
 
         PreviewHTTPHandler.sink = previewSink
 
+    def _bind(self, port: int):
+        # ThreadingHTTPServer: a long-lived /stream connection must not block
+        # /image or a second client.
+        server = _PreviewHTTPServer((self.localHost, port), PreviewHTTPHandler)
+        server.daemon_threads = True
+        return server
+
     def start(self) -> None:
+        requestedPort = self.port
         try:
-            # ThreadingHTTPServer: a long-lived /stream connection must not block
-            # /image or a second client.
-            self.server = ThreadingHTTPServer(
-                (self.localHost, self.port), PreviewHTTPHandler
-            )
-            self.server.daemon_threads = True
-
+            self.server = self._bind(requestedPort)
+        except OSError as e:
+            if not self.allowPortFallback:
+                # Only claim a port conflict when it actually is one: a bind can
+                # also fail with EACCES on a privileged port, or EADDRNOTAVAIL
+                # on a bad host, and telling those users to change the port
+                # sends them after the wrong problem.
+                if _isPortInUse(e):
+                    message = (
+                        f"Preview server could not start: port {requestedPort} "
+                        f"is already in use ({e}). Pass --preview_port with a "
+                        "free port."
+                    )
+                else:
+                    message = (
+                        f"Preview server could not start on "
+                        f"{self.localHost}:{requestedPort}: {e}"
+                    )
+                logAndPrint(message, "red", "ERROR")
+                return
+            try:
+                # Port 0 lets the OS pick a free one. The assigned port is
+                # printed below, so the URL always names a reachable server.
+                self.server = self._bind(0)
+            except OSError as fallbackError:
+                logAndPrint(
+                    f"Preview server could not start on port {requestedPort} "
+                    f"or on an OS-assigned port: {fallbackError}",
+                    "red",
+                    "ERROR",
+                )
+                return
+            self.port = self.server.server_address[1]
             logAndPrint(
-                f"Preview URL: http://{self.localHost}:{self.port}/",
-                "green",
+                f"Preview port {requestedPort} is already in use; serving on "
+                f"{self.port} instead. Pass --preview_port to choose one.",
+                "yellow",
+                "WARNING",
             )
 
-            self.serverThread = threading.Thread(
-                target=self.server.serve_forever, daemon=True
-            )
-            self.serverThread.start()
+        logAndPrint(
+            f"Preview URL: http://{self.localHost}:{self.port}/",
+            "green",
+        )
 
-        except Exception as e:
-            logging.error(f"Preview server error: {e}")
+        self.serverThread = threading.Thread(
+            target=self.server.serve_forever, daemon=True
+        )
+        self.serverThread.start()
 
     def close(self) -> None:
-        if self.server:
-            try:
-                self.server.shutdown()
-                self.server.server_close()
-            except Exception as e:
-                logging.warning(f"Error stopping preview server: {e}")
+        if not self.server:
+            # A start() that never bound must not report a clean shutdown.
+            return
+
+        try:
+            self.server.shutdown()
+            self.server.server_close()
+        except Exception as e:
+            logging.warning(f"Error stopping preview server: {e}")
 
         if self.serverThread and self.serverThread.is_alive():
             self.serverThread.join(timeout=2)

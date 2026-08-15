@@ -221,10 +221,18 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 
 #### Supported Input Formats
 ```
-Video: .mp4, .mkv, .mov, .avi, .webm, .m4v
+Video (written and read): .mp4, .mkv, .mov, .avi, .webm, .gif, .m4v
+Video (read only):        .m2ts, .mts, .mpg, .mpeg, .m2v, .flv, .wmv, .ogv
 Batch: .txt (one file path per line)
 URLs: YouTube, direct video links
 ```
+
+A read-only container is decoded normally, but the output is written as `.mp4`
+unless `--output` names something else — the default encoder cannot mux into
+ASF/FLV/MPEG-1. Pointing `--input` at a folder picks up every format above; any
+other media file in that folder is named in a warning rather than skipped in
+silence. `.ts` is deliberately not scanned (it is TypeScript at least as often
+as MPEG-TS) — pass such a file directly with `--input` to process it.
 
 #### Input Examples
 
@@ -276,12 +284,18 @@ C:\Videos\episode3.mp4
 --inpoint 60 --outpoint 90
 ```
 
+> **Note:** a range shorter than one frame still yields exactly one frame. It
+> used to be read as "no trim at all" and re-encoded the whole file (or, with a
+> non-zero `--inpoint`, produced no frames), because the end test rounded to a
+> frame index before checking whether a trim had been asked for.
+
 #### Basic Processing Flags
 
 | Parameter | Type | Description | Performance Impact |
 |-----------|------|-------------|-------------------|
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
-| `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/`, at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
+| `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/` (see `--preview_port`), at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
+| `--preview_port` | int | **Preview server port** (default 5000). Port 5000 is heavily contested — Flask/uvicorn dev servers use it, and macOS AirPlay Receiver owns it by default. Left at the default, TAS falls back to an OS-assigned free port and prints the real URL; set explicitly, it reports the port as busy instead of silently moving | None |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 | `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
 | `--profile` | flag | **Developer profiling** - Runs under `torch.profiler` and writes a trace for finding GPU/CPU bottlenecks | Large; profiling only |
@@ -656,6 +670,15 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 ```
 
 > **💡 Note:** `--output_scale` uses bilinear scaling for minimal artifacts and is applied during encoding for optimal performance.
+
+> **Note:** it applies to every capability, including the standalone ones that
+> bypass the main frame loop (`--depth`, `--segment`, `--stabilize`, `--moblur`,
+> `--obj_detect`) — those used to discard it silently while the log claimed it
+> had been applied. Two consequences worth knowing: with `--segment` the alpha
+> matte is resampled along with the colour, so a hard edge softens slightly at a
+> smaller size; with `--obj_detect` the boxes and labels are drawn at source
+> resolution and then scaled down with the frame, so a large downscale makes
+> them hard to read.
 
 ---
 

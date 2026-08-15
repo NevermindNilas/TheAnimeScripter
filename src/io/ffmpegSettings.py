@@ -1,7 +1,9 @@
 import logging
 import os
 import subprocess
+import threading
 import time
+import weakref
 from queue import Empty, Queue
 
 import torch  # this has to be always before nelux!
@@ -31,6 +33,7 @@ from src.io.encodingSettings import (
     matchEncoder,
     matchNeluxEncoder,
 )
+from src.io.getVideoMetadata import trimFrameRange
 from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logWarning
@@ -66,15 +69,98 @@ def _drainQueueUntilSentinel(queue) -> None:
             return
 
 
+# Writers that finalize their container in-process and are currently running.
+# Only NeluxWriteBuffer belongs here: the FFmpeg WriteBuffer's close() waits on
+# a subprocess, which is exactly the hang os._exit exists to dodge, and its
+# child finalizes itself on stdin EOF anyway.
+_LIVE_NELUX_WRITERS = weakref.WeakSet()
+
+
+def finalizeLiveWriters(timeout: float = 5.0) -> bool:
+    """Let every in-flight in-process encoder write its container trailer.
+
+    ``NeluxWriteBuffer`` encodes in this process and finalizes the container
+    only in its worker thread's ``finally``. ``main.py``'s KeyboardInterrupt
+    handler ends the process with ``os._exit(130)``, which runs no ``finally``
+    on any thread, so cancelling a ``*_nelux`` render left a multi-hundred-MB
+    file with no moov atom that no player or tool can open -- where the
+    FFmpeg-subprocess writer leaves a valid, playable partial, because its
+    child sees stdin EOF and finalizes itself.
+
+    Bounded and best-effort by design: a writer can be parked inside a native
+    ``encode_frame`` where no Python-level flag preempts it, so the caller must
+    still ``os._exit`` afterwards rather than joining. Never raises -- an
+    exception escaping here would skip that exit and change the exit code.
+
+    Returns True if every live writer finalized within the deadline.
+    """
+    try:
+        writers = list(_LIVE_NELUX_WRITERS)
+        if not writers:
+            return True
+
+        finished = True
+        # Ask every writer to stop before waiting on any of them, and isolate
+        # each one: a single bad entry must not leave the healthy writers
+        # un-asked and then time out waiting for them.
+        for writer in writers:
+            try:
+                writer.requestStop()
+            except BaseException:
+                finished = False
+
+        deadline = time.monotonic() + timeout
+        for writer in writers:
+            remaining = max(deadline - time.monotonic(), 0.0)
+            try:
+                if not writer.waitFinalized(remaining):
+                    finished = False
+            except BaseException:
+                finished = False
+        return finished
+    except BaseException:
+        # Must never escape: an exception here would skip the caller's
+        # os._exit(130) and change the process exit code.
+        return False
+
+
+def _resolveOutputScale(
+    width: int | None, height: int | None
+) -> tuple[int | None, int | None]:
+    """The `--output_scale` target for a writer, explicit value or run default.
+
+    Only ``main.py`` ever passed these; every standalone driver (depth,
+    segment, stabilize, moblur, obj_detect) builds its writer from a long
+    positional argument list that never carried them, so `--output_scale` was
+    silently discarded for half the toolkit while `src/cli/validator.py` logged
+    that it had been applied. The flag is run-wide, so falling back to
+    ``cs.OUTPUT_SCALE_*`` here fixes every driver at once and keeps a future
+    one from inheriting the same omission. An explicit argument still wins, and
+    a partial pair (one dimension only) is treated as unset, matching the
+    ``and`` guards at both consumers.
+    """
+    if width is None and height is None:
+        return cs.OUTPUT_SCALE_WIDTH, cs.OUTPUT_SCALE_HEIGHT
+    return width, height
+
+
 def _probedMetadata() -> dict:
     """The current input's probed metadata dict, or {} when unavailable.
 
-    getVideoMetadata.saveMetadata writes the file and points cs.METADATAPATH
-    at it before any writer is built, once per input in a batch. Both writers
+    getVideoMetadata.saveMetadata records it in-process and also writes the
+    file, once per input in a batch, before any writer is built. Both writers
     read it for their colour-space decision: WriteBuffer via colorSpaceFilter,
     NeluxWriteBuffer via colorSpaceOptions.
+
+    The in-process copy wins. metadata.json is one fixed install-dir path
+    shared by every TAS process on the machine, so a second run overwriting it
+    mid-render handed this run the other run's colour space. The file read
+    stays as the fallback for callers that set cs.METADATAPATH directly.
     """
     import json
+
+    if cs.PROBED_METADATA is not None:
+        return cs.PROBED_METADATA
 
     if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
         try:
@@ -312,8 +398,11 @@ class BuildBuffer:
         self._didDecoderResize = resizeTarget is not None
 
         fps = CachedReader.fps or 0.0
-        startFrame = int(round(float(self.inpoint) * fps)) if self.inpoint > 0 else 0
-        endFrame = int(round(float(self.outpoint) * fps)) if self.outpoint > 0 else 0
+        # Shared with getVideoMetadata so the decode and the reported frame
+        # count cannot drift apart -- see trimFrameRange. endFrame is None when
+        # no --outpoint was requested; testing that instead of `endFrame > 0`
+        # is what keeps a sub-frame --outpoint from reading as "no limit".
+        startFrame, endFrame = trimFrameRange(fps, self.inpoint, self.outpoint)
 
         decodedFrames = 0
         frameIdx = 0
@@ -321,7 +410,7 @@ class BuildBuffer:
             if frameIdx < startFrame:
                 frameIdx += 1
                 continue
-            if endFrame > 0 and frameIdx >= endFrame:
+            if endFrame is not None and frameIdx >= endFrame:
                 break
             if self.toTorch:
                 frame = self.processFrameToTorch(
@@ -587,8 +676,9 @@ class WriteBuffer:
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.slowmo = slowmo
-        self.output_scale_width = output_scale_width
-        self.output_scale_height = output_scale_height
+        self.output_scale_width, self.output_scale_height = _resolveOutputScale(
+            output_scale_width, output_scale_height
+        )
         # Preview is sampled from the frames this writer already holds, never
         # produced by the encoder: the ffmpeg command below is identical whether
         # preview is on or off, so preview cannot perturb encoding. The sampler
@@ -1349,6 +1439,12 @@ class NeluxWriteBuffer:
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
+        # Cancel handshake, driven by finalizeLiveWriters: _stopNow asks the
+        # encode loop to stop now rather than drain 32 queued frames first, and
+        # _finalized says the container trailer has been written. Both exist so
+        # a Ctrl-C leaves a playable file instead of a headerless one.
+        self._stopNow = threading.Event()
+        self._finalized = threading.Event()
         # Same early-death drain contract as WriteBuffer (see its __init__).
         self._sawSentinel = False
         self.encodeError: Exception | None = None
@@ -1395,6 +1491,9 @@ class NeluxWriteBuffer:
         # NVENC caveat: a CUDA frame whose size differs from the output takes
         # nelux's CPU staging path (the fused NVENC kernel converts but does
         # not scale).
+        output_scale_width, output_scale_height = _resolveOutputScale(
+            output_scale_width, output_scale_height
+        )
         self.outputWidth = width
         self.outputHeight = height
         if output_scale_width and output_scale_height:
@@ -1481,10 +1580,14 @@ class NeluxWriteBuffer:
         import torch
 
         sampler = self.previewSampler
+        _LIVE_NELUX_WRITERS.add(self)
         try:
             if self.benchmark:
-                while True:
-                    frame = self.writeBuffer.get()
+                while not self._stopNow.is_set():
+                    try:
+                        frame = self.writeBuffer.get(timeout=0.5)
+                    except Empty:
+                        continue
                     if frame is None:
                         self._sawSentinel = True
                         break
@@ -1492,8 +1595,12 @@ class NeluxWriteBuffer:
                 logging.info(f"Nelux benchmark consumed {self.writtenFrames} frames")
                 return
 
-            while self.writeBuffer.empty():
+            # Cancelling during model init/warmup parks the writer here, before
+            # the encoder even exists, so this spin has to watch the flag too.
+            while self.writeBuffer.empty() and not self._stopNow.is_set():
                 time.sleep(0.001)
+            if self._stopNow.is_set():
+                return
 
             self.encoder = nelux.VideoEncoder(
                 self.output,
@@ -1525,6 +1632,12 @@ class NeluxWriteBuffer:
             self._setupPassthrough()
 
             while True:
+                if self._stopNow.is_set():
+                    logging.info(
+                        f"Nelux encode cancelled after {self.writtenFrames} "
+                        "frames; finalizing the container."
+                    )
+                    break
                 try:
                     frame = self.writeBuffer.get(timeout=1.0)
                 except Exception:
@@ -1582,8 +1695,13 @@ class NeluxWriteBuffer:
             traceback.print_exc()
         finally:
             # Keep the producer's blocking put() from deadlocking the run if
-            # the encoder died before consuming the close() sentinel.
-            if not self._sawSentinel:
+            # the encoder died before consuming the close() sentinel. Skipped
+            # on the cancel path: the producer is still alive and producing, so
+            # the drain would consume faster than it idles and never see a
+            # sentinel -- burning the caller's whole deadline before the
+            # encoder.close() below, which is the only thing that matters here.
+            # Its blocked put() does not matter when os._exit follows.
+            if not self._sawSentinel and not self._stopNow.is_set():
                 _drainQueueUntilSentinel(self.writeBuffer)
             if sampler is not None:
                 sampler.close()
@@ -1592,6 +1710,20 @@ class NeluxWriteBuffer:
                     self.encoder.close()
                 except Exception as e:
                     logging.warning(f"Error closing Nelux encoder: {e}")
+            self._finalized.set()
+            _LIVE_NELUX_WRITERS.discard(self)
+
+    def requestStop(self) -> None:
+        """Ask the encode loop to stop and finalize the container now.
+
+        Cancellation only: the loop breaks without draining the 32 frames still
+        queued, because the caller is about to end the process.
+        """
+        self._stopNow.set()
+
+    def waitFinalized(self, timeout: float) -> bool:
+        """Block until the container trailer is written, or ``timeout`` passes."""
+        return self._finalized.wait(timeout)
 
     def write(self, frame):
         """Add a frame to the queue. Must be in [H, W, 3] HWC format."""

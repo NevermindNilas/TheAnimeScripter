@@ -107,6 +107,11 @@ def autoClip(self):
 
 
 def segment(self):
+    # self.fps, not self.outputFPS: segment bypasses the interpolating frame
+    # loop and emits exactly one frame per decoded frame, so the interpolated
+    # rate would stamp the container with 2x (or interpolateFactor x) the rate
+    # it actually wrote -- a matte that plays fast and drifts off its audio.
+    # Every other standalone driver already passes self.fps.
     if self.segmentMethod == "anime":
         from src.segment.animeSegment import AnimeSegment
 
@@ -115,7 +120,7 @@ def segment(self):
             self.output,
             self.width,
             self.height,
-            self.outputFPS,
+            self.fps,
             self.inpoint,
             self.outpoint,
             self.encodeMethod,
@@ -132,7 +137,7 @@ def segment(self):
             self.output,
             self.width,
             self.height,
-            self.outputFPS,
+            self.fps,
             self.inpoint,
             self.outpoint,
             self.encodeMethod,
@@ -149,7 +154,7 @@ def segment(self):
             self.output,
             self.width,
             self.height,
-            self.outputFPS,
+            self.fps,
             self.inpoint,
             self.outpoint,
             self.encodeMethod,
@@ -165,7 +170,7 @@ def segment(self):
             self.output,
             self.width,
             self.height,
-            self.outputFPS,
+            self.fps,
             self.inpoint,
             self.outpoint,
             self.encodeMethod,

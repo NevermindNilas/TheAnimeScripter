@@ -709,6 +709,13 @@ def prepareRuntimeArgs(args, outputPath, parser):
         sys.exit(1)
 
     if args.output_scale_width and args.output_scale_height:
+        # Latch it run-wide so every writer honours it, not just the one
+        # main.py builds: the standalone drivers never passed it through, so
+        # this log used to assert a scale that --depth/--segment/--stabilize/
+        # --moblur/--obj_detect then threw away. See
+        # src/io/ffmpegSettings.py:_resolveOutputScale.
+        cs.OUTPUT_SCALE_WIDTH = args.output_scale_width
+        cs.OUTPUT_SCALE_HEIGHT = args.output_scale_height
         logging.info(
             f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
         )

@@ -962,7 +962,9 @@ class AnimeSegmentOpenVino:
         frameCount = 0
         try:
             with ProgressBarLogic(self.totalFrames) as bar:
-                for _ in range(self.totalFrames):
+                # Read to the sentinel, not to the frame-count estimate; see
+                # the same change in the other standalone drivers.
+                while True:
                     frame = self.readBuffer.read()
                     if frame is None:
                         break
