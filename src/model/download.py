@@ -186,6 +186,19 @@ def downloadAndLog(
                     os.remove(tempFilePath)
             except Exception:
                 pass
+            # A 404 means the asset was never published -- a CLI choice whose
+            # weight is missing from the release, not a flaky network. Retrying
+            # it twice more only delays an identical failure, and the raw
+            # "HTTP Error 404" names neither the model nor the file.
+            if isinstance(e, HTTPError) and e.code == 404:
+                logAndPrint(
+                    f"'{model}' cannot be downloaded: {filename} is not "
+                    f"published on the model host ({download_url} returned "
+                    "404). This CLI choice has no working weights; please "
+                    "pick another method and report it.",
+                    colorFunc="red",
+                )
+                raise
             if attempt == retries - 1:
                 raise
 
@@ -220,6 +233,77 @@ def resolveWeightPath(
         half=half,
         ensemble=ensemble,
     )
+
+
+# The five checkpoints src/gmfss/model/GMFSS.py torch.loads. The bundle also
+# ships *_base.pkl variants that nothing loads, so requiring them would force a
+# pointless 110 MB re-download. Kept here rather than next to the loader because
+# src/gmfss/ is a vendored tree that ruff and ty both exclude, so drift there
+# gets no lint coverage.
+GMFSS_REQUIRED_MEMBERS = (
+    "rife.pkl",
+    "flownet.pkl",
+    "metric_union.pkl",
+    "feat_union.pkl",
+    "fusionnet_union.pkl",
+)
+
+
+def resolveWeightDir(
+    subdir: str,
+    requiredMembers: tuple[str, ...],
+    downloadModel: str | None = None,
+) -> str:
+    """Return a multi-file weight folder, downloading it if it is incomplete.
+
+    :func:`resolveWeightPath`'s sibling for models that ship as a zip of
+    several files rather than one checkpoint, so there is no single filename to
+    test for.
+
+    Guarding on the folder's existence is not enough: ``downloadModels``
+    creates ``weights/<model>/`` before it fetches a byte, and extracts the zip
+    straight into it, so a Ctrl-C, a dropped connection or a full disk leaves a
+    folder that exists and satisfies the guard but holds nothing the loader
+    needs (often just ``TEMP/``). Every later run then took the "already have
+    it" branch and never retried, which bricked the model permanently until the
+    user found and deleted the folder by hand -- nothing told them to.
+    Checking the members the loader actually opens makes that state self-heal,
+    and covers a half-finished extraction as well as an empty folder.
+    """
+    modelDir = os.path.join(weightsDir, subdir)
+
+    def missingMembers():
+        return [
+            m for m in requiredMembers if not os.path.exists(os.path.join(modelDir, m))
+        ]
+
+    if not missingMembers():
+        return modelDir
+
+    if os.path.isdir(modelDir):
+        logging.info(
+            f"{subdir} weights are incomplete (missing "
+            f"{', '.join(missingMembers())}); re-downloading."
+        )
+
+    downloadModels(model=downloadModel if downloadModel is not None else subdir)
+
+    # Return the directory we actually checked, not one derived from the
+    # download's return value: downloadAndLog rewrites `filename` from the zip's
+    # namelist, and returns None when the retry loop is exhausted -- deriving
+    # the path from it could point somewhere else entirely, or raise TypeError.
+    stillMissing = missingMembers()
+    if stillMissing:
+        # Without this the incomplete folder is handed back and the loader dies
+        # on a missing file -- and because the guard would fail again next run,
+        # every subsequent run re-downloads forever: the mirror image of the bug
+        # this function exists to fix.
+        raise FileNotFoundError(
+            f"{subdir} weights are still incomplete after downloading (missing "
+            f"{', '.join(stillMissing)} in {modelDir}). Delete that folder and "
+            "retry."
+        )
+    return modelDir
 
 
 def downloadModels(

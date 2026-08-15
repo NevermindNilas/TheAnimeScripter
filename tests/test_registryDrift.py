@@ -361,3 +361,58 @@ def testUnwiredV3MethodNamesItself():
 
     with pytest.raises(ValueError, match="rife9.9-tensorrt"):
         importRifeArch("rife9.9-tensorrt", "v3")
+
+
+# --------------------------------------------------------------------------- #
+# --ensemble is a second axis through modelsMap, and nothing exercised it: the
+# resolution helpers above always take the ensemble=False default. The
+# rife4.22-lite ncnn arm returned `rife-v4.22-lite-ensemble-ncnn.zip`, a name
+# that was never published, so `--interpolate_method rife4.22-lite-ncnn
+# --ensemble` 404'd three times and killed the run -- while the sibling 4.22 and
+# 4.21 arms already fell back to their non-ensemble zip.
+# --------------------------------------------------------------------------- #
+
+
+def _ncnnChoices(methodChoices):
+    return [m for m in methodChoices["interpolate"] if m.endswith("-ncnn")]
+
+
+def testEveryNcnnEnsembleChoiceResolvesToAName(methodChoices):
+    # The blunt guard: an arm that falls off the end of its `case` returns None,
+    # and a None filename reaches the URL join as the string "None".
+    unresolved = {
+        method: modelsMap(method, modelType="ncnn", ensemble=True)
+        for method in _ncnnChoices(methodChoices)
+    }
+
+    assert {m: v for m, v in unresolved.items() if not v} == {}
+
+
+def testNcnnEnsembleFallsBackToAPublishedModel(methodChoices):
+    # Ensemble is unsupported past rife 4.21 -- the warning says so -- so those
+    # arms must degrade to the non-ensemble zip rather than name one that does
+    # not exist. Pinned against the non-ensemble name so the two cannot diverge.
+    for method in _ncnnChoices(methodChoices):
+        plain = modelsMap(method, modelType="ncnn", ensemble=False)
+        ensemble = modelsMap(method, modelType="ncnn", ensemble=True)
+
+        # "ensenmble" is not a typo here: the 4.15-lite asset is misspelled on
+        # the model host itself (rife-v4.15-lite-ensenmble-ncnn.zip), so the
+        # registry has to ask for that exact name. Correcting the spelling in
+        # the code would 404.
+        if "ensemble" in str(ensemble) or "ensenmble" in str(ensemble):
+            # Only the arms that genuinely ship an ensemble zip may name one.
+            assert ensemble != plain, method
+        else:
+            assert ensemble == plain, (
+                f"{method} with --ensemble resolves to {ensemble!r}, which is "
+                f"neither an ensemble build nor the non-ensemble {plain!r}."
+            )
+
+
+def testRife422LiteNcnnEnsembleUsesTheNonEnsembleZip():
+    # The specific regression, named so its fix cannot be quietly reverted.
+    assert (
+        modelsMap("rife4.22-lite-ncnn", modelType="ncnn", ensemble=True)
+        == "rife-v4.22-lite-ncnn.zip"
+    )

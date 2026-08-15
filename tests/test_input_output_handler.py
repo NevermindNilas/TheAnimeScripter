@@ -476,3 +476,155 @@ def test_webm_incompatible_nelux_encoder_stays_on_the_nelux_writer():
 
 def test_non_webm_untouched():
     assert io.validateEncoder("x.mp4", "h264", None) == "h264"
+
+
+# --------------------------------------------------------------------------- #
+# EXTENSIONS vs INPUT_EXTENSIONS: one list used to serve both "what does a
+# folder batch pick up" and "is --output a file or a folder". It omitted .m4v,
+# so a folder mixing .m4v with .mp4 produced fewer outputs than inputs at exit
+# 0, and `--output clip.m4v` silently made a DIRECTORY named clip.m4v.
+# --------------------------------------------------------------------------- #
+
+
+def test_directory_batch_picks_up_m4v_next_to_mp4(tmp_path):
+    # The regression: .m4v is advertised in PARAMETERS.MD but was skipped in
+    # silence, so the batch ended successfully having processed half the folder.
+    (tmp_path / "clip.mp4").touch()
+    (tmp_path / "clip.m4v").touch()
+    files = io.getVideoFiles(str(tmp_path))
+    assert [os.path.basename(f) for f in files] == ["clip.m4v", "clip.mp4"]
+
+
+def test_directory_batch_picks_up_uppercase_m4v(tmp_path):
+    # The extension test lowercases, so an .M4V from a camera/muxer counts too.
+    (tmp_path / "clip.mp4").touch()
+    (tmp_path / "clip.M4V").touch()
+    files = io.getVideoFiles(str(tmp_path))
+    assert sorted(os.path.basename(f) for f in files) == ["clip.M4V", "clip.mp4"]
+
+
+def test_directory_batch_names_skipped_ts_in_a_warning(tmp_path, capsys):
+    # .ts is deliberately not scanned (TypeScript at least as often as MPEG-TS),
+    # but a skip nobody can see is the bug this fix is about: say it out loud.
+    (tmp_path / "clip.mp4").touch()
+    (tmp_path / "clip.m4v").touch()
+    (tmp_path / "stream.ts").touch()
+
+    files = io.getVideoFiles(str(tmp_path))
+    assert [os.path.basename(f) for f in files] == ["clip.m4v", "clip.mp4"]
+
+    out = capsys.readouterr().out
+    assert "stream.ts" in out
+    assert "--input" in out  # tells the user how to process it anyway
+
+
+def test_directory_batch_silent_about_ordinary_clutter(tmp_path, capsys):
+    # A warning that fires on every normal media folder is noise users learn to
+    # ignore, which would cost the .ts warning above all of its value.
+    (tmp_path / "clip.mp4").touch()
+    for clutter in ("notes.srt", "poster.jpg", "Thumbs.db", "desktop.ini"):
+        (tmp_path / clutter).touch()
+
+    files = io.getVideoFiles(str(tmp_path))
+    assert [os.path.basename(f) for f in files] == ["clip.mp4"]
+    assert capsys.readouterr().out == ""
+
+
+def test_explicit_m4v_output_stays_a_file(tmp_path):
+    # `--output clip.m4v` used to create a DIRECTORY named clip.m4v holding a
+    # differently-named .mp4, so every wrapper script lost track of its output.
+    src = tmp_path / "in.mp4"
+    src.touch()
+    explicit = str(tmp_path / "out.m4v")
+    res = io.processInputOutputPaths(
+        make_args(input=str(src), output=explicit), str(tmp_path / "default")
+    )
+    assert [r["outputPath"] for r in res] == [explicit]
+    assert not os.path.isdir(explicit)
+
+
+def test_wmv_output_becomes_a_directory_but_warns(tmp_path, capsys):
+    # TAS cannot mux into ASF, so the folder fallback stands -- but silently
+    # renaming the user's file to a folder is what broke wrapper scripts.
+    src = tmp_path / "in.mp4"
+    src.touch()
+    explicit = str(tmp_path / "clip.wmv")
+    res = io.processInputOutputPaths(
+        make_args(input=str(src), output=explicit), str(tmp_path / "default")
+    )
+    assert os.path.isdir(explicit)
+    assert os.path.dirname(res[0]["outputPath"]) == explicit
+
+    out = capsys.readouterr().out
+    assert "clip.wmv" in out
+    assert "FOLDER" in out and "not a file" in out  # both interpretations named
+    assert ".mp4" in out  # and what it could have written instead
+
+
+def test_plain_output_folder_creates_dir_without_warning(tmp_path, capsys):
+    # The most common invocation there is; a false positive here would be worse
+    # than the bug the warning exists for.
+    src = tmp_path / "in.mp4"
+    src.touch()
+    explicit = str(tmp_path / "renders")  # does not exist yet
+    res = io.processInputOutputPaths(
+        make_args(input=str(src), output=explicit), str(tmp_path / "default")
+    )
+    assert os.path.isdir(explicit)
+    assert os.path.dirname(res[0]["outputPath"]) == explicit
+    assert capsys.readouterr().out == ""
+
+
+def test_output_folder_with_a_dot_in_its_name_does_not_warn(tmp_path, capsys):
+    # `ep01.v2` is a directory that merely has a dot in it, not a container.
+    src = tmp_path / "in.mp4"
+    src.touch()
+    explicit = str(tmp_path / "ep01.v2")
+    io.processInputOutputPaths(
+        make_args(input=str(src), output=explicit), str(tmp_path / "default")
+    )
+    assert os.path.isdir(explicit)
+    assert capsys.readouterr().out == ""
+
+
+def test_mkv_input_extension_is_copied_but_wmv_falls_back_to_mp4():
+    # The copied extension is what selects the muxer, and the default encoder
+    # cannot mux into ASF: widening the batch scan to read-only containers would
+    # otherwise turn a silent skip into a header-write crash after model load.
+    assert io.generateOutputName(make_args(), "C:/v/clip.mkv") == "clip.mkv"
+    assert io.generateOutputName(make_args(), "C:/v/clip.wmv") == "clip.mp4"
+
+
+def _parametersMdFormats():
+    """Parse the two video lines of PARAMETERS.MD's Supported Input Formats."""
+    import re
+
+    docPath = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PARAMETERS.MD"
+    )
+    with open(docPath, encoding="utf-8") as handle:
+        text = handle.read()
+
+    block = re.search(r"#### Supported Input Formats\s*```(.*?)```", text, re.S)
+    assert block, "PARAMETERS.MD lost its Supported Input Formats block"
+
+    def parseLine(label):
+        line = re.search(rf"{label}:(.*)", block.group(1))
+        assert line, f"PARAMETERS.MD lost its '{label}' line"
+        return {
+            part.strip().lower()
+            for part in line.group(1).split(",")
+            if part.strip().startswith(".")
+        }
+
+    return parseLine(r"Video \(written and read\)"), parseLine(r"Video \(read only\)")
+
+
+def test_parameters_md_matches_the_two_extension_lists():
+    # Doc parity in both directions: the doc advertised .m4v that the code did
+    # not scan, which is exactly how the batch drop went unnoticed.
+    written, readOnly = _parametersMdFormats()
+    assert written == set(io.EXTENSIONS)
+    assert written | readOnly == set(io.INPUT_EXTENSIONS)
+    assert readOnly.isdisjoint(io.EXTENSIONS)  # read-only means TAS won't write it
+    assert ".m4v" in written and ".m4v" in io.EXTENSIONS

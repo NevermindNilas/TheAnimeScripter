@@ -700,11 +700,18 @@ def modelsMap(
                         return "rife4.22_lite_fp32_op21_slim.onnx"
             elif modelType == "ncnn":
                 if ensemble:
+                    # rife-v4.22-lite-ensemble-ncnn.zip was never published, so
+                    # this returned a name that 404s three times and kills the
+                    # run. Fall back to the non-ensemble zip exactly like the
+                    # rife4.22 and rife4.21 ncnn arms, and like this model's own
+                    # ONNX arm above -- ensemble is unsupported past 4.21, which
+                    # is what the warning already says.
                     logAndPrint(
-                        "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                        "Ensemble is no longer supported past rife 4.21; "
+                        "running rife4.22-lite without it.",
                         colorFunc="yellow",
                     )
-                    return "rife-v4.22-lite-ensemble-ncnn.zip"
+                    return "rife-v4.22-lite-ncnn.zip"
                 else:
                     return "rife-v4.22-lite-ncnn.zip"
 

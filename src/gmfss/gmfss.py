@@ -1,13 +1,11 @@
 import logging
-import os
 from contextlib import nullcontext
 
 import torch
 
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
-from src.model.download import downloadModels
-from src.model.registry import weightsDir
+from src.model.download import GMFSS_REQUIRED_MEMBERS, resolveWeightDir
 
 checker = CudaChecker()
 
@@ -16,9 +14,7 @@ torch.set_float32_matmul_precision("medium")
 
 
 def get_gmfss_model_dir():
-    if not os.path.exists(os.path.join(weightsDir, "gmfss")):
-        return os.path.dirname(downloadModels("gmfss"))
-    return os.path.join(weightsDir, "gmfss")
+    return resolveWeightDir("gmfss", GMFSS_REQUIRED_MEMBERS)
 
 
 class GMFSS:

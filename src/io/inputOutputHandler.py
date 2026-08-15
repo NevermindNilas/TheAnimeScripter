@@ -3,11 +3,62 @@ import logging
 import os
 import re
 
-EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
+# Containers TAS will write. Every one of these is a container the default
+# encoder can mux, because `_resolveExtension` copies an input's extension onto
+# the output when the user gives no --output.
+EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif", ".m4v"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
+
+# Containers a directory batch will pick up. A superset of EXTENSIONS: TAS can
+# decode plenty it cannot sensibly mux back out, and the two lists used to be
+# one, so a folder batch silently dropped every .m4v (which PARAMETERS.MD
+# advertises) and `--output clip.m4v` silently became a directory.
+# `.ts` is deliberately absent: it is TypeScript at least as often as MPEG-TS,
+# and scanning a source folder would feed .ts files to the decoder. It is
+# listed in _SKIPPED_MEDIA_EXTENSIONS instead, so a batch says so out loud.
+INPUT_EXTENSIONS = EXTENSIONS + [
+    ".m2ts",
+    ".mts",
+    ".mpg",
+    ".mpeg",
+    ".m2v",
+    ".flv",
+    ".wmv",
+    ".ogv",
+]
+
+# Media containers a directory batch deliberately does NOT pick up. Only used
+# to make the skip audible -- warning about every .srt/.nfo/Thumbs.db next to
+# the videos would be noise users learn to ignore.
+_SKIPPED_MEDIA_EXTENSIONS = frozenset(
+    {".ts", ".vob", ".asf", ".rm", ".rmvb", ".3gp", ".divx", ".mxf", ".f4v", ".y4m"}
+)
+
+# Extensions that look like a file rather than an output directory. Anything
+# here is treated as "--output names a file"; see _looksLikeMediaFile for the
+# warning that covers containers just outside it.
 # .txt is an output-only extension: autoclip writes a cut list, and users may
 # name it explicitly with --output cuts.txt.
 OUTPUT_FILE_EXTENSIONS = tuple(EXTENSIONS + IMAGE_EXTENSIONS) + (".txt",)
+
+
+def _looksLikeMediaFile(path):
+    """True if ``path``'s extension names a media container TAS knows of.
+
+    Used to decide whether an unrecognised ``--output`` deserves a warning:
+    ``--output out.wmv`` is a user asking for a file, while
+    ``--output D:\\renders\\ep01.v2`` is an ordinary directory that merely has
+    a dot in its name.
+    """
+    ext = os.path.splitext(str(path))[1].lower()
+    if not ext:
+        return False
+    return (
+        ext in INPUT_EXTENSIONS
+        or ext in IMAGE_EXTENSIONS
+        or ext in _SKIPPED_MEDIA_EXTENSIONS
+    )
+
 
 # Characters that are illegal in filenames on Windows (and a good idea to avoid
 # everywhere). Argument values get folded into output names, so scrub them.
@@ -144,7 +195,12 @@ def _resolveExtension(args, videoInput):
     if _isURL(videoInput) or (videoInput and "%" in str(videoInput)):
         return ".mp4"
     if videoInput:
-        return os.path.splitext(videoInput)[1] or ".mp4"
+        # Only copy a container TAS can actually mux into -- EXTENSIONS is
+        # exactly that set. A .wmv or .flv source would otherwise name a
+        # .wmv/.flv output and die at header write, which is how widening the
+        # batch scan turns a silent skip into a late crash after models load.
+        extension = os.path.splitext(videoInput)[1]
+        return extension if extension.lower() in EXTENSIONS else ".mp4"
     return ".mp4"
 
 
@@ -324,11 +380,30 @@ def getVideoFiles(videosInput):
 
         # Otherwise, look for video files in the directory (sorted for a stable,
         # reproducible batch order regardless of filesystem listing order).
-        return sorted(
-            os.path.join(absPath, f)
-            for f in os.listdir(absPath)
-            if os.path.splitext(f)[1].lower() in EXTENSIONS
-        )
+        videos = []
+        skipped = []
+        for f in sorted(os.listdir(absPath)):
+            extension = os.path.splitext(f)[1].lower()
+            if extension in INPUT_EXTENSIONS:
+                videos.append(os.path.join(absPath, f))
+            elif extension in _SKIPPED_MEDIA_EXTENSIONS:
+                skipped.append(f)
+
+        if skipped:
+            # Lazy import: src/cli/validator.py imports this module at module
+            # scope, and these modules must stay importable without torch.
+            from src.infra.logAndPrint import logAndPrint
+
+            preview = ", ".join(skipped[:5])
+            if len(skipped) > 5:
+                preview += f", ... (+{len(skipped) - 5} more)"
+            logAndPrint(
+                f"Skipped {len(skipped)} unsupported file(s) in {absPath}: "
+                f"{preview}. Pass one directly with --input to try it anyway.",
+                colorFunc="yellow",
+            )
+
+        return videos
 
     if os.path.isfile(absPath):
         if absPath.endswith(".txt"):
@@ -356,6 +431,20 @@ def processInputOutputPaths(args, defaultOutputPath):
     if output:
         output = os.path.abspath(output)
         if not output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
+            if _looksLikeMediaFile(output):
+                # A media extension TAS cannot write. Creating a directory
+                # named `clip.wmv` holding a differently-named .mp4 is a
+                # defensible fallback, but doing it silently breaks any
+                # wrapper script that expects the file it named.
+                from src.infra.logAndPrint import logAndPrint
+
+                logAndPrint(
+                    f"--output {output} names a container TAS does not write, "
+                    "so it is being treated as an output FOLDER, not a file. "
+                    f"Supported output containers: "
+                    f"{', '.join(EXTENSIONS)}.",
+                    colorFunc="yellow",
+                )
             os.makedirs(output, exist_ok=True)
         else:
             parent_dir = os.path.dirname(output)
