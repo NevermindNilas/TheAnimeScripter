@@ -334,7 +334,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.com/#NevermindNilas/TheAnimeScripter&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.dera.page/#NevermindNilas/TheAnimeScripter&Date)
 
 ## 👥 Code Contributors
 
