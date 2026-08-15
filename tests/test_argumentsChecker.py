@@ -29,6 +29,8 @@ from src.cli.validation import (
     parseOutputScale,
     selectedUpscaleBackend,
     validateCustomUpscaleModel,
+    validateInterpolateFactor,
+    validatePreviewPort,
 )
 from src.cli.validator import (
     _adjustMethodsBasedOnCuda,
@@ -1026,3 +1028,156 @@ def testJsonExplicitTrueIsNotUndoneByTheNewGuard(tmp_path, monkeypatch):
         tmp_path, monkeypatch, {"upscale": True, "upscale_method": "shufflecugan"}
     )
     assert args.upscale is True
+
+
+# --------------------------------------------------------------------------- #
+# --interpolate_factor lower bound
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("factor", [0.5, 0.25, 0.999])
+def testInterpolateFactorBelowOneIsRejected(factor):
+    # Nothing bounded this flag: gapPlan owes 0 frames for a factor <= 1 over a
+    # unit gap while the loop still writes every source frame, so 0.5 emitted
+    # the source frames at half the rate -- a video twice as long as its
+    # untouched audio, exit 0, no warning.
+    args = makeArgs(interpolate=True, interpolate_factor=factor)
+    with pytest.raises(CliValidationError) as excinfo:
+        validateInterpolateFactor(args)
+    # The message must point at the flag that actually slows footage down.
+    assert "--slowmo" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("factor", [0, -1, -2.5])
+def testInterpolateFactorZeroOrNegativeIsRejected(factor):
+    # These reached the encoder verbatim as `-r 0.0` / `-r -47.95`.
+    args = makeArgs(interpolate=True, interpolate_factor=factor)
+    with pytest.raises(CliValidationError):
+        validateInterpolateFactor(args)
+
+
+def testInterpolateFactorOneWithSmoothDedupStaysEnabled():
+    """Factor 1 + --smooth_dedup is a supported path, not a no-op: each dropped
+    duplicate is regenerated as a true in-between at unchanged duration and fps.
+    The original audit proposed disabling --interpolate at factor 1, which would
+    have silently killed the baked-slowdown feature that landed after it."""
+    args = makeArgs(interpolate=True, interpolate_factor=1, smooth_dedup=True)
+    assert validateInterpolateFactor(args) is None
+    assert args.interpolate is True
+
+
+def testInterpolateFactorOneWithoutSmoothDedupOnlyWarns():
+    # Pointless but harmless (source frames out, model still loaded), so it
+    # warns instead of raising -- and must not switch --interpolate off.
+    args = makeArgs(interpolate=True, interpolate_factor=1)
+    warning = validateInterpolateFactor(args)
+    assert args.interpolate is True
+    assert "--smooth_dedup" in warning
+
+
+def testInterpolateFactorIgnoredWhenInterpolateIsOff():
+    # The factor is never read without --interpolate; rejecting it there would
+    # break every namespace that carries a stale default.
+    args = makeArgs(interpolate=False, interpolate_factor=0.5)
+    assert validateInterpolateFactor(args) is None
+
+
+def testInterpolateFactorAcceptsNamespaceWithoutTheAttributes():
+    # testRuntimeValidationAllowsZeroOutpoint passes exactly such a namespace:
+    # a plain attribute read instead of getattr would AttributeError.
+    assert validateInterpolateFactor(types.SimpleNamespace()) is None
+
+
+def testRuntimeValidationJoinsUpscaleAndInterpolateWarnings():
+    # Two normalizers, one return value: the second used to shadow the first.
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=True,
+        upscale_factor=1,
+        interpolate=True,
+        interpolate_factor=1,
+        smooth_dedup=False,
+        inpoint=0.0,
+        outpoint=0.0,
+    )
+    warning = applyRuntimeValidation(args)
+    assert "at least 2" in warning
+    assert "--smooth_dedup" in warning
+
+
+def testRuntimeValidationRejectsSubUnitInterpolateFactor():
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=False,
+        interpolate=True,
+        interpolate_factor=0.5,
+        smooth_dedup=False,
+        inpoint=0.0,
+        outpoint=0.0,
+    )
+    with pytest.raises(CliValidationError, match="at least 1"):
+        applyRuntimeValidation(args)
+
+
+# --------------------------------------------------------------------------- #
+# --preview_port
+# --------------------------------------------------------------------------- #
+
+
+def testPreviewPortIsUnsetByDefault(builtParser):
+    # None, not 5000. 5000 is heavily contested (macOS AirPlay Receiver owns
+    # it), so an unset port may fall back to a free one while a port the user
+    # actually typed is honoured or reported busy -- and `value != 5000` cannot
+    # tell those apart for the one value most likely to be typed explicitly.
+    args = builtParser.parse_args([])
+    assert args.preview_port is None
+
+
+def testPreviewPortParsesExplicitValueAsInt(builtParser):
+    args = builtParser.parse_args(["--preview_port", "8123"])
+    assert args.preview_port == 8123
+
+
+def testExplicitDefaultPortIsStillTreatedAsPinned(builtParser):
+    # The regression this default exists to prevent.
+    args = builtParser.parse_args(["--preview_port", "5000"])
+    assert args.preview_port == 5000
+
+
+@pytest.mark.parametrize("port", [0, -1, 70000, 65536])
+def testPreviewPortOutOfRangeIsRejected(port):
+    # argparse bounds nothing, and --json/--preset assign onto the namespace, so
+    # without this an impossible port reached socket.bind and was swallowed as a
+    # generic bind failure.
+    args = makeArgs(preview=True, preview_port=port)
+
+    with pytest.raises(CliValidationError, match="preview_port"):
+        validatePreviewPort(args)
+
+
+@pytest.mark.parametrize("port", [1, 5000, 8123, 65535, None])
+def testPreviewPortInRangeIsAccepted(port):
+    assert validatePreviewPort(makeArgs(preview=True, preview_port=port)) is None
+
+
+def testPreviewPortIsNotCheckedWhenPreviewIsOff():
+    # A stale port in a preset must not fail a run that never starts a server.
+    assert validatePreviewPort(makeArgs(preview=False, preview_port=70000)) is None
+
+
+def testPreviewPortGuardIsWiredIntoRuntimeValidation():
+    # The helper being correct is worth nothing if nothing calls it.
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=False,
+        inpoint=0.0,
+        outpoint=0.0,
+        preview=True,
+        preview_port=70000,
+    )
+
+    with pytest.raises(CliValidationError, match="preview_port"):
+        applyRuntimeValidation(args)

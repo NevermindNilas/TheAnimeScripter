@@ -62,6 +62,76 @@ def normalizeUpscaleFactor(args):
     )
 
 
+def validatePreviewPort(args):
+    """Reject a `--preview_port` outside the valid TCP range.
+
+    argparse bounds nothing here, and ``--json``/``--preset`` assign onto the
+    namespace, so an out-of-range port would reach ``socket.bind`` and be
+    reported as a generic bind failure. Raising here rather than exiting inside
+    ``prepareRuntimeArgs`` also means it fires before ``checkSystem()`` and
+    dependency handling, instead of after the slow startup work has run.
+    """
+    if not getattr(args, "preview", False):
+        return
+    port = getattr(args, "preview_port", None)
+    if port is None:
+        return
+    try:
+        port = int(port)
+    except TypeError, ValueError:
+        raise CliValidationError(
+            f"--preview_port must be a whole number (got {port!r})."
+        ) from None
+    if not 1 <= port <= 65535:
+        raise CliValidationError(
+            f"--preview_port must be between 1 and 65535 (got {port})."
+        )
+
+
+def validateInterpolateFactor(args):
+    """Reject an interpolation factor below 1; leave 1 and above alone.
+
+    Nothing bounded this flag. ``gapPlan`` owes 0 frames for any factor <= 1
+    over a unit gap while the frame loop still writes every source frame, so
+    ``--interpolate_factor 0.5`` emitted the source frames at half the rate --
+    a video twice as long as its untouched audio, exit 0, no warning. 0 and
+    negatives reach the encoder as ``-r 0.0`` / ``-r -47.95``.
+
+    Factor 1 is deliberately left enabled: with ``--smooth_dedup`` it is the
+    supported path that regenerates each duplicated slot as a true in-between
+    at unchanged duration and fps. Disabling ``--interpolate`` here would
+    silently switch that feature off.
+    """
+    if not getattr(args, "interpolate", False):
+        return None
+
+    try:
+        factor = float(getattr(args, "interpolate_factor", 2))
+    except TypeError, ValueError:
+        raise CliValidationError(
+            f"Invalid --interpolate_factor: {args.interpolate_factor!r}. "
+            "Expected a number of at least 1."
+        ) from None
+
+    if factor <= 0:
+        raise CliValidationError(
+            f"--interpolate_factor must be greater than 0 (got {factor:g})."
+        )
+    if factor < 1:
+        raise CliValidationError(
+            f"--interpolate_factor must be at least 1 (got {factor:g}). "
+            "A factor below 1 inserts no frames and only lowers the output "
+            "frame rate, which desynchronizes the audio. To slow footage down "
+            "use --slowmo, which keeps the source frame rate."
+        )
+    if factor == 1 and not getattr(args, "smooth_dedup", False):
+        return (
+            "--interpolate_factor 1 without --smooth_dedup writes the source "
+            "frames unchanged; the interpolation model is still loaded."
+        )
+    return None
+
+
 def selectedUpscaleBackend(upscaleMethod):
     backendSuffixes = ("-directml", "-openvino", "-tensorrt", "-ncnn")
     for suffix in backendSuffixes:
@@ -108,4 +178,7 @@ def applyRuntimeValidation(args):
     validateCustomUpscaleModel(args)
     applyOutputScale(args)
     validateTrimRange(args)
-    return normalizeUpscaleFactor(args)
+    validatePreviewPort(args)
+    # Both normalizers can warn; join rather than let one shadow the other.
+    warnings = [normalizeUpscaleFactor(args), validateInterpolateFactor(args)]
+    return "\n".join(w for w in warnings if w) or None

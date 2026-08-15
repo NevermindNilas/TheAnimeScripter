@@ -431,6 +431,16 @@ def _buildParser(outputPath):
         "--preview", action="store_true", help="Preview the video during processing"
     )
     generalGroup.add_argument(
+        "--preview_port",
+        type=int,
+        # None, not 5000: the fallback must distinguish "the user asked for this
+        # port" from "nobody said", and `value != 5000` cannot -- it classifies
+        # an explicit `--preview_port 5000` as unpinned, which is the one value
+        # where the "honour it or say it is busy" rule would silently not apply.
+        default=None,
+        help="Port for the --preview server (default 5000). Port 5000 is heavily contested (Flask/uvicorn dev servers, and macOS AirPlay Receiver owns it by default); left unset TAS falls back to an OS-assigned port when it is busy, but a port given here is honored or reported as busy",
+    )
+    generalGroup.add_argument(
         "--json",
         type=str,
         help="Path to JSON configuration file with processing options",

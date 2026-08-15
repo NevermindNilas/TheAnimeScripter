@@ -64,6 +64,91 @@ def validateChoiceForKey(parser, key, value, sourceLabel):
     return normalized if isinstance(value, list) else normalized[0]
 
 
+_TYPE_LABELS = {int: "a whole number", float: "a number", str: "a string"}
+
+
+def _expectedLabel(converter):
+    """A human-readable name for what a parser ``type=`` converter accepts."""
+    if converter in _TYPE_LABELS:
+        return _TYPE_LABELS[converter]
+    if getattr(converter, "__name__", "") == "str2bool":
+        return "true or false"
+    return f"a value accepted by {getattr(converter, '__name__', converter)}"
+
+
+def coerceValueForKey(parser, key, value, sourceLabel):
+    """Apply the parser's own type conversion to a config-file value.
+
+    Companion to :func:`validateChoiceForKey`, which guards ``choices=`` only.
+    ``--json`` and ``--preset`` assign JSON scalars straight onto the
+    namespace, so nothing ever ran ``action.type`` over them and a panel or
+    hand-written file that quoted a number carried a ``str`` into the run: it
+    died at ``main.py``'s ``self.fps * self.interpolateFactor`` with "can't
+    multiply sequence by non-int of type 'float'", naming neither the option
+    nor the file.
+
+    The worse half is silent. ``store_true`` flags carry no ``type`` at all,
+    so ``{"interpolate": "false"}`` used to assign the *string* ``"false"`` --
+    truthy -- and turned interpolation on for a config that asked for it off.
+
+    Exits 1 with the same red diagnostic style as the choices check. Returns
+    the coerced value; callers must assign it.
+    """
+    action = next((a for a in parser._actions if a.dest == key), None)
+    if action is None or value is None:
+        return value
+
+    def fail(item, expected):
+        logAndPrint(
+            f"Invalid value for '{key}' in {sourceLabel}: {item!r}. "
+            f"Expected {expected}.",
+            "red",
+        )
+        sys.exit(1)
+
+    # store_true/store_false: argparse gives them no converter because the
+    # command line never supplies a value. A config file can, and does.
+    if action.nargs == 0:
+        if isinstance(value, bool):
+            return value
+        # Keep accepting 0/1 and "true"/"yes"/... -- panels already send those
+        # and they have always worked by truthiness; only ambiguity is an error.
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            from src.cli.parser import str2bool
+
+            try:
+                return str2bool(value)
+            except Exception:
+                fail(value, "true or false")
+        fail(value, "true or false")
+
+    converter = action.type
+    if converter is None:
+        return value
+
+    values = value if isinstance(value, list) else [value]
+    converted = []
+    for item in values:
+        # `isinstance(item, converter)` is only meaningful when the converter
+        # is a real class. `--half` and `--interpolate_first` declare
+        # `type=str2bool`, a plain function, and isinstance() against it raises
+        # TypeError -- which would break every preset load, since presets store
+        # all of vars(args). `type(x) is C` also sidesteps bool-is-an-int.
+        if isinstance(converter, type) and type(item) is converter:
+            converted.append(item)
+            continue
+        try:
+            converted.append(converter(item))
+        except Exception:
+            # str2bool raises argparse.ArgumentTypeError, which is not a
+            # ValueError, so this catch has to stay broad.
+            fail(item, _expectedLabel(converter))
+
+    return converted if isinstance(value, list) else converted[0]
+
+
 PARENT_FLAG_DEFAULTS = {
     "interpolate_method": ("interpolate", "rife4.6"),
     "interpolate_factor": ("interpolate", 2.0),
@@ -174,6 +259,10 @@ class CliConfig:
             if key == "json":
                 continue
 
+            # Coerce first: `"upscale_factor": "2"` is a valid choice once it
+            # is an int, and reporting it as an invalid choice against
+            # `2, 3, 4` reads like nonsense.
+            value = coerceValueForKey(self.parser, key, value, "JSON config")
             value = self.validateJsonChoice(key, value)
 
             if hasattr(self.args, key):
@@ -194,7 +283,14 @@ class CliConfig:
                     # interpolation alone.
                     loadedKeys.add(key)
             else:
-                logging.warning(f"Unknown option in JSON config: {key}")
+                # logging.warning alone only reaches TAS-Log.log, so a typo'd
+                # key changed nothing and said nothing. The preset path has
+                # printed this since 4fd967c4; match it.
+                message = f"Unknown option in JSON config: '{key}'; ignoring it."
+                close = difflib.get_close_matches(key, list(defaults), 1)
+                if close:
+                    message += f" Did you mean '{close[0]}'?"
+                logAndPrint(message, "yellow")
 
         self.jsonKeys.update(loadedKeys)
         self.jsonPresentKeys.update(presentKeys)
