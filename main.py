@@ -178,7 +178,6 @@ class VideoProcessor:
         self.input = results["videoPath"]
         self.output = results["outputPath"]
         self.encodeMethod = results["encodeMethod"]
-        self.customEncoder = results["customEncoder"]
         # Set by process() if the frame loop raises. start() reads this to
         # decide whether success stats are meaningful.
         self.processingError: Exception | None = None
@@ -916,7 +915,6 @@ class VideoProcessor:
                 input=self.input,
                 output=self.output,
                 encode_method=self.encodeMethod,
-                custom_encoder=self.customEncoder,
                 width=self.new_width,
                 height=self.new_height,
                 fps=self.outputFPS,

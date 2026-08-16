@@ -110,7 +110,6 @@ class MotionBlurPipeline:
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth="8bit",
@@ -135,7 +134,6 @@ class MotionBlurPipeline:
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -391,7 +389,6 @@ class MotionBlurPipeline:
             input=self.input,
             output=self.output,
             encode_method=self.encode_method,
-            custom_encoder=self.custom_encoder,
             width=self.width,
             height=self.height,
             fps=self.fps,

@@ -37,7 +37,7 @@ def processUrlInput(args, outputPath, processingEnabled):
 
     tempOutput = os.path.join(outputFolder, generateOutputName(args, args.input))
 
-    VideoDownloader(args.input, tempOutput, args.encode_method, args.custom_encoder)
+    VideoDownloader(args.input, tempOutput, args.encode_method)
     logAndPrint(
         f"Video downloaded successfully to {tempOutput}",
         "green",

@@ -88,7 +88,6 @@ class ObjectDetectionDML:
         inpoint=0,
         outpoint=0,
         encodeMethod="x264",
-        customEncoder="",
         benchmark=False,
         half=False,
         objDetectMethod="yolov9_small-directml",
@@ -111,7 +110,6 @@ class ObjectDetectionDML:
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encodeMethod = encodeMethod
-        self.customEncoder = customEncoder
         self.benchmark = benchmark
         self.half = half
         self.objDetectMethod = objDetectMethod
@@ -142,7 +140,6 @@ class ObjectDetectionDML:
                 input=self.input,
                 output=self.output,
                 encode_method=self.encodeMethod,
-                custom_encoder=self.customEncoder,
                 width=self.width,
                 height=self.height,
                 fps=self.fps,
@@ -346,7 +343,6 @@ class ObjectDetectionTensorRT:
         inpoint=0,
         outpoint=0,
         encodeMethod="x264",
-        customEncoder="",
         benchmark=False,
         half=False,
         objDetectMethod="yolov9_small-tensorrt",
@@ -376,7 +372,6 @@ class ObjectDetectionTensorRT:
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encodeMethod = encodeMethod
-        self.customEncoder = customEncoder
         self.benchmark = benchmark
         self.half = half
         self.objDetectMethod = objDetectMethod
@@ -400,7 +395,6 @@ class ObjectDetectionTensorRT:
                 input=self.input,
                 output=self.output,
                 encode_method=self.encodeMethod,
-                custom_encoder=self.customEncoder,
                 width=self.width,
                 height=self.height,
                 fps=self.fps,
@@ -688,7 +682,6 @@ class ObjectDetection:
         inpoint=0,
         outpoint=0,
         encodeMethod="x264",
-        customEncoder="",
         benchmark=False,
         totalFrames=0,
         half=False,

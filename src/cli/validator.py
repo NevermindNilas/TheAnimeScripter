@@ -100,9 +100,9 @@ def _resolveNeluxEncoder(args):
     `NeluxWriteBuffer` takes most of `WriteBuffer`'s keyword arguments through
     `**kwargs` and then never reads them, and `--depth` does not go through the
     Nelux writer at all. Both used to fail silently: `--output_scale 320x180`
-    wrote a full-resolution file, `--bit_depth 16bit` wrote 8-bit, and
-    `--custom_encoder` was dropped. Resolve it once here, like every other
-    incompatible-option downgrade, rather than per input file in the writer.
+    wrote a full-resolution file and `--bit_depth 16bit` wrote 8-bit. Resolve it
+    once here, like every other incompatible-option downgrade, rather than per
+    input file in the writer.
 
     `--output_scale` is honored natively since nelux 0.18.0 (encoder-side
     resize) and only downgrades when the installed nelux predates it.
@@ -112,8 +112,6 @@ def _resolveNeluxEncoder(args):
         return
 
     dropped = []
-    if args.custom_encoder:
-        dropped.append("--custom_encoder")
     if getattr(args, "bit_depth", "8bit") != "8bit":
         dropped.append("--bit_depth")
     if (
@@ -129,16 +127,9 @@ def _resolveNeluxEncoder(args):
         return
 
     args.encode_method = method[: -len("_nelux")]
-    # With --custom_encoder the FFmpeg writer runs that encoder verbatim and
-    # never consults the method, so naming a substitute encoder would be a lie.
-    substitute = (
-        "your --custom_encoder"
-        if args.custom_encoder
-        else f"the equivalent {args.encode_method}"
-    )
     logWarning(
-        f"{method} {reason}. Encoding with {substitute} instead, so the output "
-        "matches what you asked for."
+        f"{method} {reason}. Encoding with the equivalent {args.encode_method} "
+        "instead, so the output matches what you asked for."
     )
 
 
@@ -664,9 +655,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
     _handleDepthSettings(args)
 
     _handleSegmentSettings(args)
-
-    if args.custom_encoder:
-        logging.info("Custom encoder specified, use with caution")
 
     if args.bit_depth == "16bit" and args.segment:
         logging.error(

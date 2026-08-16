@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
-> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit` or `--depth` now runs the equivalent plain encoder instead, with a warning — losing the in-process encoder's speed, gaining an output that matches what was asked for. `--output_scale` no longer triggers the swap (nelux 0.18.0 resizes encoder-side); only an installed nelux older than 0.18.0 still downgrades it.
+> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--bit_depth 16bit` or `--depth` now runs the equivalent plain encoder instead, with a warning — losing the in-process encoder's speed, gaining an output that matches what was asked for. `--output_scale` no longer triggers the swap (nelux 0.18.0 resizes encoder-side); only an installed nelux older than 0.18.0 still downgrades it.
 
 ### Added
 - `--preview_port` (default 5000) picks the `--preview` server's port.
@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `tests/test_runOutcome.py` fails if a standalone capability stops reporting its own outcome (a structural check — it pins the wiring, not the runtime behaviour).
 
 ### Changed
+- FFmpeg now comes from [TAS-FFMPEG](https://github.com/NevermindNilas/TAS-FFMPEG) — one pinned, SHA256-verified 8.1.2 build per platform — instead of BtbN's and johnvansickle's rolling builds, so which FFmpeg you get no longer depends on the day you first ran TAS. macOS still installs FFmpeg with Homebrew and stays unpinned.
 - Directory batches now pick up `.m4v` (which `PARAMETERS.MD` already advertised) plus `.m2ts`, `.mts`, `.mpg`, `.mpeg`, `.m2v`, `.flv`, `.wmv` and `.ogv`, and name any media file they still skip instead of dropping it silently. A source in a container TAS cannot write (`.wmv`, `.flv`, ...) now produces an `.mp4` rather than an output the muxer rejects.
 - `--interpolate_factor` below 1 is rejected at startup instead of producing a video 1/factor times longer than its audio; 0 and negatives are rejected instead of reaching the encoder as `-r 0.0`. Factor 1 is unchanged and still supported.
 - `--smooth_dedup_max_span 0` now disables the cap, interpolating every duplicate run however long; previously values below 1 were clamped to 1. Negatives normalize to 0.
@@ -31,10 +32,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `PARAMETERS.MD` documents `--decode_method`, `--profile`, `--obj_detect_disable_annotations` and the six `*_nelux` encoders. Its debug section told you to run `--preset_list`, and two examples used `--bit_depth 10bit`; neither has ever been accepted.
 
 ### Removed
+- `--custom_encoder` and its whole pipeline: the flag, the writer's custom-encoder command builder, and the parameter threaded through every standalone driver. Use `--encode_method` (54 encoders); passing the removed flag now fails at startup.
 - `--precision`, which was never implemented and never read. `--half` is the real knob.
 - `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same model — use that.
 
 ### Fixed
+- Upgrading users kept whichever FFmpeg their first ever TAS run downloaded, because `ffmpeg_shared/` was only ever checked for existence. TAS now stamps the directory with the build it installed and replaces one whose stamp is missing or names a different build.
+- Linux arm64 downloaded the x86_64 FFmpeg build; it now gets the arm64 one, and a platform with no pinned build says so instead of installing the wrong architecture.
 - `--output_scale` was silently discarded by `--depth`, `--segment`, `--stabilize`, `--moblur` and `--obj_detect` — the full-resolution file was encoded while the log said the scale had been applied. Every writer now honours it.
 - `--segment --interpolate` tagged the matte with the interpolated frame rate, so it played `--interpolate_factor` times too fast and drifted off its audio by half its length. Segment now stamps the source rate, like every other standalone driver.
 - `--json` and `--preset` never applied argparse's `type=`, so `"interpolate_factor": "2"` died mid-run with `can't multiply sequence by non-int of type 'float'` and `{"interpolate": "false"}` silently turned interpolation on. Both are now coerced and rejected at startup with the option named, and an unknown key warns on the console with a suggestion.
@@ -68,9 +72,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--segment` and `--obj_detect` swallowed per-frame errors the same way, so a run that dropped every frame reported success.
 - Errors raised outside `start()` — unreadable metadata, a model download out of retries, a validator exit — left the After Effects panel on the last progress string with the run already over. `--depth` never sent a terminal status at all. Every run now sends exactly one.
 - `--output_scale` auto-enabled `--resize`, which applied `--resize_factor`'s default of 2 to the decode: `--upscale --output_scale 1280x720` on a 640x360 source ran the model over 1280x720 to 2560x1440 and then scaled back down. The model now sees 4x fewer pixels for the same output.
-- `--depth` encoded through OpenCV with a hardcoded `mp4v` fourcc on 25 of the `--depth_method` choices — every `og_*` model and the whole `small_v3`/`base_v3`/`large_v3` family — discarding `--encode_method`, `--custom_encoder` and `--bit_depth`. They now use the same writer as every other backend, so `--bit_depth 16bit` gives a 10-bit depth map instead of an 8-bit one. Depth values are unchanged.
+- `--depth` encoded through OpenCV with a hardcoded `mp4v` fourcc on 25 of the `--depth_method` choices — every `og_*` model and the whole `small_v3`/`base_v3`/`large_v3` family — discarding `--encode_method` and `--bit_depth`. They now use the same writer as every other backend, so `--bit_depth 16bit` gives a 10-bit depth map instead of an 8-bit one. Depth values are unchanged.
 - `--depth` with a `*_nelux` `--encode_method` encoded with the container default instead of the requested encoder: a 1-second 360p depth clip came out 31 KB against 71 KB.
-- `--encode_method *_nelux` silently ignored `--custom_encoder`, `--bit_depth 16bit` and `--output_scale`; `--output_scale 320x180` wrote a 1280x720 file.
+- `--encode_method *_nelux` silently ignored `--bit_depth 16bit` and `--output_scale`; `--output_scale 320x180` wrote a 1280x720 file.
 - `--bit_depth 16bit` on `nvenc_h265`, `slow_nvenc_h265`, `nvenc_av1` and `slow_nvenc_av1` uploaded 8-bit `nv12` surfaces to the encoder, so 16-bit depth maps were written 8-bit. They now upload `p010le` and come out 10-bit.
 - `--smooth_dedup` kept a whole widened gap in memory at once, so VRAM grew with the length of the held drawing: 5.1 GB after a 2-second 1080p hold, 10.9 GB after 12 seconds, against a flat 4.5 GB for plain `--interpolate`. `--smooth_dedup_max_span` never bounded it. Now flat at 4.4 GB, with byte-identical output.
 - `--output` with a `.webm` extension kept the default `x264` because the encoder check read the *input* path: FFmpeg refused to write the header and left a 262-byte file that the run reported as a success. It now picks `vp9` from the output, as it always did when the input was already `.webm`.

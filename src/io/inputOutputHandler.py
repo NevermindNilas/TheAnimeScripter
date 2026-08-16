@@ -326,13 +326,9 @@ WEBM_COMPATIBLE_ENCODERS = (
 )
 
 
-def validateEncoder(video, encodeMethod, customEncoder):
+def validateEncoder(video, encodeMethod):
     """Validates and potentially adjusts the encoder method based on file type."""
-    if (
-        str(video).endswith(".webm")
-        and not customEncoder
-        and encodeMethod not in WEBM_COMPATIBLE_ENCODERS
-    ):
+    if str(video).endswith(".webm") and encodeMethod not in WEBM_COMPATIBLE_ENCODERS:
         from src.infra.logAndPrint import logAndPrint
 
         # An incompatible *_nelux method stays on the Nelux writer: its VP9
@@ -340,7 +336,7 @@ def validateEncoder(video, encodeMethod, customEncoder):
         # container fix would silently cost the run its encoder path.
         substitute = "vp9_nelux" if encodeMethod.endswith("_nelux") else "vp9"
         logAndPrint(
-            f"Video {video} is a Webm file, encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)} and `--custom_encoder` is None, defaulting to '{substitute}'.",
+            f"Video {video} is a Webm file and encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)}, defaulting to '{substitute}'.",
             colorFunc="yellow",
         )
         return substitute
@@ -423,7 +419,7 @@ def processInputOutputPaths(args, defaultOutputPath):
     """Processes input and output paths for video processing.
 
     Returns a list of per-video dicts (``videoPath``, ``outputPath``,
-    ``encodeMethod``, ``customEncoder``), one entry per resolved input.
+    ``encodeMethod``), one entry per resolved input.
     """
     os.makedirs(defaultOutputPath, exist_ok=True)
 
@@ -473,10 +469,7 @@ def processInputOutputPaths(args, defaultOutputPath):
                 # extension: an explicit `--output out.webm` from an .mp4 source
                 # kept libx264 and FFmpeg refused to write the header, leaving a
                 # 262-byte file the run still reported as a success.
-                "encodeMethod": validateEncoder(
-                    outputPath, args.encode_method, args.custom_encoder
-                ),
-                "customEncoder": args.custom_encoder,
+                "encodeMethod": validateEncoder(outputPath, args.encode_method),
             }
         )
 

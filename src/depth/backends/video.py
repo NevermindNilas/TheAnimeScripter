@@ -34,7 +34,6 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="og_video_small_v2",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -52,7 +51,6 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -77,7 +75,6 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,
@@ -200,7 +197,6 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="video_small_v2",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -219,7 +215,6 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -245,7 +240,6 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,

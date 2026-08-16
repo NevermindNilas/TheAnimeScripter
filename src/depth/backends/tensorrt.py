@@ -46,7 +46,6 @@ class DepthTensorRTV2(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="small",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -64,7 +63,6 @@ class DepthTensorRTV2(DepthRunOutcome):
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -100,7 +98,6 @@ class DepthTensorRTV2(DepthRunOutcome):
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,
@@ -310,7 +307,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="og_small_v2",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -328,7 +324,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -369,7 +364,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,

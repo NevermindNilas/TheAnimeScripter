@@ -53,7 +53,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         segment_batch: int = 1,
@@ -69,7 +68,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.segmentBatch = max(1, int(segment_batch))
@@ -86,7 +84,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 input=self.input,
                 output=self.output,
                 encode_method=self.encode_method,
-                custom_encoder=self.custom_encoder,
                 grayscale=False,
                 width=self.width,
                 height=self.height,
@@ -275,7 +272,6 @@ class AnimeSegmentTensorRT:
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         segment_batch: int = 1,
@@ -291,7 +287,6 @@ class AnimeSegmentTensorRT:
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.segmentBatch = max(1, int(segment_batch))
@@ -320,7 +315,6 @@ class AnimeSegmentTensorRT:
                 input=self.input,
                 output=self.output,
                 encode_method=self.encode_method,
-                custom_encoder=self.custom_encoder,
                 grayscale=False,
                 width=self.width,
                 height=self.height,
@@ -514,7 +508,6 @@ class AnimeSegmentDirectML:
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
     ):
@@ -529,7 +522,6 @@ class AnimeSegmentDirectML:
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
 
@@ -550,7 +542,6 @@ class AnimeSegmentDirectML:
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,
@@ -746,7 +737,6 @@ class AnimeSegmentOpenVino:
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
     ):
@@ -761,7 +751,6 @@ class AnimeSegmentOpenVino:
         # run as failed; these paths never reach start()'s own bookkeeping.
         self.processingError: Exception | None = None
         self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
 
@@ -795,7 +784,6 @@ class AnimeSegmentOpenVino:
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,
