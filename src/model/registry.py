@@ -36,9 +36,6 @@ def modelsList() -> list[str]:
         "animesr",
         "animesr-directml",
         "animesr-tensorrt",
-        "shufflespan",
-        "shufflespan-directml",
-        "shufflespan-tensorrt",
         "fallin_soft",
         "fallin_soft-tensorrt",
         "fallin_soft-directml",
@@ -168,7 +165,6 @@ def modelsList() -> list[str]:
         "span-mps",
         "open-proteus-mps",
         "aniscale2-mps",
-        "shufflespan-mps",
         "rtmosr-mps",
         "saryn-mps",
         "fallin_soft-mps",
@@ -300,15 +296,6 @@ def modelsMap(
             return "dut_motionpro.pth"
         case "dut_smoother":
             return "dut_smoother.pth"
-
-        case "shufflespan" | "shufflespan-directml" | "shufflespan-tensorrt":
-            if modelType == "pth":
-                return "sudo_shuffle_span_10.5m.pth"
-            else:
-                if half:
-                    return "sudo_shuffle_span_op20_10.5m_1080p_fp16_op21_slim.onnx"
-                else:
-                    return "sudo_shuffle_span_op20_10.5m_1080p_fp32_op21_slim.onnx"
 
         case "aniscale2" | "aniscale2-directml" | "aniscale2-tensorrt":
             if modelType == "pth":

@@ -326,7 +326,6 @@ C:\Videos\episode3.mp4
 | **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML, OpenVINO, MPS |
 | **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML, OpenVINO, MPS |
 | **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **shufflespan** | ⚡⚡ | ⭐⭐⭐ | 2GB | SPAN/shuffle hybrid (10.5M, 2x) | TRT, DML, OpenVINO, MPS |
 | **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML, OpenVINO, MPS |
 | **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML, OpenVINO, MPS |
 | **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | CUDA, TRT, DML, OpenVINO, MPS |
@@ -344,7 +343,7 @@ C:\Videos\episode3.mp4
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality. On Apple Silicon use `shufflecugan-mps` or `span-mps`.
 
-> **⚠️ Suffix required:** `shufflespan` and the `artcnn_*` family are ONNX-only — always pass a `-tensorrt`, `-directml`, or `-openvino` suffix (plus `-mps` for `shufflespan`). There is no bare-CUDA choice for them.
+> **⚠️ Suffix required:** the `artcnn_*` family is ONNX-only — always pass a `-tensorrt`, `-directml`, or `-openvino` suffix. There is no bare-CUDA choice for it.
 
 ### ⏱️ Interpolation Parameters
 
