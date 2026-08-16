@@ -20,8 +20,8 @@ def calculatePadding(width, height, multiple=4):
 # convolutional and accept any size. NOTE: aniscale2 is a Compact arch
 # (multiple 1) despite the 3b30f9e1 commit message grouping it with the
 # RealCUGAN family, and adore needs 4 despite not being named there — trust
-# the probe, not prose. Methods absent from this table (gauss, figsr,
-# shufflespan, custom models, future archs) fall back to the runtime probe.
+# the probe, not prose. Methods absent from this table (gauss, figsr, custom
+# models, future archs) fall back to the runtime probe.
 KNOWN_INPUT_MULTIPLES = {
     "adore": 4,
     "fallin_soft": 4,
