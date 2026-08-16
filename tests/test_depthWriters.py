@@ -1,8 +1,8 @@
 """Pin every depth backend to the shared WriteBuffer.
 
 Three of them used to encode with `cv2.VideoWriter(fourcc "mp4v")`, which is
-not wired to anything the user typed: `--encode_method`, `--custom_encoder`
-and `--bit_depth` were all discarded and every run wrote MPEG-4 Part 2. That
+not wired to anything the user typed: `--encode_method` and `--bit_depth`
+were both discarded and every run wrote MPEG-4 Part 2. That
 covered 25 of the 69 `--depth_method` choices, the whole `*_v3` family
 included, and nothing in the log said so.
 
@@ -43,8 +43,8 @@ def testNoDepthBackendEncodesWithCv2():
             if _calleeName(call) == "VideoWriter":
                 offenders.append(f"{path.name}:{call.lineno}")
     assert not offenders, (
-        "depth backends must encode through WriteBuffer so --encode_method, "
-        f"--custom_encoder and --bit_depth are honored; found: {offenders}"
+        "depth backends must encode through WriteBuffer so --encode_method "
+        f"and --bit_depth are honored; found: {offenders}"
     )
 
 

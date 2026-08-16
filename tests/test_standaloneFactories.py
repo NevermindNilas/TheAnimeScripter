@@ -64,7 +64,6 @@ def _processor(segmentMethod):
         inpoint=0.0,
         outpoint=0.0,
         encodeMethod="prores",
-        customEncoder="",
         benchmark=False,
         totalFrames=100,
         segmentBatch=1,

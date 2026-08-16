@@ -12,7 +12,6 @@ def make_args(**overrides):
         input="clip.mp4",
         output=None,
         encode_method="x264",
-        custom_encoder=None,
         png_passthrough=False,
         single_image_input=False,
     )

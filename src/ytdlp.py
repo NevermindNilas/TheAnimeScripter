@@ -13,12 +13,10 @@ class VideoDownloader:
         video_link,
         output,
         encodeMethod,
-        customEncoder,
     ):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
-        self.customEncoder = customEncoder
 
         try:
             videoInfo = self.getVideoInfo()

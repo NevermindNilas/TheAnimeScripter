@@ -1305,9 +1305,6 @@ def _addEncodingOptions(argParser):
         default="x264",
         help="Encoding method",
     )
-    encodingGroup.add_argument(
-        "--custom_encoder", type=str, default="", help="Custom encoder settings"
-    )
 
 
 def _addMiscOptions(argParser):

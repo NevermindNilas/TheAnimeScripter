@@ -41,7 +41,6 @@ class DepthMPS(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="small_v2-mps",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -66,7 +65,6 @@ class DepthMPS(DepthRunOutcome):
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.baseMethod = depth_method.replace("-mps", "")
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -103,7 +101,6 @@ class DepthMPS(DepthRunOutcome):
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,
@@ -302,7 +299,6 @@ class OGDepthV2MPS(DepthRunOutcome):
         outpoint=0,
         encode_method="x264",
         depth_method="og_small_v2-mps",
-        custom_encoder="",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -327,7 +323,6 @@ class OGDepthV2MPS(DepthRunOutcome):
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.baseMethod = depth_method.replace("-mps", "")
-        self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -360,13 +355,12 @@ class OGDepthV2MPS(DepthRunOutcome):
 
             # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
             # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
-            # --encode_method said, and ignored --custom_encoder and
-            # --bit_depth. WriteBuffer is what every other depth backend uses.
+            # --encode_method said, and ignored --bit_depth. WriteBuffer is
+            # what every other depth backend uses.
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
                 self.encode_method,
-                self.custom_encoder,
                 self.width,
                 self.height,
                 self.fps,

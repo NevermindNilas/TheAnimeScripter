@@ -575,7 +575,6 @@ class WriteBuffer:
         input: str = "",
         output: str = "",
         encode_method: str = "x264",
-        custom_encoder: str = "",
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
@@ -597,7 +596,6 @@ class WriteBuffer:
 
         output: str - The path to the output video file.
         encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
-        custom_encoder: str - A custom encoder string to use for encoding the video.
         grayscale: bool - Whether to encode the video in grayscale.
         width: int - The width of the output video in pixels.
         height: int - The height of the output video in pixels.
@@ -665,7 +663,6 @@ class WriteBuffer:
             if not ext:
                 self.output = f"{self.output}{sequenceExt}"
 
-        self.custom_encoder = custom_encoder
         self.grayscale = grayscale
         self.width = width
         self.height = height
@@ -707,7 +704,6 @@ class WriteBuffer:
         return (
             self.encode_method in SEQUENCE_EXTENSIONS
             and self.single_image_output
-            and not self.custom_encoder
             and not self.benchmark
         )
 
@@ -783,7 +779,7 @@ class WriteBuffer:
         """
         # Set environment variables
         os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
-        if any(m and "av1" in m for m in (self.encode_method, self.custom_encoder)):
+        if self.encode_method and "av1" in self.encode_method:
             os.environ["SVT_LOG"] = "0"
 
         self.inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
@@ -837,7 +833,7 @@ class WriteBuffer:
 
     def _buildEncodingCommand(self, outputPixFmt):
         """Build FFmpeg command for encoding"""
-        useHwUpload = self._isNvencEncoder() and not self.custom_encoder
+        useHwUpload = self._isNvencEncoder()
 
         command = [
             cs.FFMPEGPATH,
@@ -900,45 +896,42 @@ class WriteBuffer:
 
         command.extend(["-map", "0:v"])
 
-        if not self.custom_encoder:
-            command.extend(matchEncoder(self.encode_method))
+        command.extend(matchEncoder(self.encode_method))
 
-            if useHwUpload:
-                # hwupload_cuda uploads whatever SW format precedes it, so
-                # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
-                # -- which matchEncoder already tags "-profile:v main10" -- and
-                # the "10bit" preset encoded 8-bit data. p010le is the CUDA
-                # 10-bit format.
-                #
-                # CUDA has no yuv444p10le hwframe format, so a 4:4:4 request
-                # subsamples here either way -- but it used to also fall to
-                # nv12 and lose the two extra bits, which is the half that
-                # actually matters (--depth --bit_depth 16bit on nvenc_h265
-                # wrote an 8-bit depth map: visible banding on the smooth
-                # gradients the 16-bit path exists for). Keep the depth
-                # wherever the encoder can carry it. h264_nvenc cannot encode
-                # 10-bit at all -- getPixFMT already forces "nvenc_h264" back
-                # to 8-bit, but "lossless_nvenc" also runs on h264_nvenc and
-                # does not go through that branch, so gate on the encoder.
-                tenBitNvenc = self.encode_method in (
-                    "nvenc_h265",
-                    "slow_nvenc_h265",
-                    "nvenc_h265_10bit",
-                    "nvenc_av1",
-                    "slow_nvenc_av1",
-                )
-                wantsTenBit = outputPixFmt.endswith(("10le", "12le", "16le"))
-                hwFormat = "p010le" if (tenBitNvenc and wantsTenBit) else "nv12"
-                hwFilters = filterList.copy() if filterList else []
-                hwFilters.append(f"format={hwFormat}")
-                hwFilters.append("hwupload_cuda")
-                command.extend(["-vf", ",".join(hwFilters)])
-            else:
-                if filterList:
-                    command.extend(["-vf", ",".join(filterList)])
-                command.extend(["-pix_fmt", outputPixFmt])
+        if useHwUpload:
+            # hwupload_cuda uploads whatever SW format precedes it, so
+            # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
+            # -- which matchEncoder already tags "-profile:v main10" -- and
+            # the "10bit" preset encoded 8-bit data. p010le is the CUDA
+            # 10-bit format.
+            #
+            # CUDA has no yuv444p10le hwframe format, so a 4:4:4 request
+            # subsamples here either way -- but it used to also fall to
+            # nv12 and lose the two extra bits, which is the half that
+            # actually matters (--depth --bit_depth 16bit on nvenc_h265
+            # wrote an 8-bit depth map: visible banding on the smooth
+            # gradients the 16-bit path exists for). Keep the depth
+            # wherever the encoder can carry it. h264_nvenc cannot encode
+            # 10-bit at all -- getPixFMT already forces "nvenc_h264" back
+            # to 8-bit, but "lossless_nvenc" also runs on h264_nvenc and
+            # does not go through that branch, so gate on the encoder.
+            tenBitNvenc = self.encode_method in (
+                "nvenc_h265",
+                "slow_nvenc_h265",
+                "nvenc_h265_10bit",
+                "nvenc_av1",
+                "slow_nvenc_av1",
+            )
+            wantsTenBit = outputPixFmt.endswith(("10le", "12le", "16le"))
+            hwFormat = "p010le" if (tenBitNvenc and wantsTenBit) else "nv12"
+            hwFilters = filterList.copy() if filterList else []
+            hwFilters.append(f"format={hwFormat}")
+            hwFilters.append("hwupload_cuda")
+            command.extend(["-vf", ",".join(hwFilters)])
         else:
-            command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+            if filterList:
+                command.extend(["-vf", ",".join(filterList)])
+            command.extend(["-pix_fmt", outputPixFmt])
 
         if cs.AUDIO:
             command.extend(self._buildAudioSettings())
@@ -1001,25 +994,6 @@ class WriteBuffer:
             filterList.append(colorSpaceFilter(_probedMetadata()))
 
         return filterList
-
-    def _buildCustomEncoder(self, filterList, outputPixFmt):
-        """Apply custom encoder settings with filters"""
-        customEncoderArgs = self.custom_encoder.split()
-
-        if "-vf" in customEncoderArgs:
-            vfIndex = customEncoderArgs.index("-vf")
-            filterString = customEncoderArgs[vfIndex + 1]
-            for filterItem in filterList:
-                filterString += f",{filterItem}"
-            customEncoderArgs[vfIndex + 1] = filterString
-        elif filterList:
-            customEncoderArgs.extend(["-vf", ",".join(filterList)])
-
-        if "-pix_fmt" not in customEncoderArgs:
-            logging.info(f"-pix_fmt was not found, adding {outputPixFmt}.")
-            customEncoderArgs.extend(["-pix_fmt", outputPixFmt])
-
-        return customEncoderArgs
 
     # Subtitle codecs an ISO-BMFF container carries natively, so a stream copy
     # is both valid and lossless. Everything else text-based (subrip, ass, ssa)
@@ -1777,8 +1751,8 @@ def createWriteBuffer(encode_method: str, **kwargs):
     Factory function to create the appropriate write buffer.
 
     A `*_nelux` method only reaches here when it can actually be honored:
-    NeluxWriteBuffer swallows `--custom_encoder` and `--bit_depth` through
-    `**kwargs` without reading them, so `src/cli/validator.py:_resolveNeluxEncoder`
+    NeluxWriteBuffer swallows `--bit_depth` through
+    `**kwargs` without reading it, so `src/cli/validator.py:_resolveNeluxEncoder`
     swaps the method for its FFmpeg twin, once per run, before any writer is
     built. (`--output_scale` is honored natively via nelux's encoder-side
     resize since nelux 0.18.0; the validator only downgrades it on an older

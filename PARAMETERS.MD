@@ -81,7 +81,7 @@
 |-------|----------|----------|
 | 🟢 **Beginner** | `--upscale`, `--interpolate` | Basic enhancement, anime upscaling |
 | 🟡 **Intermediate** | `--restore`, `--dedup` | Quality optimization, batch processing |
-| 🔴 **Advanced** | TensorRT models, custom encoders, model chaining | Professional workflows, maximum performance |
+| 🔴 **Advanced** | TensorRT models, 10-bit encoders, model chaining | Professional workflows, maximum performance |
 
 ### 🚀 Auto-Enable Feature
 
@@ -843,7 +843,6 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--encode_method` | str | "x264" | **Encoder selection** |
-| `--custom_encoder` | str | "" | **Custom FFmpeg parameters** |
 
 ### 📊 Encoder Comparison
 
@@ -904,7 +903,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **slow_nvenc_av1_nelux** | slow_nvenc_av1 | NVIDIA RTX 40+ |
 | **lossless_nvenc_nelux** | lossless_nvenc | NVIDIA GPU |
 
-> **Note:** the in-process encoder cannot apply `--custom_encoder` or `--bit_depth 16bit`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter); an older installed nelux falls back to the plain encoder the same way. `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
+> **Note:** the in-process encoder cannot apply `--bit_depth 16bit`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter); an older installed nelux falls back to the plain encoder the same way. `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
 
 #### High-Quality Presets
 
@@ -1068,7 +1067,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 
 **Solutions:**
 1. **Adjust encoding:** Try `--encode_method x264_animation_10bit`
-2. **Disable compression:** Use higher CRF values in custom encoder
+2. **Reduce compression:** Try a `slow_*` or `lossless*` `--encode_method`
 3. **Try different models:** Test `span-tensorrt` for upscaling
 4. **Add restoration:** Use `--restore --restore_method nafnet`
 5. **Check input quality:** Ensure source isn't heavily compressed

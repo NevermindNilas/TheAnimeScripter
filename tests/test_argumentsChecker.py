@@ -143,7 +143,6 @@ def testOutputScaleAloneCountsAsProcessing():
 def neluxArgs(**overrides):
     base = dict(
         encode_method="x264_nelux",
-        custom_encoder="",
         bit_depth="8bit",
         output_scale_width=None,
         output_scale_height=None,
@@ -168,7 +167,6 @@ def testNonNeluxMethodIsNeverRewritten():
 @pytest.mark.parametrize(
     "overrides",
     [
-        dict(custom_encoder="-c:v libx265 -crf 30"),
         dict(bit_depth="16bit"),
         dict(depth=True),
     ],

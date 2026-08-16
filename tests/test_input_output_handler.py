@@ -32,7 +32,6 @@ def make_args(**overrides):
         single_image_input=0,
         encode_method="",
         png_passthrough=0,
-        custom_encoder=None,
         output=None,
         input=None,
     )
@@ -450,15 +449,11 @@ def test_process_missing_file_raises(tmp_path):
 
 
 def test_webm_without_compatible_encoder_falls_back_to_vp9():
-    assert io.validateEncoder("x.webm", "h264", None) == "vp9"
-
-
-def test_webm_with_custom_encoder_kept():
-    assert io.validateEncoder("x.webm", "h264", "-c:v libx264") == "h264"
+    assert io.validateEncoder("x.webm", "h264") == "vp9"
 
 
 def test_webm_with_compatible_encoder_kept():
-    assert io.validateEncoder("x.webm", "nvenc_av1", None) == "nvenc_av1"
+    assert io.validateEncoder("x.webm", "nvenc_av1") == "nvenc_av1"
 
 
 @pytest.mark.parametrize(
@@ -467,15 +462,15 @@ def test_webm_with_compatible_encoder_kept():
 def test_webm_keeps_compatible_nelux_encoders(method):
     # av1_nelux/nvenc_av1_nelux used to be force-swapped to FFmpeg's vp9 on a
     # .webm output, silently costing the run its in-process writer.
-    assert io.validateEncoder("x.webm", method, None) == method
+    assert io.validateEncoder("x.webm", method) == method
 
 
 def test_webm_incompatible_nelux_encoder_stays_on_the_nelux_writer():
-    assert io.validateEncoder("x.webm", "x264_nelux", None) == "vp9_nelux"
+    assert io.validateEncoder("x.webm", "x264_nelux") == "vp9_nelux"
 
 
 def test_non_webm_untouched():
-    assert io.validateEncoder("x.mp4", "h264", None) == "h264"
+    assert io.validateEncoder("x.mp4", "h264") == "h264"
 
 
 # --------------------------------------------------------------------------- #
