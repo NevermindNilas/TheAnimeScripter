@@ -87,6 +87,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--segment` pushed its RGBA frames through `yuva420p` before the `yuva444p10le` ProRes 4444 output, discarding half the chroma resolution and two bits ahead of a conversion that cannot recover either. On a 1-pixel chroma pattern the old chain measured 7.3 dB against the source, the new one 48.5 dB. On a real matte that is +0.8 dB of colour and 22% less error along the edges, against -1.6 dB of alpha and 1-3% more file size.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
+## TAS Adobe Edition
+### New
+- **Smooth Held Frames**, a chain step for anime animated on twos and threes: pick the duplicate detector, the sensitivity and the longest held run to interpolate across, and get real motion where the drawings were held instead of multiplied duplicates. The CUDA detectors and FlowNetS need an NVIDIA GPU and a sponsor account.
+- One-time $99 and $150 purchases are detected automatically, so lifetime access no longer depends on a hand-maintained allowlist. Lapsed monthly sponsors stay locked out.
+- The AGPL/GPL components the panel downloads — TheAnimeScripter, nelux and FFmpeg — are disclosed in About, with the notices and full license texts shipped inside the ZXP. The old "License: MIT" entry was never accurate for the panel and is gone.
+- Locale coverage broadened for German, Spanish, French, Hungarian, Romanian and Russian, with a parity suite that fails the build on further drift. Japanese remains the outlier.
+- Persisted chain and settings blobs are migrated on load instead of being read as-is.
+
+### Changed
+- The AI security directive is gone from the shipped panel, along with the obfuscator hardening it justified. A red team found it produced no refusals — the gate is client-side, so there is no trust root behind it. Gating behaviour is unchanged (ADR 0001).
+- ExtendScript calls are serialised through a single host gate, so overlapping bridge calls cannot interleave.
+- Chain steps, the tool launcher and the queue/progress list moved out of the tab components they had grown inside.
+
+### Fixed
+- Packaged ZXPs shipped with the CEP remote-debugging ports open, offering a DevTools session on 8860/8861 with live panel state, entitlement responses and every network call. Package builds now blank the extension list; local and dev builds keep it.
+- Model gating compared raw keys, so a key carrying stray whitespace or non-canonical casing — from a persisted preset, a restored queue item or a hand-edited settings blob — walked past the gate.
+- Every external link opened twice inside Adobe, because the CEP opener returns `undefined` on success and the `window.open` fallback fired anyway.
+
+## TAS-Standalone
+### New
+- **Stabilization method** in the Restore section, revealed by the Stabilize toggle: `classic` or the new `dut`. `dut` is CUDA only, so it is locked in the dropdown and refused at run start for accounts without a GPU entitlement, like every other CUDA method.
+- The installer now presents the app's own EULA, and the third-party notices, the AGPL-3.0 and GPL-3.0 texts and generated npm and Python attribution roll-ups install next to the executable. Settings gained an "Open source licences" card pointing at all of it.
+
+### Changed
+- Tracks the 2.9.5 CLI surface exactly: `--encode_method` gains `jpeg` and the 16 new `*_nelux` twins (54 encoders), the **Custom encoder** field is gone along with `--custom_encoder`, the four `shufflespan-*` upscalers are gone, `.m4v` is offered in the file pickers, and **Smooth Held Frames**' longest-run setting accepts 0 for "no cap" instead of clamping to 1.
+- Updating restages the engine, which is a ~91 MB download at 2.9.5, down from ~234 MB at 2.9.0 now that torch has left the base bundle. The multi-GB dependency set is kept and re-verified rather than re-downloaded.
+- The titlebar reads its version from the build instead of a hardcoded string, which had it reading "v2.8.0" for the whole 2.9.0 line.
+
+### Fixed
+- Media probing preferred any `ffmpeg` on PATH over the pinned, GPL-configured build the backend ships and actually encodes with, so the Media tab and the poster frame could describe something other than what a render would produce. The bundled pair now wins, and both binaries must come from the same install rather than being mixed across builds.
+
 ## [2.9.0] - 2026-08-03
 ### Highlights
 
