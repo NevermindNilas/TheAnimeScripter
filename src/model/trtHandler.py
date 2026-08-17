@@ -137,10 +137,11 @@ def _timingCachePath(maxWorkspaceSize: int) -> str | None:
 
     ``maxWorkspaceSize`` is part of the name because it is NOT part of TensorRT's
     own cache key. Tactics that do not fit the workspace are dropped before they
-    are timed, so a 1 GiB build that reuses entries measured under the 4 GiB
-    budget `src/depth/backends/tensorrt.py` requests for VideoDepthAnything can
-    adopt a tactic it would never have picked alone -- making the engine depend
-    on the order unrelated models happened to be built in.
+    are timed, so a build run under a smaller budget that reuses entries measured
+    under a larger one can adopt a tactic it would never have picked alone --
+    making the engine depend on the order unrelated models happened to be built
+    in. Every caller currently takes the default, but the parameter is public and
+    the key has to keep holding the day one of them stops.
 
     The rest of the name is the GPU and the TensorRT and CUDA versions, so a
     cache from elsewhere is skipped without ever being opened. That matters more
@@ -517,7 +518,7 @@ def tensorRTEngineCreator(
     inputsOpt: list[tuple[int, ...]] | tuple[int, ...] | None = None,
     inputsMax: list[tuple[int, ...]] | tuple[int, ...] | None = None,
     inputName: list[str] | None = None,
-    maxWorkspaceSize: int = (1 << 30),
+    maxWorkspaceSize: int = (4 << 30),
     forceStatic: bool = False,
     isMultiInput: bool = False,
 ) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
@@ -532,12 +533,26 @@ def tensorRTEngineCreator(
         inputsOpt: The shape(s) for which TensorRT will optimize the engine.
         inputsMax: The maximum shape(s) that the profile will support.
         inputName (List[str]): The names of the input tensors.
-        maxWorkspaceSize (int): The maximum GPU memory that the engine will use.
+        maxWorkspaceSize (int): Scratch budget for the build; see the note below.
         forceStatic (bool): Force static shapes for all inputs.
         isMultiInput (bool): Whether the model has multiple inputs.
 
     Returns:
         Tuple of (engine, context) or (None, None) on failure.
+
+    ``maxWorkspaceSize`` bounds what TensorRT may use while *building*; it is not
+    a runtime cap, and an engine's device memory routinely exceeds it (adore at
+    1080p asks 1024 MiB to build and 1225 MiB to infer). Tactics that do not fit
+    are dropped before they are timed, so a budget set too low silently costs
+    speed, and when the excluded tactic is the only implementation of a node it
+    fails the build outright with "Could not find any implementation". The whole
+    Adore graph fuses into one Myelin region wanting 1027-1081 MiB at 1080p,
+    which the previous 1024 MiB default missed by as little as 2.7 MiB.
+    TensorRT's own default is total device memory; 4 GiB keeps a bound without
+    sitting on top of a common requirement. Overshooting free VRAM is safe --
+    TensorRT tries the allocation, fails, and skips that tactic. It is a constant
+    on purpose: _timingCachePath keys the cache filename on it, so deriving it
+    from live free VRAM would mint a new cache every run and never reuse one.
     """
     # Input validation
     if not modelPath or not os.path.exists(modelPath):

@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.9.6] - 2026-08-17
+
+### Fixed
+- TensorRT engine builds no longer fail with `Could not find any implementation for node {ForeignNode[...]}` on models whose whole graph fuses into one Myelin region, which `adore` at 1080p did on some driver/GPU combinations. Every engine now builds with a 4 GiB workspace budget instead of 1 GiB, which was fractionally under what such a build needs; engines already on disk are unaffected and inference VRAM is unchanged.
 
 ### Removed
 - 47 `--depth_method` choices were removed for licensing reasons, leaving `small_v2`, `og_small_v2`, `video_small_v2`, `og_video_small_v2` and the v3 family (20 in total). A removed method now exits 2 with the list of valid choices.
