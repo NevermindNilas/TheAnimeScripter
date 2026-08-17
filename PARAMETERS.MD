@@ -521,8 +521,8 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
 | `--depth_norm` | flag | False | **Ghost-free depth stabilization.** Image-depth methods robustly normalize the current prediction and estimate only a small global scale/shift. Temporal `video_*` methods preserve the model's shared depth coordinate system with a slowly adapting scene range instead of independently min/maxing every frame. Historical depth pixels are never composited into the current frame, preventing stamped textures, trails, and motion blur. For maximum stability, use `--depth_method video_small_v2 --half --depth_norm`. |
-| `--depth_window` | int | 32 | **Temporal attention window** (frames attended) for the video depth methods (`video_small_v2`/`video_large_v2`); one of `32/16/8/4`. `32` = full-quality streaming; `16` gives ~+24% forward throughput (~+14% end-to-end) with no added flicker and SSIM 0.997 / VMAF 98.1 vs the full window; `8`/`4` trade more fidelity for more speed. Frame storage is unchanged (32 retained); only the attended window shrinks. CUDA-only; ignored by other depth methods. |
-| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA image depth methods (v2/distill/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, `distill`/`og_distill` TensorRT (multi-input), or the DirectML/OpenVINO backends (forced to `1`). |
+| `--depth_window` | int | 32 | **Temporal attention window** (frames attended) for the video depth methods (`video_small_v2`); one of `32/16/8/4`. `32` = full-quality streaming; `16` gives ~+24% forward throughput (~+14% end-to-end) with no added flicker and SSIM 0.997 / VMAF 98.1 vs the full window; `8`/`4` trade more fidelity for more speed. Frame storage is unchanged (32 retained); only the attended window shrinks. CUDA-only; ignored by other depth methods. |
+| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods or the DirectML/OpenVINO backends (forced to `1`). |
 
 #### 🎯 Segmentation Methods
 
@@ -539,26 +539,13 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use (default) | CUDA, TRT, DML, OpenVINO, MPS |
-| **base_v2** | ⚡⚡⚡ | ⭐⭐ | 4GB | Better quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **large_v2** | ⚡⚡ | ⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **giant_v2** | ⚡ | ⭐⭐⭐⭐ | 10GB | Highest quality | CUDA, MPS |
-| **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML, OpenVINO, MPS |
-| **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML, OpenVINO, MPS |
-| **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML, OpenVINO, MPS |
 | **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT, OpenVINO, MPS |
-| **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT, OpenVINO, MPS |
-| **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT, OpenVINO, MPS |
-| **og_giant_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 10GB | Original, largest v2 | CUDA, MPS |
-| **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
-| **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
-| **og_distill_large_v2-tensorrt** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alias of `distill_large_v2-tensorrt`; there is no CUDA/MPS `og_distill_large_v2` — use `distill_large_v2` | TRT only |
 | **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
 | **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
 | **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
 | **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, MPS |
 | **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, TRT |
-| **video_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Temporal, maximum quality | CUDA |
-| **og_video_small_v2 / og_video_base_v2 / og_video_large_v2** | ⚡ | ⭐⭐⭐⭐ | 4-8GB | Original temporal implementations | CUDA |
+| **og_video_small_v2** | ⚡ | ⭐⭐⭐⭐ | 4GB | Original temporal implementation | CUDA |
 
 > **🎞️ Temporal vs image:** `video_*` methods attend across frames (see `--depth_window`) and are far more stable over time; the rest predict each frame independently. Use `--depth_norm` to cut flicker on image methods.
 
@@ -1230,7 +1217,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 ./python.exe ./main.py --input "anime_scene.mp4" \
   --upscale --upscale_method span-tensorrt \
   --segment --segment_method anime-tensorrt \
-  --depth --depth_method large_v2-tensorrt --depth_quality low \
+  --depth --depth_method small_v2-tensorrt --depth_quality low \
   --encode_method prores
 ```
 **Processing:** Creates segmentation masks and depth maps  

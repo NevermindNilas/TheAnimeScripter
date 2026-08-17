@@ -186,15 +186,7 @@ def segment(self):
 
 def depth(self):
     match self.depthMethod:
-        case (
-            "small_v2"
-            | "base_v2"
-            | "large_v2"
-            | "giant_v2"
-            | "distill_small_v2"
-            | "distill_base_v2"
-            | "distill_large_v2"
-        ):
+        case "small_v2":
             from src.depth.backends.cuda import DepthCuda
 
             driver = DepthCuda(
@@ -217,15 +209,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "small_v2-mps"
-            | "base_v2-mps"
-            | "large_v2-mps"
-            | "giant_v2-mps"
-            | "distill_small_v2-mps"
-            | "distill_base_v2-mps"
-            | "distill_large_v2-mps"
-        ):
+        case "small_v2-mps":
             from src.depth.backends.mps import DepthMPS
 
             driver = DepthMPS(
@@ -248,14 +232,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "small_v2-tensorrt"
-            | "base_v2-tensorrt"
-            | "large_v2-tensorrt"
-            | "distill_small_v2-tensorrt"
-            | "distill_base_v2-tensorrt"
-            | "distill_large_v2-tensorrt"
-        ):
+        case "small_v2-tensorrt":
             from src.depth.backends.tensorrt import DepthTensorRTV2
 
             driver = DepthTensorRTV2(
@@ -277,20 +254,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "small_v2-directml"
-            | "base_v2-directml"
-            | "large_v2-directml"
-            | "distill_small_v2-directml"
-            | "distill_base_v2-directml"
-            | "distill_large_v2-directml"
-            | "small_v2-openvino"
-            | "base_v2-openvino"
-            | "large_v2-openvino"
-            | "distill_small_v2-openvino"
-            | "distill_base_v2-openvino"
-            | "distill_large_v2-openvino"
-        ):
+        case "small_v2-directml" | "small_v2-openvino":
             from src.depth.backends.directml import DepthDirectMLV2
 
             driver = DepthDirectMLV2(
@@ -311,14 +275,7 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case (
-            "og_small_v2"
-            | "og_base_v2"
-            | "og_large_v2"
-            | "og_giant_v2"
-            | "og_distill_small_v2"
-            | "og_distill_base_v2"
-        ):
+        case "og_small_v2":
             from src.depth.backends.cuda import OGDepthV2CUDA
 
             driver = OGDepthV2CUDA(
@@ -341,14 +298,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "og_small_v2-mps"
-            | "og_base_v2-mps"
-            | "og_large_v2-mps"
-            | "og_giant_v2-mps"
-            | "og_distill_small_v2-mps"
-            | "og_distill_base_v2-mps"
-        ):
+        case "og_small_v2-mps":
             from src.depth.backends.mps import OGDepthV2MPS
 
             driver = OGDepthV2MPS(
@@ -371,7 +321,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
+        case "og_video_small_v2":
             from src.depth.backends.video import VideoDepthAnythingCUDA
 
             driver = VideoDepthAnythingCUDA(
@@ -393,7 +343,7 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case "video_small_v2" | "video_large_v2":
+        case "video_small_v2":
             from src.depth.backends.video import VideoDepthAnythingTorch
 
             driver = VideoDepthAnythingTorch(
@@ -416,15 +366,7 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case (
-            "og_small_v2-tensorrt"
-            | "og_base_v2-tensorrt"
-            | "og_large_v2-tensorrt"
-            | "og_distill_small_v2-tensorrt"
-            | "og_distill_base_v2-tensorrt"
-            | "og_distill_large_v2-tensorrt"
-            | "video_small_v2-tensorrt"
-        ):
+        case "og_small_v2-tensorrt" | "video_small_v2-tensorrt":
             from src.depth.backends.tensorrt import OGDepthV2TensorRT
 
             driver = OGDepthV2TensorRT(
@@ -446,14 +388,7 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "og_small_v2-directml"
-            | "og_base_v2-directml"
-            | "og_large_v2-directml"
-            | "og_small_v2-openvino"
-            | "og_base_v2-openvino"
-            | "og_large_v2-openvino"
-        ):
+        case "og_small_v2-openvino":
             from src.depth.backends.directml import OGDepthV2DirectML
 
             driver = OGDepthV2DirectML(

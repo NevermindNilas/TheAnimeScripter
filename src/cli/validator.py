@@ -203,19 +203,6 @@ def _handleDepthSettings(args):
             )
             args.depth_batch = 1
 
-    # Strip "-mps": giant_v2-mps and og_giant_v2-mps are the same models and
-    # equally large, but the bare list let them keep --half.
-    if args.depth_method.removesuffix("-mps") in ["giant_v2", "og_giant_v2"]:
-        logAndPrint(
-            f"{args.depth_method} is a very large model and may cause out of memory errors on GPUs with less than 16GB of VRAM",
-            "yellow",
-        )
-        if args.half:
-            logAndPrint(
-                "Half precision does not work with giant models, switching to full precision",
-            )
-            args.half = False
-
 
 def _handleSegmentSettings(args):
     # Normalize once so every later read is safe, including for args objects

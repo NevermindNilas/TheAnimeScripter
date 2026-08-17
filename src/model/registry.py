@@ -18,15 +18,6 @@ SUDOURL = (
 DEPTHV2URLSMALL = (
     "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/"
 )
-DEPTHV2URLBASE = (
-    "https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/"
-)
-DEPTHV2URLLARGE = (
-    "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/"
-)
-DEPTHV2URLGIANT = (
-    "https://huggingface.co/likeabruh/depth_anything_v2_vitg/resolve/main/"
-)
 
 TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
 
@@ -200,19 +191,9 @@ def modelsList() -> list[str]:
         "hurrdeblur-mps",
         "dehalo-mps",
         "small_v2",
-        "base_v2",
-        "large_v2",
-        "giant_v2",
         "small_v2-mps",
-        "base_v2-mps",
-        "large_v2-mps",
-        "giant_v2-mps",
         "small_v2-directml",
-        "base_v2-directml",
-        "large_v2-directml",
         "small_v2-tensorrt",
-        "base_v2-tensorrt",
-        "large_v2-tensorrt",
         "maxxvit-tensorrt",
         "maxxvit-directml",
         "shift_lpips-tensorrt",
@@ -222,31 +203,11 @@ def modelsList() -> list[str]:
         "gmfss",
         "flownets",
         "dut",
-        "distill_small_v2",
-        "distill_base_v2",
-        "distill_large_v2",
-        "distill_small_v2-mps",
-        "distill_base_v2-mps",
-        "distill_large_v2-mps",
-        "distill_small_v2-tensorrt",
-        "distill_base_v2-tensorrt",
-        "distill_large_v2-tensorrt",
-        "distill_small_v2-directml",
-        "distill_base_v2-directml",
-        "distill_large_v2-directml",
         "og_small_v2-mps",
-        "og_base_v2-mps",
-        "og_large_v2-mps",
-        "og_giant_v2-mps",
-        "og_distill_small_v2-mps",
-        "og_distill_base_v2-mps",
         "og_video_small_v2",
-        "og_video_base_v2",
-        "og_video_large_v2",
         "og_video_small_v2-tensorrt",
         "video_small_v2-tensorrt",
         "video_small_v2",
-        "video_large_v2",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -962,85 +923,14 @@ def modelsMap(
         case "small_v2":
             return "depth_anything_v2_vits.pth"
 
-        case "base_v2":
-            return "depth_anything_v2_vitb.pth"
-
-        case "large_v2":
-            return "depth_anything_v2_vitl.pth"
-
-        case "giant_v2":
-            return "depth_anything_v2_vitg.pth"
-
         case "og_small_v2":
             return "depth_anything_v2_vits.pth"
-
-        case "og_base_v2":
-            return "depth_anything_v2_vitb.pth"
-
-        case "og_large_v2":
-            return "depth_anything_v2_vitl.pth"
-
-        case "og_giant_v2":
-            return "depth_anything_v2_vitg.pth"
 
         case "small_v2-directml" | "small_v2-tensorrt":
             if half:
                 return "depth_anything_v2_vits_fp16.onnx"
             else:
                 return "depth_anything_v2_vits_fp32.onnx"
-
-        case "base_v2-directml" | "base_v2-tensorrt":
-            if half:
-                return "depth_anything_v2_vitb_fp16.onnx"
-            else:
-                return "depth_anything_v2_vitb_fp32.onnx"
-
-        case "large_v2-directml" | "large_v2-tensorrt":
-            if half:
-                return "depth_anything_v2_vitl_fp16.onnx"
-            else:
-                return "depth_anything_v2_vitl_fp32.onnx"
-
-        case (
-            "distill_small_v2"
-            | "distill_small_v2-tensorrt"
-            | "distill_small_v2-directml"
-            | "og_distill_small_v2"
-        ):
-            if modelType == "pth":
-                return "distill_small_v2.safetensors"
-            elif modelType == "onnx":
-                if half:
-                    return "Distill-Any-Depth-Multi-Teacher-Small_fp16_op17_slim.onnx"
-                else:
-                    return "Distill-Any-Depth-Multi-Teacher-Small_fp32_op17_slim.onnx"
-
-        case (
-            "distill_base_v2"
-            | "distill_base_v2-tensorrt"
-            | "distill_base_v2-directml"
-            | "og_distill_base_v2"
-        ):
-            if modelType == "pth":
-                return "distill_base_v2.safetensors"
-            elif modelType == "onnx":
-                if half:
-                    return "Distill-Any-Depth-Multi-Teacher-Base_fp16_op17_slim.onnx"
-                else:
-                    return "Distill-Any-Depth-Multi-Teacher-Base_fp32_op17_slim.onnx"
-
-        case (
-            "distill_large_v2"
-            | "distill_large_v2-tensorrt"
-            | "distill_large_v2-directml"
-        ):
-            if modelType == "pth":
-                return "distill_large_v2.safetensors"
-            elif modelType == "onnx":
-                if half:
-                    return "Distill-Any-Depth-Multi-Teacher-Large_fp16_op17_slim.onnx"
-                else:
-                    return "Distill-Any-Depth-Multi-Teacher-Large_fp32_op17_slim.onnx"
 
         case (
             "yolov9_small-directml"
@@ -1075,14 +965,6 @@ def modelsMap(
                     return "video_depth_anything_vits_fp16_op20_slim.onnx"
                 else:
                     return "video_depth_anything_vits_fp32_op20_slim.onnx"
-
-        case "og_video_base_v2":
-            if modelType == "pth":
-                return "video_depth_anything_vitb.pth"
-
-        case "og_video_large_v2":
-            if modelType == "pth":
-                return "video_depth_anything_vitl.pth"
 
         case "small_v3":
             if modelType == "pth":

@@ -164,14 +164,8 @@ class DepthMPS(DepthRunOutcome):
         from ..dpt_v2 import DepthAnythingV2
 
         match self.baseMethod:
-            case "small_v2" | "distill_small_v2":
+            case "small_v2":
                 method = "vits"
-            case "base_v2" | "distill_base_v2":
-                method = "vitb"
-            case "large_v2" | "distill_large_v2":
-                method = "vitl"
-            case "giant_v2":
-                method = "vitg"
             case _:
                 raise ValueError(f"Unsupported MPS depth method: {self.depth_method}")
 
@@ -191,52 +185,13 @@ class DepthMPS(DepthRunOutcome):
                 "features": 64,
                 "out_channels": [48, 96, 192, 384],
             },
-            "vitb": {
-                "encoder": "vitb",
-                "features": 128,
-                "out_channels": [96, 192, 384, 768],
-            },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
-            "vitg": {
-                "encoder": "vitg",
-                "features": 384,
-                "out_channels": [1536, 1536, 1536, 1536],
-            }
-            if "distill" not in self.baseMethod
-            else {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-                "use_bn": False,
-                "use_clstoken": False,
-                "max_depth": 150.0,
-                "mode": "disparity",
-                "pretrain_type": "dinov2",
-                "del_mask_token": False,
-            },
         }
 
-        if "distill" in self.baseMethod and "large" in self.baseMethod:
-            from src.depth.distillanydepth.modeling.archs.dam.dam import DepthAnything
+        self.model = DepthAnythingV2(**modelConfigs[method])
 
-            self.model = DepthAnything(**modelConfigs[method])
-        else:
-            self.model = DepthAnythingV2(**modelConfigs[method])
-
-        if "distill" in self.baseMethod:
-            from safetensors.torch import load_file
-
-            modelWeights = load_file(modelPath)
-            self.model.load_state_dict(modelWeights)
-            del modelWeights
-        else:
-            stateDict = torch.load(modelPath, map_location="cpu")
-            self.model.load_state_dict(stateDict)
-            del stateDict
+        stateDict = torch.load(modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
@@ -415,27 +370,6 @@ class OGDepthV2MPS(DepthRunOutcome):
             case "og_small_v2":
                 method = "vits"
                 toDownload = "small_v2"
-            case "og_base_v2":
-                method = "vitb"
-                toDownload = "base_v2"
-            case "og_large_v2":
-                method = "vitl"
-                toDownload = "large_v2"
-            # The og_distill_* pair runs the real Distill-Any-Depth weights
-            # through the reference DepthAnythingV2 implementation, exactly as
-            # og_small_v2 does for the plain checkpoints -- their state_dicts
-            # match this arch key for key. They used to resolve
-            # depth_anything_v2_vit{s,b}.pth instead, i.e. og_small_v2's and
-            # og_base_v2's weights under a name promising a different model.
-            case "og_distill_small_v2":
-                method = "vits"
-                toDownload = "distill_small_v2"
-            case "og_distill_base_v2":
-                method = "vitb"
-                toDownload = "distill_base_v2"
-            case "og_giant_v2":
-                method = "vitg"
-                toDownload = "giant_v2"
             case _:
                 raise ValueError(f"Unsupported MPS depth method: {self.depth_method}")
 
@@ -454,39 +388,10 @@ class OGDepthV2MPS(DepthRunOutcome):
                 "features": 64,
                 "out_channels": [48, 96, 192, 384],
             },
-            "vitb": {
-                "encoder": "vitb",
-                "features": 128,
-                "out_channels": [96, 192, 384, 768],
-            },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
-            "vitg": {
-                "encoder": "vitg",
-                "features": 384,
-                "out_channels": [1536, 1536, 1536, 1536],
-            },
         }
 
-        # Every method that reaches this class -- og_{small,base,large,giant}_v2
-        # and og_distill_{small,base}_v2 -- is a DepthAnythingV2 architecture.
-        # There used to be a DistillAnyDepth branch here for a *distill*large*
-        # name, but no og_distill_large_v2 exists (its arch has no reference
-        # implementation, so distill_large_v2 is that model) and the branch was
-        # what turned the misresolved weights into a load_state_dict crash.
         self.model = DepthAnythingV2(**modelConfigs[method])
-
-        if modelPath.endswith(".safetensors"):
-            # The distill checkpoints ship as safetensors. torch.load happens to
-            # read them today, but only as an accident of the pinned torch.
-            from safetensors.torch import load_file
-
-            self.model.load_state_dict(load_file(modelPath))
-        else:
-            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality

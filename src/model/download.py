@@ -6,9 +6,6 @@ import os
 from src.infra.logAndPrint import logAndPrint
 
 from .registry import (
-    DEPTHV2URLBASE,
-    DEPTHV2URLGIANT,
-    DEPTHV2URLLARGE,
     DEPTHV2URLSMALL,
     SUDOURL,
     TASURL,
@@ -321,11 +318,6 @@ def downloadModels(
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
     registryModel = {
         "og_small_v2": "small_v2",
-        "og_base_v2": "base_v2",
-        "og_large_v2": "large_v2",
-        "og_giant_v2": "giant_v2",
-        "og_distill_small_v2": "distill_small_v2",
-        "og_distill_base_v2": "distill_base_v2",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
@@ -361,12 +353,6 @@ def downloadModels(
 
     elif registryModel == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
-    elif registryModel == "base_v2":
-        fullUrl = f"{DEPTHV2URLBASE}{filename}"
-    elif registryModel == "large_v2":
-        fullUrl = f"{DEPTHV2URLLARGE}{filename}"
-    elif registryModel == "giant_v2":
-        fullUrl = f"{DEPTHV2URLGIANT}{filename}"
 
     else:
         fullUrl = f"{TASURL}{filename}"

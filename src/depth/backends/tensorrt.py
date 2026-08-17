@@ -140,10 +140,7 @@ class DepthTensorRTV2(DepthRunOutcome):
             self.width, self.height, self.depthQuality
         )
 
-        # distill is multi-input (needs a paired const), so batching stays at 1;
-        # the single-input image engines batch the frame axis.
-        B = 1 if "distill" in self.depth_method else self._reqBatch
-        self._batch = B
+        B = self._batch = self._reqBatch
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -157,7 +154,7 @@ class DepthTensorRTV2(DepthRunOutcome):
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            inputName = "image" if "distill" not in self.depth_method else "input"
+            inputName = "image"
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -181,17 +178,7 @@ class DepthTensorRTV2(DepthRunOutcome):
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        if "distill" in self.depth_method:
-            self.dummyConst = torch.zeros(
-                (1, 1, self.newHeight, self.newWidth),
-                device=checker.device,
-                dtype=torch.float16 if self.half else torch.float32,
-            )
-
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
-
-        if "distill" in self.depth_method:
-            self.bindings.append(self.dummyConst.data_ptr())
 
         for i in range(self.engine.num_io_tensors):
             self.context.set_tensor_address(
@@ -407,13 +394,9 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             self.normalizer = VideoRangeNormalizer()
         self.temporalWindowSize = 32
 
-        # distill (multi-input) and the temporal video engine can't batch the
-        # frame axis; only the single-input image engines do.
-        self._batch = (
-            1
-            if (self.isVideoDepthTensorRT or "distill" in self.depth_method)
-            else self._reqBatch
-        )
+        # The temporal video engine can't batch the frame axis; only the
+        # single-input image engines do.
+        self._batch = 1 if self.isVideoDepthTensorRT else self._reqBatch
         B = self._batch
 
         inputShape = [B, 3, self.newHeight, self.newWidth]
@@ -442,9 +425,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            inputName = "image"
-            if "distill" in self.depth_method or self.isVideoDepthTensorRT:
-                inputName = "input"
+            inputName = "input" if self.isVideoDepthTensorRT else "image"
             maxWorkspaceSize = (4 << 30) if self.isVideoDepthTensorRT else (1 << 30)
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
@@ -492,17 +473,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        if "distill" in self.depth_method:
-            self.dummyConst = torch.zeros(
-                (1, 1, self.newHeight, self.newWidth),
-                device=checker.device,
-                dtype=torch.float16 if self.half else torch.float32,
-            )
-
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
-
-        if "distill" in self.depth_method:
-            self.bindings.append(self.dummyConst.data_ptr())
 
         for i in range(self.engine.num_io_tensors):
             self.context.set_tensor_address(
@@ -614,7 +585,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
     @torch.inference_mode()
     def normFrameBatch(self, frames):
         # frames: list of B decoded numpy HWC frames -> [B,3,newH,newW] input.
-        # image path only (video/distill run one-at-a-time via processFrame).
+        # image path only (video runs one-at-a-time via processFrame).
         with torch.cuda.stream(self.normStream):
             tensors = []
             for f in frames:
@@ -681,7 +652,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                         break
                     frames.append(frame)
                 if frames:
-                    # B==1 keeps the exact single-frame path (handles video/distill);
+                    # B==1 keeps the exact single-frame path (handles video);
                     # B>1 is the batched single-input image path
                     if self._batch == 1:
                         self.processFrame(frames[0])
