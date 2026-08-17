@@ -426,7 +426,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             or not os.path.exists(enginePath)
         ):
             inputName = "input" if self.isVideoDepthTensorRT else "image"
-            maxWorkspaceSize = (4 << 30) if self.isVideoDepthTensorRT else (1 << 30)
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -435,7 +434,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                 inputsOpt=inputShape,
                 inputsMax=inputShape,
                 inputName=[inputName],
-                maxWorkspaceSize=maxWorkspaceSize,
             )
 
         if self.engine is None or self.context is None:
