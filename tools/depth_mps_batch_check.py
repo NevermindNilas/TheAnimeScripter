@@ -24,7 +24,6 @@ import numpy as np
 
 DEFAULT_METHODS = [
     "small_v2-mps",
-    "distill_small_v2-mps",
     "og_small_v2-mps",
     "small_v3-mps",
 ]

@@ -79,7 +79,6 @@ def testModelsListHasNoDuplicates():
 KNOWN_MISSING_MODELSMAP_ARM = {
     "smosr-openvino",
     "video_small_v2",
-    "video_large_v2",
     "yolov9_small_mit",
     "yolov9_medium_mit",
     "yolov9_large_mit",

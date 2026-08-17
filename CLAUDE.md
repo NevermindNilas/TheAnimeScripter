@@ -108,7 +108,7 @@ python build.py                     # portable build; see BUILD.md (--develop re
 Do not read, search, summarize, lint, or modify these trees unless the task explicitly targets that model (adding or porting an arch there counts) or a traceback enters it:
 
 - `src/spandrel/`, `src/gmfss/`, `src/rifearches/`
-- `src/depth/{distillanydepth,depth_anything_3,video_depth_anything,dinov2_layers}/`
+- `src/depth/{depth_anything_3,video_depth_anything,dinov2_layers}/`
 - `src/stabilize/dut/` (a heavily-modified port; provenance and deviations in its `NOTICE.md`)
 
 Exception: `src/rifearches/dynamic_scale.py` is first-party TAS code despite its location (the shared SSIM cache used by dedup/scenechange) — treat it as first-party.

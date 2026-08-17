@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- 47 `--depth_method` choices were removed for licensing reasons, leaving `small_v2`, `og_small_v2`, `video_small_v2`, `og_video_small_v2` and the v3 family (20 in total). A removed method now exits 2 with the list of valid choices.
+
 ## [2.9.5] - 2026-08-16
 
 > **Behaviour change:** an `*_nelux` `--encode_method` combined with `--bit_depth 16bit` or `--depth` now runs the equivalent plain encoder instead, with a warning — losing the in-process encoder's speed, gaining an output that matches what was asked for. `--output_scale` no longer triggers the swap (nelux 0.18.0 resizes encoder-side); only an installed nelux older than 0.18.0 still downgrades it.

@@ -257,19 +257,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | ------------------------------------- | :---: | :------: | :------: | :---: |
 | **"Faster" Depth-Anything v2 Models** |       |          |          |       |
 | Small v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
-| Base v2                               |   ✅   |    ✅     |    ✅     |   ✅   |
-| Large v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
-| **"Faster" Distilled Models**         |       |          |          |       |
-| Distill Small v2                      |   ✅   |    ✅     |    ✅     |   ✅   |
-| Distill Base v2                       |   ✅   |    ✅     |    ✅     |   ✅   |
-| Distill Large v2                      |   ✅   |    ✅     |    ✅     |   ✅   |
 | **Original Implementation Models**    |       |          |          |       |
-| OG Small v2                           |   ✅   |    ✅     |    ✅     |   ✅   |
-| OG Base v2                            |   ✅   |    ✅     |    ✅     |   ✅   |
-| OG Large v2                           |   ✅   |    ✅     |    ✅     |   ✅   |
-| OG Distill Small v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
-| OG Distill Base v2                    |   ✅   |    ✅     |    ✅     |   ✅   |
-| OG Distill Large v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Small v2                           |   ✅   |    ✅     |    ❌     |   ✅   |
 
 ### 🎯 Object Detection Models (YOLOv9-MIT)
 

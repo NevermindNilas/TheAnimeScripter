@@ -108,32 +108,11 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
             modelType="pth",
         )
 
-        model_configs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-            "vitb": {
-                "encoder": "vitb",
-                "features": 128,
-                "out_channels": [96, 192, 384, 768],
-            },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
-        }
-
-        if self.depth_method == "og_video_small_v2":
-            encoder = "vits"
-        elif self.depth_method == "og_video_base_v2":
-            encoder = "vitb"
-        elif self.depth_method == "og_video_large_v2":
-            encoder = "vitl"
-
-        self.model = VideoDepthAnything(**model_configs[encoder])
+        self.model = VideoDepthAnything(
+            encoder="vits",
+            features=64,
+            out_channels=[48, 96, 192, 384],
+        )
 
         self.model.load_state_dict(
             torch.load(modelPath, map_location="cpu"), strict=True
@@ -273,32 +252,11 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
             modelType="pth",
         )
 
-        model_configs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-            "vitb": {
-                "encoder": "vitb",
-                "features": 128,
-                "out_channels": [96, 192, 384, 768],
-            },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
-        }
-
-        if "small" in self.depth_method:
-            encoder = "vits"
-        elif "large" in self.depth_method:
-            encoder = "vitl"
-        else:
-            encoder = "vits"
-
-        self.model = VideoDepthAnything(**model_configs[encoder])
+        self.model = VideoDepthAnything(
+            encoder="vits",
+            features=64,
+            out_channels=[48, 96, 192, 384],
+        )
 
         self.model.load_state_dict(
             torch.load(modelPath, map_location="cpu"), strict=True

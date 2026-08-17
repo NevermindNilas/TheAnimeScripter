@@ -4,7 +4,6 @@
 src/spandrel/
 src/gmfss/
 src/rifearches/
-src/depth/distillanydepth/
 src/depth/depth_anything_3/
 src/depth/video_depth_anything/
 src/depth/dinov2_layers/

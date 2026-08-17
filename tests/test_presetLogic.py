@@ -99,7 +99,7 @@ def _makeParser():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--depth_method", choices=["small_v2", "base_v2"])
+    parser.add_argument("--depth_method", choices=["small_v2", "small_v3"])
     parser.add_argument("--upscale", action="store_true")
     parser.add_argument("--upscale_factor", type=int)
     return parser

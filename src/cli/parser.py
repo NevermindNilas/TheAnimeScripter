@@ -1124,55 +1124,15 @@ def _addDepthOptions(argParser):
 
     depthMethods = [
         "small_v2",
-        "base_v2",
-        "large_v2",
-        "giant_v2",
-        "distill_small_v2",
-        "distill_base_v2",
-        "distill_large_v2",
         "small_v2-mps",
-        "base_v2-mps",
-        "large_v2-mps",
-        "giant_v2-mps",
-        "distill_small_v2-mps",
-        "distill_base_v2-mps",
-        "distill_large_v2-mps",
         "og_small_v2",
-        "og_base_v2",
-        "og_large_v2",
-        "og_giant_v2",
-        "og_distill_small_v2",
-        "og_distill_base_v2",
         "og_small_v2-mps",
-        "og_base_v2-mps",
-        "og_large_v2-mps",
-        "og_giant_v2-mps",
-        "og_distill_small_v2-mps",
-        "og_distill_base_v2-mps",
         "og_video_small_v2",
-        "og_video_base_v2",
-        "og_video_large_v2",
         "video_small_v2",
-        "video_large_v2",
         "video_small_v2-tensorrt",
         "small_v2-tensorrt",
-        "base_v2-tensorrt",
-        "large_v2-tensorrt",
-        "distill_small_v2-tensorrt",
-        "distill_base_v2-tensorrt",
-        "distill_large_v2-tensorrt",
         "small_v2-directml",
-        "base_v2-directml",
-        "large_v2-directml",
-        "distill_small_v2-directml",
-        "distill_base_v2-directml",
-        "distill_large_v2-directml",
         "og_small_v2-tensorrt",
-        "og_base_v2-tensorrt",
-        "og_large_v2-tensorrt",
-        "og_distill_small_v2-tensorrt",
-        "og_distill_base_v2-tensorrt",
-        "og_distill_large_v2-tensorrt",
         "small_v3",
         "base_v3",
         "large_v3",
@@ -1182,14 +1142,7 @@ def _addDepthOptions(argParser):
         "large_v3-mps",
         "og_large_v3-mps",
         "small_v2-openvino",
-        "base_v2-openvino",
-        "large_v2-openvino",
-        "distill_small_v2-openvino",
-        "distill_base_v2-openvino",
-        "distill_large_v2-openvino",
         "og_small_v2-openvino",
-        "og_base_v2-openvino",
-        "og_large_v2-openvino",
     ]
 
     depthGroup.add_argument(
@@ -1229,8 +1182,8 @@ def _addDepthOptions(argParser):
         "throughput at lower resolutions where the model is launch-bound "
         "(e.g. --depth_quality low/medium) at a small VRAM cost; negligible "
         "gain at high quality. Supported on the CUDA, MPS, and TensorRT "
-        "image backends; forced to 1 for video_* methods, "
-        "distill TensorRT, and the DirectML/OpenVINO backends.",
+        "image backends; forced to 1 for video_* methods and the "
+        "DirectML/OpenVINO backends.",
     )
 
 
