@@ -17,6 +17,8 @@ from src.depth.backends._shared import (
     SlidingWindowNormalizer,
     VideoRangeNormalizer,
     calculateAspectRatio,
+    limboDisparity,
+    limboResolution,
 )
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -84,14 +86,22 @@ class DepthTensorRTV2(DepthRunOutcome):
 
         self.handleModels()
 
+        # Same hooks OGDepthV2CUDA/OGDepthV2MPS carry: a subclass whose model
+        # resolution is known before the first frame can have the decoder scale
+        # to it (proper downscale filter, no per-frame full-res interpolate)
+        # instead of decoding at source. Default is the original behaviour.
+        decodeW = getattr(self, "_decodeWidth", self.width)
+        decodeH = getattr(self, "_decodeHeight", self.height)
+        decodeResize = getattr(self, "_decodeResize", False)
+
         try:
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                resize=False,
-                width=self.width,
-                height=self.height,
+                resize=decodeResize,
+                width=decodeW,
+                height=decodeH,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -279,6 +289,147 @@ class DepthTensorRTV2(DepthRunOutcome):
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
+
+
+class LimboTensorRT(DepthTensorRTV2):
+    """Limbo (anime-finetuned Depth Anything 3 small) through TensorRT.
+
+    Three departures from DepthTensorRTV2, all forced by the export: the graph
+    is fully static (Limbo ships one ONNX per baked resolution, so the engine is
+    built with forceStatic and the batch is pinned to 1), it has a second output
+    (``depth_conf``, which nothing downstream uses but still needs an address
+    bound), and ``depth`` comes out rank-3 as [B, H, W].
+    """
+
+    def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading TensorRT depth model: {self.depth_method}..."}
+            )
+
+        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+        # The two exports differ only in resolution, so the aspect the source
+        # resolved to is what picks the weight file.
+        registryModel = (
+            "limbo-tensorrt"
+            if (self.newHeight, self.newWidth) == (280, 504)
+            else "limbo_43-tensorrt"
+        )
+
+        self.filename = modelsMap(model=registryModel, modelType="onnx", half=self.half)
+        folderName = registryModel.replace("-tensorrt", "-onnx")
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=registryModel,
+            half=self.half,
+            modelType="onnx",
+        )
+
+        # The ONNX bakes batch 1 into every dimension; a profile asking for more
+        # would fail the build, not silently batch.
+        self._batch = 1
+
+        enginePath = self.tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.newHeight, self.newWidth],
+        )
+
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            self.engine, self.context = self.tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsOpt=[1, 3, self.newHeight, self.newWidth],
+                inputName=["image"],
+                forceStatic=True,
+            )
+        if self.engine is None or self.context is None:
+            raise RuntimeError(
+                f"Failed to build or load a TensorRT engine for {self.modelPath}"
+            )
+
+        self.stream = torch.cuda.Stream()
+        dtype = torch.float16 if self.half else torch.float32
+        self.dummyInput = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=checker.device,
+            dtype=dtype,
+        )
+        self.dummyOutput = torch.zeros(
+            (1, self.newHeight, self.newWidth), device=checker.device, dtype=dtype
+        )
+        self.dummyConf = torch.zeros(
+            (1, self.newHeight, self.newWidth), device=checker.device, dtype=dtype
+        )
+
+        # Bound by name rather than by IO index: with two outputs the positional
+        # bindings list DepthTensorRTV2 uses would silently swap depth and
+        # depth_conf if TensorRT reordered them.
+        addresses = {
+            "image": self.dummyInput.data_ptr(),
+            "depth": self.dummyOutput.data_ptr(),
+            "depth_conf": self.dummyConf.data_ptr(),
+        }
+        for i in range(self.engine.num_io_tensors):
+            name = self.engine.get_tensor_name(i)
+            if name not in addresses:
+                raise RuntimeError(f"Unexpected Limbo engine tensor: {name}")
+            self.context.set_tensor_address(name, addresses[name])
+            if self.engine.get_tensor_mode(name) == self.trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(name, self.dummyInput.shape)
+
+        # The input size is known before the first frame, so let the decoder
+        # scale to it: its filter beats a 3.8x bilinear downscale (~29 dB apart
+        # at 1080p) and it drops a full-res interpolate per frame.
+        self._decodeWidth = self.newWidth
+        self._decodeHeight = self.newHeight
+        self._decodeResize = True
+
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def normFrame(self, frames):
+        with torch.cuda.stream(self.normStream):
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+            batch = batch.float()
+            if batch.shape[-2:] != (self.newHeight, self.newWidth):
+                batch = F.interpolate(
+                    batch,
+                    (self.newHeight, self.newWidth),
+                    mode="bilinear",
+                    align_corners=True,
+                )
+            batch = (batch - MEANTENSOR) / STDTENSOR
+            if self.half:
+                batch = batch.half()
+            self.dummyInput.copy_(batch, non_blocking=True)
+        self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def normOutputFrame(self, i):
+        with torch.cuda.stream(self.outputNormStream):
+            gray = limboDisparity(
+                self.dummyOutput[i : i + 1].unsqueeze(1), self.normalizer
+            )
+            if gray.shape[-2:] != (self.height, self.width):
+                gray = F.interpolate(
+                    gray,
+                    size=[self.height, self.width],
+                    mode="bilinear",
+                    align_corners=True,
+                ).clamp(0.0, 1.0)
+        self.outputNormStream.synchronize()
+        return gray
 
 
 class OGDepthV2TensorRT(DepthRunOutcome):

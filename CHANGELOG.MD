@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.9.6] - 2026-08-17
+## [2.9.6] - 2026-08-25
+
+### Added
+- `--depth_method limbo` (plus `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`): Limbo-V1, an anime finetune of Depth Anything 3 small, dual-licensed CC BY-NC 4.0 with commercial use granted to TAS users; 239 fps at 1080p through TensorRT on a 3090. Its input resolution is baked into the model, so TAS picks the export matching the source aspect (504x280 widescreen, 504x378 for 4:3 and squarer), `--depth_quality` is forced to `low`, and `--depth_batch` to 1 on `limbo-tensorrt`.
 
 ### Fixed
 - TensorRT engine builds no longer fail with `Could not find any implementation for node {ForeignNode[...]}` on models whose whole graph fuses into one Myelin region, which `adore` at 1080p did on some driver/GPU combinations. Every engine now builds with a 4 GiB workspace budget instead of 1 GiB, which was fractionally under what such a build needs; engines already on disk are unaffected and inference VRAM is unchanged.

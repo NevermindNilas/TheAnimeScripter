@@ -17,6 +17,8 @@ from src.depth.backends._shared import (
     DepthRunOutcome,
     SlidingWindowNormalizer,
     calculateAspectRatio,
+    limboDisparity,
+    limboResolution,
 )
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -239,6 +241,96 @@ class DepthMPS(DepthRunOutcome):
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
+
+
+class LimboMPS(DepthMPS):
+    """Limbo (anime-finetuned Depth Anything 3 small) on Apple Silicon.
+
+    Same tensor path as LimboCuda: the input resolution is baked into the model,
+    so the frames are decoded straight at it and ``--depth_quality`` is inert.
+    """
+
+    def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading MPS depth model: {self.depth_method}..."}
+            )
+
+        from .. import depth_anything_3 as depth_anything_3_pkg
+
+        sys.modules.setdefault("depth_anything_3", depth_anything_3_pkg)
+        MonocularDepthAnything3 = importlib.import_module(
+            "depth_anything_3.mono"
+        ).MonocularDepthAnything3
+
+        self.filename = modelsMap(model="limbo", modelType="pth", half=self.half)
+        modelPath = resolveWeightPath(
+            "limbo",
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
+
+        self.model = MonocularDepthAnything3.from_pretrained(
+            modelPath,
+            model_name="da3-small",
+            strict=False,
+        )
+
+        from ..fold_layerscale import fold_layerscale_
+
+        fold_layerscale_(self.model)
+
+        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+
+        # fp32 whatever --half says, matching OGDepthV3MPS: DA3's forward only
+        # autocasts on CUDA, so a halved model would run the whole DINOv2 stack
+        # in pure fp16 on MPS. The other v3 methods do not take that risk.
+        self.model = self.model.float().eval().to(self.device)
+        self.dtype = torch.float32
+        self.half = False
+
+        if self.compileMode != "default":
+            logAndPrint(
+                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
+                "yellow",
+            )
+            self.compileMode = "default"
+
+        self._warmup()
+
+    def _warmup(self):
+        with torch.inference_mode():
+            dummy = torch.zeros(
+                (1, 1, 3, self.newHeight, self.newWidth),
+                device=self.device,
+                dtype=self.dtype,
+            )
+            for _ in range(2):
+                _ = self.model.forward(dummy)
+            torch.mps.synchronize()
+
+    @torch.inference_mode()
+    def processBatch(self, frames):
+        try:
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+            batch = self.normFrame(batch)
+            depth = self.model.forward(batch.unsqueeze(1))["depth"][:, 0]
+            depth = depth.unsqueeze(1).cpu()
+            torch.mps.synchronize()
+            for i in range(depth.shape[0]):
+                gray = limboDisparity(depth[i : i + 1], self.normalizer)
+                if gray.shape[-2:] != (self.height, self.width):
+                    gray = F.interpolate(
+                        gray,
+                        (self.height, self.width),
+                        mode="bilinear",
+                        align_corners=True,
+                    ).clamp(0.0, 1.0)
+                self.writeBuffer.write(gray)
+        except Exception as e:
+            self.recordFailure(e)
+            logging.exception(f"Something went wrong while processing the frame, {e}")
 
 
 class OGDepthV2MPS(DepthRunOutcome):

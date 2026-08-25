@@ -166,6 +166,8 @@ def _handleDepthSettings(args):
         logging.info("Depth enabled, audio processing will be disabled")
         cs.AUDIO = False
 
+    isLimbo = args.depth_method.split("-")[0] == "limbo"
+
     # "openvino" belongs here too: it is not a separate backend, it is a
     # provider branch inside the same DepthDirectMLV2 class the "-directml"
     # methods use (src/factories/standalone.py), so it has the same constraint.
@@ -179,6 +181,17 @@ def _handleDepthSettings(args):
         logAndPrint(
             f"{args.depth_quality.upper()} depth estimation quality is incompatible "
             f"with the {backend} backend, defaulting to low quality",
+            "yellow",
+        )
+        args.depth_quality = "low"
+
+    # Limbo ships one export per baked input resolution and its CUDA/MPS paths
+    # deliberately run at the same pair, so there is no quality axis to pick
+    # from on any backend -- not just the ONNX ones the clamp above covers.
+    if isLimbo and args.depth_quality != "low":
+        logAndPrint(
+            "--depth_quality has no effect on limbo, whose input resolution is "
+            "fixed by the model",
             "yellow",
         )
         args.depth_quality = "low"
@@ -199,6 +212,16 @@ def _handleDepthSettings(args):
             logAndPrint(
                 f"--depth_batch is not implemented for the {backend} depth backend, "
                 f"using 1",
+                "yellow",
+            )
+            args.depth_batch = 1
+        elif isLimbo and backend == "tensorrt":
+            # Limbo's ONNX bakes batch 1 into the graph, so the engine cannot be
+            # built for more. The CUDA and MPS paths run the torch model and do
+            # batch normally, hence the backend check rather than a blanket one.
+            logAndPrint(
+                "--depth_batch is not supported for limbo-tensorrt (the export "
+                "is fixed at batch 1), using 1",
                 "yellow",
             )
             args.depth_batch = 1

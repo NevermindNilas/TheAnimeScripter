@@ -1,3 +1,4 @@
+import math
 import os
 
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
@@ -370,3 +371,56 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
+
+
+# (height, width) of the two resolutions Limbo is exported at. Both are baked
+# into the ONNX graphs, so unlike every other depth method this is not a
+# --depth_quality knob; the CUDA/MPS paths use the same pair so all four
+# backends predict at the resolution the model was trained on.
+LIMBO_SHAPES = ((280, 504), (378, 504))
+
+
+def limboResolution(width, height):
+    """Pick the baked Limbo input size closest to the source aspect ratio.
+
+    Compared in log space, so a 16:10 or 1.85:1 source lands on the widescreen
+    export rather than on 4:3 by a rounding accident, and anything squarer than
+    ~1.55:1 (portrait included, since neither export is taller than it is wide)
+    lands on 504x378. Returns (height, width) to match calculateAspectRatio.
+    """
+    aspect = max(width, 1) / max(height, 1)
+    shape = min(
+        LIMBO_SHAPES,
+        key=lambda hw: abs(math.log(aspect) - math.log(hw[1] / hw[0])),
+    )
+    logging.info(f"Limbo input resolution: {shape[1]}x{shape[0]}")
+    return shape
+
+
+def limboDisparity(depth, normalizer=None):
+    """Limbo's positive depth -> a [0, 1] disparity map, as a torch tensor.
+
+    Limbo is a Depth Anything 3 finetune, so it emits positive depth (further =
+    larger) exactly like every ``*_v3`` method and gets the same 1/depth +
+    2/98-percentile stretch those use. Written against torch rather than the
+    numpy the v3 CUDA/MPS drivers use so the CUDA and TensorRT backends can run
+    it on the frame's own device without a round trip.
+
+    `nanquantile` over a NaN-masked copy rather than boolean indexing keeps the
+    whole thing free of device syncs: a masked gather would have to read the
+    valid-pixel count back to the host every frame.
+    """
+    depth = torch.nan_to_num(depth.float(), nan=0.0, posinf=0.0, neginf=0.0)
+    valid = depth > 0
+
+    disparity = torch.where(valid, 1.0 / depth.clamp_min(1e-6), torch.zeros_like(depth))
+    if normalizer is not None:
+        return normalizer.normalize(disparity, mask=valid)
+
+    sample = torch.where(valid, disparity, torch.full_like(disparity, float("nan")))
+    low = torch.nanquantile(sample.flatten(), 0.02)
+    high = torch.nanquantile(sample.flatten(), 0.98)
+    gray = (disparity - low) / (high - low).clamp_min(1e-6)
+    # An all-invalid frame makes both quantiles NaN; write black rather than
+    # letting a NaN reach the writer's quantization.
+    return torch.nan_to_num(gray, nan=0.0, posinf=0.0, neginf=0.0).clamp(0.0, 1.0)
