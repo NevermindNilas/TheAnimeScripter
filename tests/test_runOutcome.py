@@ -188,16 +188,36 @@ def _depthClasses():
                 yield path.name, node
 
 
+def _carriesOutcome(node, byName, seen=None):
+    """Walk the in-file base chain instead of pattern-matching class names.
+
+    This used to accept a base whose name ended in CUDA/MPS/Cuda/Mps, which read
+    as "inherits from a sibling backend" but only covered the backends that
+    existed then; a subclass of DepthTensorRTV2 or DepthDirectMLV2 failed even
+    though those carry the contract.
+    """
+    seen = seen if seen is not None else set()
+    if node.name in seen:
+        return False
+    seen.add(node.name)
+
+    bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
+    if "DepthRunOutcome" in bases:
+        return True
+    return any(
+        base in byName and _carriesOutcome(byName[base], byName, seen) for base in bases
+    )
+
+
 def testEveryDepthBackendCarriesTheOutcomeContract():
     """A depth run reports for itself: it bypasses start()/_notifyAdobe."""
-    missing = []
-    for fileName, node in _depthClasses():
-        bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
-        inheritsFromSibling = any(
-            base.endswith(("CUDA", "MPS", "Cuda", "Mps")) for base in bases
-        )
-        if "DepthRunOutcome" not in bases and not inheritsFromSibling:
-            missing.append(f"{fileName}:{node.name}")
+    classes = list(_depthClasses())
+    byName = {node.name: node for _, node in classes}
+    missing = [
+        f"{fileName}:{node.name}"
+        for fileName, node in classes
+        if not _carriesOutcome(node, byName)
+    ]
     assert not missing, f"depth backends without the outcome contract: {missing}"
 
 

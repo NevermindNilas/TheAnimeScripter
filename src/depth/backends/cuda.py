@@ -21,6 +21,8 @@ from src.depth.backends._shared import (
     DepthRunOutcome,
     SlidingWindowNormalizer,
     calculateAspectRatio,
+    limboDisparity,
+    limboResolution,
 )
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
@@ -259,6 +261,125 @@ class DepthCuda(DepthRunOutcome):
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
+
+
+class LimboCuda(DepthCuda):
+    """Limbo: an anime finetune of Depth Anything 3 small.
+
+    Rides DepthCuda's tensor path (decode straight at the model resolution, one
+    batched forward, write) rather than the numpy/PIL one the other ``*_v3``
+    methods use, because Limbo's input size is fixed: there is nothing for
+    ``input_processor`` to negotiate, so the whole PIL round trip would be a
+    no-op resize. ``--depth_quality`` has no effect for the same reason -- the
+    two exported resolutions are the ones the model was trained at.
+    """
+
+    def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading depth model: {self.depth_method}..."}
+            )
+
+        from .. import depth_anything_3 as depth_anything_3_pkg
+
+        sys.modules.setdefault("depth_anything_3", depth_anything_3_pkg)
+        MonocularDepthAnything3 = importlib.import_module(
+            "depth_anything_3.mono"
+        ).MonocularDepthAnything3
+
+        self.filename = modelsMap(model="limbo", modelType="pth", half=self.half)
+        modelPath = resolveWeightPath(
+            "limbo",
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
+
+        self.model = MonocularDepthAnything3.from_pretrained(
+            modelPath,
+            model_name="da3-small",
+            strict=False,
+        ).to(checker.device)
+
+        from ..fold_layerscale import fold_layerscale_
+
+        fold_layerscale_(self.model)
+
+        # Left in fp32: DA3's own forward autocasts to bf16/fp16 on CUDA, which
+        # is what the shipped *_v3 backends rely on too.
+        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
+
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+        self.stream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def normFrame(self, frame):
+        # fp32 regardless of --half: the model's own autocast picks the compute
+        # dtype, and ImageNet normalization in fp16 costs range for nothing.
+        return (frame.float() - MEANTENSOR) / STDTENSOR
+
+    @torch.inference_mode()
+    def processBatch(self, frames):
+        try:
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+            with torch.cuda.stream(self.stream):
+                batch = self.normFrame(batch)
+                # DA3 takes [B, views, C, H, W]; one frame is one single-view
+                # scene, so the view axis is 1 and the batch axis stays
+                # per-frame independent.
+                depth = self.model.forward(batch.unsqueeze(1))["depth"][:, 0]
+                depth = depth.unsqueeze(1)  # [B, 1, H, W]
+            self.stream.synchronize()
+            for i in range(depth.shape[0]):
+                self.writeBuffer.write(self._toGray(depth[i : i + 1]))
+        except Exception as e:
+            self.recordFailure(e)
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    @torch.inference_mode()
+    def _toGray(self, depth):
+        """Raw depth at model resolution -> a [0, 1] map at output resolution.
+
+        Normalizing before the upscale, not after, keeps the percentile pair off
+        a multi-megapixel tensor (``nanquantile`` caps out around 16M elements)
+        and hands WriteBuffer a frame that already matches the output, so its
+        bicubic fallback -- which overshoots on a map that is already clipped to
+        [0, 1] -- never runs.
+
+        Synchronized here for the same reason DepthCuda._normalizeDepth is: the
+        writer thread copies on its own private stream and never waits on ours.
+        """
+        with torch.cuda.stream(self.outputNormStream):
+            gray = limboDisparity(depth, self.normalizer)
+            if gray.shape[-2:] != (self.height, self.width):
+                gray = F.interpolate(
+                    gray,
+                    (self.height, self.width),
+                    mode="bilinear",
+                    align_corners=True,
+                ).clamp(0.0, 1.0)
+        self.outputNormStream.synchronize()
+        return gray
 
 
 class OGDepthV2CUDA(DepthRunOutcome):

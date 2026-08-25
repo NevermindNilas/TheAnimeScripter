@@ -1143,6 +1143,10 @@ def _addDepthOptions(argParser):
         "og_large_v3-mps",
         "small_v2-openvino",
         "og_small_v2-openvino",
+        "limbo",
+        "limbo-mps",
+        "limbo-tensorrt",
+        "limbo-openvino",
     ]
 
     depthGroup.add_argument(
