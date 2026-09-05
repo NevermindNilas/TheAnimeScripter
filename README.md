@@ -14,6 +14,26 @@
 
 </div>
 
+<div align="center">
+
+**Free, open-source anime video toolkit: AI upscale, RIFE interpolation and restore in one pass.**
+
+[![Download Standalone](https://img.shields.io/badge/Download-TAS--Standalone-blue?style=for-the-badge)](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)
+[![Promo Video](https://img.shields.io/badge/Watch-Promo_Video-red?style=for-the-badge&logo=youtube)](https://youtu.be/V7ryKMezqeQ)
+[![Website](https://img.shields.io/badge/Website-tas.nevermindnilas.dev-green?style=for-the-badge)](https://tas.nevermindnilas.dev)
+
+<img src="https://tas.nevermindnilas.dev/assets/demo-adore-2x.webp" width="700" alt="TAS Adore 2x upscale demo">
+
+*720p master → Adore 2x. [More demos](https://tas.nevermindnilas.dev) · [Promo video](https://youtu.be/V7ryKMezqeQ)*
+
+| Why TAS vs Topaz / FlowFrames / chaiNNer | |
+|---|---|
+| **Anime-first + free** | CUGAN / Adore / SPAN / Fallin tuned for line art, CLI free (AGPL) vs $299/yr |
+| **One pass, fast** | Dedup → interpolate → upscale → restore in memory, with TensorRT / CUDA graphs |
+| **Where you edit** | Only free tool with native After Effects panel + Standalone + scriptable CLI |
+
+</div>
+
 ## 📋 Overview
 
 TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
