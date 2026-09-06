@@ -1147,6 +1147,10 @@ def _addDepthOptions(argParser):
         "limbo-mps",
         "limbo-tensorrt",
         "limbo-openvino",
+        "limbo_v2",
+        "limbo_v2-mps",
+        "limbo_v2-tensorrt",
+        "limbo_v2-openvino",
     ]
 
     depthGroup.add_argument(

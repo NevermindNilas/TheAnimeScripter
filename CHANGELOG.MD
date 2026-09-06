@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `--depth_method limbo_v2` (plus `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`): Limbo-V2 anime depth finetune with the same fixed-resolution setup and backend coverage as v1; README and PARAMETERS.MD now list Limbo v1 and v2 side by side.
+
 ## [2.9.6] - 2026-08-25
 
 ### Added

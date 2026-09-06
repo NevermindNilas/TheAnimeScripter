@@ -355,11 +355,11 @@ class LimboOpenVino(DepthDirectMLV2):
             )
 
         self.newHeight, self.newWidth = limboResolution(self.width, self.height)
-        registryModel = (
-            "limbo-directml"
-            if (self.newHeight, self.newWidth) == (280, 504)
-            else "limbo_43-directml"
-        )
+        isV2 = self.depth_method.startswith("limbo_v2")
+        if (self.newHeight, self.newWidth) == (280, 504):
+            registryModel = "limbo_v2-directml" if isV2 else "limbo-directml"
+        else:
+            registryModel = "limbo_v2_43-directml" if isV2 else "limbo_43-directml"
 
         self.filename = modelsMap(model=registryModel, modelType="onnx", half=self.half)
         folderName = registryModel.replace("-directml", "-onnx")

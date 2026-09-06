@@ -225,6 +225,9 @@ def modelsList() -> list[str]:
         "limbo",
         "limbo-mps",
         "limbo-tensorrt",
+        "limbo_v2",
+        "limbo_v2-mps",
+        "limbo_v2-tensorrt",
     ]
 
 
@@ -989,12 +992,17 @@ def modelsMap(
                 return "depth_anything_v3_vitl_metric.safetensors"
 
         # Limbo is an anime finetune of DA3-small, exported at two fixed input
-        # resolutions rather than a dynamic one. The CLI method is just "limbo";
-        # the ONNX backends resolve the aspect themselves and ask for the "_43"
-        # name when the source is closer to 4:3 (_shared.limboResolution).
+        # resolutions rather than a dynamic one. The CLI methods are "limbo"
+        # (v1) and "limbo_v2" (v2); the ONNX backends resolve the aspect
+        # themselves and ask for the "_43" name when the source is closer to
+        # 4:3 (_shared.limboResolution).
         case "limbo":
             if modelType == "pth":
                 return "Limbo.safetensors"
+
+        case "limbo_v2":
+            if modelType == "pth":
+                return "LimboV2.safetensors"
 
         case "limbo-tensorrt" | "limbo-directml":
             if half:
@@ -1007,6 +1015,18 @@ def modelsMap(
                 return "Limbo_504x378_fp16.onnx"
             else:
                 return "Limbo_504x378_fp32.onnx"
+
+        case "limbo_v2-tensorrt" | "limbo_v2-directml":
+            if half:
+                return "LimboV2_504x280_fp16.onnx"
+            else:
+                return "LimboV2_504x280_fp32.onnx"
+
+        case "limbo_v2_43-tensorrt" | "limbo_v2_43-directml":
+            if half:
+                return "LimboV2_504x378_fp16.onnx"
+            else:
+                return "LimboV2_504x378_fp32.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
