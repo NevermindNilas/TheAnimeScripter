@@ -263,9 +263,10 @@ class LimboMPS(DepthMPS):
             "depth_anything_3.mono"
         ).MonocularDepthAnything3
 
-        self.filename = modelsMap(model="limbo", modelType="pth", half=self.half)
+        base = "limbo_v2" if self.depth_method.startswith("limbo_v2") else "limbo"
+        self.filename = modelsMap(model=base, modelType="pth", half=self.half)
         modelPath = resolveWeightPath(
-            "limbo",
+            base,
             self.filename,
             half=self.half,
             modelType="pth",

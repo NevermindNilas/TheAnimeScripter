@@ -478,7 +478,53 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
+        case "limbo_v2":
+            from src.depth.backends.cuda import LimboCuda
+
+            driver = LimboCuda(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
         case "limbo-mps":
+            from src.depth.backends.mps import LimboMPS
+
+            driver = LimboMPS(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
+        case "limbo_v2-mps":
             from src.depth.backends.mps import LimboMPS
 
             driver = LimboMPS(
@@ -523,7 +569,50 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
+        case "limbo_v2-tensorrt":
+            from src.depth.backends.tensorrt import LimboTensorRT
+
+            driver = LimboTensorRT(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
         case "limbo-openvino":
+            from src.depth.backends.directml import LimboOpenVino
+
+            driver = LimboOpenVino(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                depthNorm=self.depthNorm,
+            )
+
+        case "limbo_v2-openvino":
             from src.depth.backends.directml import LimboOpenVino
 
             driver = LimboOpenVino(

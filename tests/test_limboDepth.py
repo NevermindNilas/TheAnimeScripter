@@ -1,6 +1,6 @@
-"""Guards for the Limbo depth method.
+"""Guards for the Limbo depth methods (v1 and v2).
 
-Limbo is the only depth method whose input resolution is fixed by the model
+Limbo is the only depth family whose input resolution is fixed by the model
 rather than by ``--depth_quality``: it ships one ONNX per baked size and the
 backends pick between them from the source aspect ratio. Two things can drift
 silently there -- the picker landing a 16:9 source on the 4:3 export (the model
@@ -108,6 +108,7 @@ def testBothLimboExportsAreRegistered():
     # The 4:3 arm has no CLI choice of its own -- only limboResolution reaches
     # it -- so nothing else in the drift suite would notice it disappearing.
     assert modelsMap("limbo", modelType="pth") == "Limbo.safetensors"
+    assert modelsMap("limbo_v2", modelType="pth") == "LimboV2.safetensors"
     assert modelsMap("limbo-tensorrt", modelType="onnx", half=True) == (
         "Limbo_504x280_fp16.onnx"
     )
@@ -120,6 +121,18 @@ def testBothLimboExportsAreRegistered():
     assert modelsMap("limbo_43-directml", modelType="onnx", half=False) == (
         "Limbo_504x378_fp32.onnx"
     )
+    assert modelsMap("limbo_v2-tensorrt", modelType="onnx", half=True) == (
+        "LimboV2_504x280_fp16.onnx"
+    )
+    assert modelsMap("limbo_v2-tensorrt", modelType="onnx", half=False) == (
+        "LimboV2_504x280_fp32.onnx"
+    )
+    assert modelsMap("limbo_v2_43-tensorrt", modelType="onnx", half=True) == (
+        "LimboV2_504x378_fp16.onnx"
+    )
+    assert modelsMap("limbo_v2_43-directml", modelType="onnx", half=False) == (
+        "LimboV2_504x378_fp32.onnx"
+    )
 
 
 def testLimboWeightNamesCarryTheResolutionTheyAreBuiltFor():
@@ -128,6 +141,8 @@ def testLimboWeightNamesCarryTheResolutionTheyAreBuiltFor():
     for model, shape in (
         ("limbo-tensorrt", "504x280"),
         ("limbo_43-tensorrt", "504x378"),
+        ("limbo_v2-tensorrt", "504x280"),
+        ("limbo_v2_43-tensorrt", "504x378"),
     ):
         for half in (True, False):
             assert shape in modelsMap(model, modelType="onnx", half=half)
@@ -212,6 +227,10 @@ def testEveryLimboCliChoiceHasAFactoryArm():
         "limbo-mps",
         "limbo-openvino",
         "limbo-tensorrt",
+        "limbo_v2",
+        "limbo_v2-mps",
+        "limbo_v2-openvino",
+        "limbo_v2-tensorrt",
     ]
 
     source = (SRC / "factories" / "standalone.py").read_text(encoding="utf-8")

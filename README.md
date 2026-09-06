@@ -279,6 +279,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Small v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
 | **Original Implementation Models**    |       |          |          |       |
 | OG Small v2                           |   ✅   |    ✅     |    ❌     |   ✅   |
+| **Limbo Models (anime)**              |       |          |          |       |
+| Limbo v1 (`--depth_method limbo`)     |   ✅   |    ✅     |    ❌     |   ✅   |
+| Limbo v2 (`--depth_method limbo_v2`)  |   ✅   |    ✅     |    ❌     |   ✅   |
 
 ### 🎯 Object Detection Models (YOLOv9-MIT)
 

@@ -309,12 +309,13 @@ class LimboTensorRT(DepthTensorRTV2):
 
         self.newHeight, self.newWidth = limboResolution(self.width, self.height)
         # The two exports differ only in resolution, so the aspect the source
-        # resolved to is what picks the weight file.
-        registryModel = (
-            "limbo-tensorrt"
-            if (self.newHeight, self.newWidth) == (280, 504)
-            else "limbo_43-tensorrt"
-        )
+        # resolved to is what picks the weight file. v2 (limbo_v2-tensorrt)
+        # mirrors v1 under its own weight names.
+        isV2 = self.depth_method.startswith("limbo_v2")
+        if (self.newHeight, self.newWidth) == (280, 504):
+            registryModel = "limbo_v2-tensorrt" if isV2 else "limbo-tensorrt"
+        else:
+            registryModel = "limbo_v2_43-tensorrt" if isV2 else "limbo_43-tensorrt"
 
         self.filename = modelsMap(model=registryModel, modelType="onnx", half=self.half)
         folderName = registryModel.replace("-tensorrt", "-onnx")
