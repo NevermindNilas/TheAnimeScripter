@@ -31,6 +31,11 @@ ignore = [
 # Without this ty treats `src/` as a source root, which breaks every
 # `from .infra.x import y` inside src/*.py into a false unresolved-import.
 root = ["."]
+# The repo is Python 3.14-only (portable 3.14.6, ruff target py314): without
+# this ty parses with an older grammar and flags valid 3.14 syntax
+# (PEP 758 paren-less `except A, B:`) as invalid-syntax, burying the real
+# unresolved-import/unresolved-reference diagnostics ty exists for.
+python-version = "3.14"
 
 [tool.ty.src]
 # Same vendored trees ruff skips — not ours to annotate.

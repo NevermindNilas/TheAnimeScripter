@@ -1,10 +1,11 @@
-import torch
+"""Pure integer-math helpers for upscale backends (padding, input multiples).
 
-from src.infra.isCudaInit import CudaChecker
-
-checker = CudaChecker()
-
-torch.set_float32_matmul_precision("medium")
+Deliberately free of torch/CUDA imports: backend modules import these names
+function-level lazy, and any module-level torch import here would run on every
+such import -- breaking torch-less loading (bare CI venv) for helpers that
+are pure math. Backend constructors own `set_float32_matmul_precision`, not
+this module.
+"""
 
 
 def calculatePadding(width, height, multiple=4):

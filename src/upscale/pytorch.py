@@ -238,7 +238,15 @@ class UniversalPytorch:
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
-        if not self.compileMode != "default":
+        # NOTE: the unconditional `self.compileMode = "default"` reset above
+        # means a successful --compile still lands here with "default", so the
+        # outer CUDA graph is always captured (for mode "max" that stacks
+        # inductor cudagraphs inside the outer graph -- cf. misc.py which uses
+        # max-autotune-no-cudagraphs to avoid exactly this). Resetting only on
+        # compile failure would flip __call__ onto the compiled-eager branch;
+        # that ownership change needs a warm-GPU before/after FPS/VRAM/parity
+        # comparison first, so it is deliberately not done here.
+        if self.compileMode == "default":
             self.cudaGraph = torch.cuda.CUDAGraph()
             self.initTorchCudaGraph()
 

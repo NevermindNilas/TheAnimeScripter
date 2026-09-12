@@ -135,6 +135,110 @@ def resolveSourceFps(props):
     return fps, warning
 
 
+def parseTrimArg(value):
+    """Argparse type (and JSON coercer) for ``--inpoint``/``--outpoint``.
+
+    Plain numbers stay seconds (backwards compatible); a trailing ``f``/``F``
+    selects frames, e.g. ``100f``. Returns ``0`` when unset, a ``float`` for
+    seconds, or a normalized ``"<n>f"`` string for frames.
+    """
+
+    def fail(reason):
+        import argparse
+
+        raise argparse.ArgumentTypeError(
+            f"Invalid trim value {value!r}: {reason}. "
+            "Use seconds (e.g. 60 or 60.5) or frames with an 'f' suffix "
+            "(e.g. 100f)."
+        )
+
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        fail("expected seconds or frames")
+    if isinstance(value, (int, float)):
+        try:
+            seconds = float(value)
+        except TypeError, ValueError:
+            fail("expected seconds or frames")
+        if seconds != seconds or seconds in (float("inf"), float("-inf")):
+            fail("must be finite")
+        if seconds < 0:
+            fail("must be >= 0")
+        return 0 if seconds == 0 else seconds
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        if text.lower().endswith("f"):
+            digits = text[:-1].strip()
+            if not digits or not digits.isdigit():
+                fail("frames must be a whole non-negative number")
+            frames = int(digits)
+            return 0 if frames == 0 else f"{frames}f"
+        try:
+            seconds = float(text)
+        except TypeError, ValueError:
+            fail("expected seconds or frames")
+        if seconds != seconds or seconds in (float("inf"), float("-inf")):
+            fail("must be finite")
+        if seconds < 0:
+            fail("must be >= 0")
+        return 0 if seconds == 0 else seconds
+    fail("expected seconds or frames")
+
+
+def isTrimUnset(value) -> bool:
+    """True when a trim point means "no trim" (start / EOF)."""
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, (int, float)):
+        return value <= 0
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return True
+        if text.lower().endswith("f"):
+            try:
+                return int(text[:-1].strip()) <= 0
+            except TypeError, ValueError:
+                return False
+        try:
+            return float(text) <= 0
+        except TypeError, ValueError:
+            return False
+    return False
+
+
+def isFramePoint(value) -> bool:
+    """True when a trim point is frame-indexed (``"<n>f"``), not seconds."""
+    if isTrimUnset(value):
+        return False
+    return isinstance(value, str) and value.strip().lower().endswith("f")
+
+
+def trimPointToFrames(fps, value) -> int:
+    """Resolve a trim point to a source frame index (exact for ``"<n>f"``)."""
+    if isTrimUnset(value):
+        return 0
+    if isFramePoint(value):
+        return int(str(value).strip()[:-1].strip())
+    return int(round(float(str(value).strip()) * fps)) if fps else 0
+
+
+def trimPointToSeconds(fps, value) -> float:
+    """Resolve a trim point to seconds (frames need ``fps`` to convert)."""
+    if isTrimUnset(value):
+        return 0.0
+    if isFramePoint(value):
+        if not fps or fps <= 0:
+            raise ValueError(f"Cannot resolve frames {value!r} without fps")
+        return int(str(value).strip()[:-1].strip()) / float(fps)
+    return float(str(value).strip())
+
+
 def trimFrameRange(fps, inPoint, outPoint):
     """The ``[start, end)`` source frame indices ``--inpoint``/``--outpoint`` select.
 
@@ -153,11 +257,33 @@ def trimFrameRange(fps, inPoint, outPoint):
     0 and read as "no limit", re-encoding the whole file against a fraction of
     a second of audio. With a non-zero ``--inpoint`` the same collapse made
     ``end == start`` and emitted no frames at all.
+
+    Each endpoint is seconds by default; a trailing ``f`` selects frames
+    (e.g. ``100f``), resolved exactly without ``fps``. Mixed units compare in
+    the time domain, so an invalid range raises even when ``fps`` is only
+    known per file.
     """
-    startFrame = int(round(float(inPoint) * fps)) if inPoint and inPoint > 0 else 0
-    if not outPoint or float(outPoint) <= 0:
+    startFrame = trimPointToFrames(fps, inPoint)
+    if isTrimUnset(outPoint):
         return startFrame, None
-    return startFrame, max(startFrame + 1, int(round(float(outPoint) * fps)))
+    endFrame = trimPointToFrames(fps, outPoint)
+    if fps and fps > 0:
+        inSec = trimPointToSeconds(fps, inPoint)
+        outSec = trimPointToSeconds(fps, outPoint)
+        if outSec <= inSec:
+            raise ValueError(
+                "Invalid trim range: outpoint must be greater than inpoint "
+                f"when set (inpoint={inPoint}, outpoint={outPoint})"
+            )
+    elif endFrame <= startFrame:
+        # fps unknown: only frame-vs-frame ranges can still be validated.
+        if isFramePoint(inPoint) or isTrimUnset(inPoint):
+            if isFramePoint(outPoint) or isTrimUnset(outPoint):
+                raise ValueError(
+                    "Invalid trim range: outpoint must be greater than "
+                    f"inpoint when set (inpoint={inPoint}, outpoint={outPoint})"
+                )
+    return startFrame, max(startFrame + 1, endFrame)
 
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
@@ -166,8 +292,8 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
     Parameters:
     inputPath (str): The path to the video file
-    inPoint (float): Start time of clip
-    outPoint (float): End time of clip
+    inPoint (float | str): Start of clip in seconds, or frames as "<n>f"
+    outPoint (float | str): End of clip in seconds, or frames as "<n>f"
     ffprobePath (str): Path to ffprobe executable
 
     Returns:
@@ -273,6 +399,19 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
         if isImageInput and totalFramesToProcess < 1:
             totalFramesToProcess = 1
+
+        if not isImageInput and totalFramesToProcess <= 1:
+            # AE-bridge prerenders that land here with a single frame are
+            # almost always a work-area / time-remap range issue on the AE
+            # side, not a decode bug: the file itself is ~1 frame long
+            # (e.g. rawvideo AVI, duration 0.05s). Say so loudly, otherwise a
+            # depth run "succeeds" on 1 frame and looks like TAS dropped the clip.
+            logAndPrint(
+                "Only 1 frame detected in video input "
+                f"({inputPath}). If you expected a full clip, check the AE "
+                "work area / prerender range and disable time remap before retrying.",
+                "yellow",
+            )
 
         metadata = {
             "Width": width,

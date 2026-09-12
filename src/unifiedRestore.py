@@ -97,9 +97,22 @@ class UnifiedRestoreCuda:
 
         self.model = self.model.eval()
 
+        from src.spandrelCompat import UnsupportedDtypeError
+
         if self.half:
-            self.model = self.model.half()
-            self.dType = torch.float16
+            try:
+                self.model = self.model.half()
+                self.dType = torch.float16
+            except UnsupportedDtypeError as e:
+                logging.error(f"Model does not support half precision: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dType = torch.float32
+            except Exception as e:
+                logging.error(f"Error converting model to half precision: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dType = torch.float32
         else:
             self.model = self.model.float()  # Sanity check, should not be needed
             self.dType = torch.float32

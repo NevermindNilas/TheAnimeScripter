@@ -490,6 +490,66 @@ def setOptimizationProfile(
         return False
 
 
+def _networkInputNames(network) -> list[str] | None:
+    """Return the ONNX input tensor names as TensorRT parsed them.
+
+    A caller-hardcoded name that no longer matches the export passes
+    ``set_shape`` silently and fails the build late with "Dynamic input
+    tensor <real> is missing dimensions in profile 0" (depth_anything_v2
+    shipped exactly this as "image" vs "input"). Discovering the names here
+    turns that into a loud warning plus an automatic correction.
+    Returns None when the network API is unavailable.
+    """
+    try:
+        count = int(network.num_inputs)
+        return [network.get_input(i).name for i in range(count)]
+    except Exception as error:
+        logging.debug(f"Could not read TensorRT network input names: {error}")
+        return None
+
+
+def _reconcileInputNames(
+    network,
+    inputName: list[str],
+    isMultiInput: bool,
+) -> list[str]:
+    """Swap caller-provided input names for the network's own when they differ."""
+    actual = _networkInputNames(network)
+    if not actual:
+        return inputName
+    if isMultiInput:
+        if len(actual) != len(inputName):
+            logAndPrint(
+                f"ONNX has {len(actual)} inputs {actual} but the caller provided "
+                f"{len(inputName)} names {inputName}; using the model names in order",
+                "yellow",
+            )
+            logging.warning(
+                f"TensorRT input name count mismatch: caller {inputName} vs "
+                f"model {actual}"
+            )
+        elif set(actual) != set(inputName):
+            logAndPrint(
+                f"Correcting TensorRT input names {inputName} -> {actual}",
+                "yellow",
+            )
+            logging.warning(
+                f"TensorRT input names corrected: caller {inputName} vs model {actual}"
+            )
+        # Shapes are positional, so adopt the model order whenever counts agree.
+        return actual if len(actual) == len(inputName) else inputName
+    if len(actual) == 1 and len(inputName) >= 1 and actual[0] != inputName[0]:
+        logAndPrint(
+            f"Correcting TensorRT input name {inputName[0]} -> {actual[0]}",
+            "yellow",
+        )
+        logging.warning(
+            f"TensorRT input name corrected: caller {inputName} vs model {actual}"
+        )
+        return [actual[0]]
+    return inputName
+
+
 def _logInputShapes(name: str, minShape, optShape, maxShape, fp16) -> None:
     """Helper function to log input shapes consistently."""
     if not ADOBE:
@@ -613,6 +673,8 @@ def tensorRTEngineCreator(
         parser = trt.OnnxParser(network, TRTLOGGER)
         if not parseModel(parser, modelPath):
             return None, None
+
+        inputName = _reconcileInputNames(network, inputName, isMultiInput)
 
         if not setOptimizationProfile(
             builder,

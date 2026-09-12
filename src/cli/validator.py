@@ -70,16 +70,15 @@ def _downgradeCudaDetector(method: str, flagName: str) -> str:
     return method
 
 
-def _neluxSupportsEncoderResize() -> bool:
-    """True when the installed nelux can honor `--output_scale` itself.
+def _neluxVersionAtLeast(major: int, minor: int) -> bool:
+    """True when the installed nelux is at least `major.minor`.
 
-    Encoder-side resize (`VideoEncoder(resize=True)`) exists since nelux
-    0.18.0. Read the version from package metadata rather than importing
+    Read the version from package metadata rather than importing
     nelux, which is heavy and demands torch be imported first. When nelux is
     not installed (a bare CI venv) the run dies at `import nelux` long before
     the writer matters, so report support rather than downgrading the method.
     An unparseable version reports no support: the loud FFmpeg-twin downgrade
-    beats a raw TypeError from `VideoEncoder(resize=...)` mid-run.
+    beats a raw error from the encoder mid-run.
     """
     from importlib.metadata import PackageNotFoundError, version
 
@@ -88,10 +87,31 @@ def _neluxSupportsEncoderResize() -> bool:
     except PackageNotFoundError:
         return True
     try:
-        major, minor = installed.split(".")[:2]
-        return (int(major), int(minor)) >= (0, 18)
+        haveMajor, haveMinor = installed.split(".")[:2]
+        return (int(haveMajor), int(haveMinor)) >= (major, minor)
     except ValueError:
         return False
+
+
+def _neluxSupportsEncoderResize() -> bool:
+    """True when the installed nelux can honor `--output_scale` itself.
+
+    Encoder-side resize (`VideoEncoder(resize=True)`) exists since nelux
+    0.18.0.
+    """
+    return _neluxVersionAtLeast(0, 18)
+
+
+def _neluxSupportsDeepEncode() -> bool:
+    """True when the installed nelux keeps 16-bit frames at full precision.
+
+    Deep-colour encode input (a uint16 tensor carried through at full
+    precision into any >8-bit destination instead of being narrowed to 8
+    bits first) exists since nelux 0.17.0, so `--bit_depth 16bit` rides the
+    in-process encoder on anything newer. Older builds silently quantise it
+    down to 8-bit, so those still take the loud FFmpeg-twin downgrade.
+    """
+    return _neluxVersionAtLeast(0, 17)
 
 
 def _resolveNeluxEncoder(args):
@@ -105,15 +125,16 @@ def _resolveNeluxEncoder(args):
     input file in the writer.
 
     `--output_scale` is honored natively since nelux 0.18.0 (encoder-side
-    resize) and only downgrades when the installed nelux predates it.
+    resize) and `--bit_depth 16bit` since nelux 0.17.0 (deep-colour encode
+    input); each only downgrades when the installed nelux predates it.
     """
     method = getattr(args, "encode_method", "") or ""
     if not method.endswith("_nelux"):
         return
 
     dropped = []
-    if getattr(args, "bit_depth", "8bit") != "8bit":
-        dropped.append("--bit_depth")
+    if getattr(args, "bit_depth", "8bit") != "8bit" and not _neluxSupportsDeepEncode():
+        dropped.append("--bit_depth (nelux < 0.17.0)")
     if (
         args.output_scale_width or args.output_scale_height
     ) and not _neluxSupportsEncoderResize():
@@ -365,6 +386,7 @@ def _configureProcessingSettings(args):
         )
 
         # Duration is preserved, so audio stays in sync and is left enabled.
+        args.smooth_dedup_sens_raw = args.smooth_dedup_sens
         args.smooth_dedup_sens = _mapDedupSensitivity(
             args.smooth_dedup_method, args.smooth_dedup_sens
         )
@@ -379,6 +401,7 @@ def _configureProcessingSettings(args):
         # Before the sensitivity mapping, which is grouped by metric and so
         # unaffected by the swap.
         args.dedup_method = _downgradeCudaDetector(args.dedup_method, "dedup_method")
+        args.dedup_sens_raw = args.dedup_sens
         args.dedup_sens = _mapDedupSensitivity(args.dedup_method, args.dedup_sens)
         logging.info(
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"

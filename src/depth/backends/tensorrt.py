@@ -164,7 +164,10 @@ class DepthTensorRTV2(DepthRunOutcome):
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            inputName = "image"
+            # depth_anything_v2 ONNX uses "input" (verified on disk); "image"
+            # is Limbo-only. A wrong name passes set_shape silently and fails
+            # the build with "Dynamic input tensor input is missing dimensions".
+            inputName = "input"
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -173,6 +176,11 @@ class DepthTensorRTV2(DepthRunOutcome):
                 inputsOpt=[B, 3, self.newHeight, self.newWidth],
                 inputsMax=[B, 3, self.newHeight, self.newWidth],
                 inputName=[inputName],
+            )
+
+        if self.engine is None or self.context is None:
+            raise RuntimeError(
+                f"Failed to build or load a TensorRT engine for {self.modelPath}"
             )
 
         self.stream = torch.cuda.Stream()
@@ -188,15 +196,17 @@ class DepthTensorRTV2(DepthRunOutcome):
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
-
+        # Bind by tensor mode, not by IO index: a positional binding silently
+        # swaps input/output if TensorRT reorders them.
         for i in range(self.engine.num_io_tensors):
-            self.context.set_tensor_address(
-                self.engine.get_tensor_name(i), self.bindings[i]
-            )
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
+                self.context.set_tensor_address(tensor_name, self.dummyInput.data_ptr())
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+            else:
+                self.context.set_tensor_address(
+                    tensor_name, self.dummyOutput.data_ptr()
+                )
 
         self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
@@ -577,7 +587,9 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            inputName = "input" if self.isVideoDepthTensorRT else "image"
+            # Both small_v2 and video_small_v2 ONNX use "input" (verified on
+            # disk); "image" is Limbo-only.
+            inputName = "input"
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -623,15 +635,17 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
-
+        # Bind by tensor mode, not by IO index: a positional binding silently
+        # swaps input/output if TensorRT reorders them.
         for i in range(self.engine.num_io_tensors):
-            self.context.set_tensor_address(
-                self.engine.get_tensor_name(i), self.bindings[i]
-            )
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
+                self.context.set_tensor_address(tensor_name, self.dummyInput.data_ptr())
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+            else:
+                self.context.set_tensor_address(
+                    tensor_name, self.dummyOutput.data_ptr()
+                )
 
         self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()

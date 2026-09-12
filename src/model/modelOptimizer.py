@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 import torch
@@ -7,12 +9,18 @@ class ModelOptimizer:
     def __init__(
         self,
         model: torch.nn.Module,
-        dtype: torch.dtype = torch.float32,
-        memoryFormat: torch.memory_format = torch.contiguous_format,
+        # None means "torch default": the torch.* values below are resolved
+        # inside optimizeModel so that importing this module never evaluates
+        # torch attributes at def time (torch-less bare-venv loading, where
+        # only a minimal torch stub exists).
+        dtype: torch.dtype | None = None,
+        memoryFormat: torch.memory_format | None = None,
     ) -> None:
         self.model = model
-        self.dtype = dtype
-        self.memoryFormat = memoryFormat
+        self.dtype = dtype if dtype is not None else torch.float32
+        self.memoryFormat = (
+            memoryFormat if memoryFormat is not None else torch.contiguous_format
+        )
 
     def optimizeModel(self) -> torch.nn.Module:
         self.model.eval()

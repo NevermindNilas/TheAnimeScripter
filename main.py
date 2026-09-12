@@ -243,8 +243,8 @@ class VideoProcessor:
         self.decodeMethod: str = (args.decode_method or "cpu").lower()
 
         # Video processing settings
-        self.inpoint: float = args.inpoint
-        self.outpoint: float = args.outpoint
+        self.inpoint: float | str = args.inpoint
+        self.outpoint: float | str = args.outpoint
         self.resize: bool = args.resize
         self.resizeFactor: float = args.resize_factor
         self.bitDepth: str = args.bit_depth
@@ -924,6 +924,7 @@ class VideoProcessor:
                 bitDepth=self.bitDepth,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                sourceFps=self.fps,
                 slowmo=self.slowmo,
                 output_scale_width=self.outputScaleWidth,
                 output_scale_height=self.outputScaleHeight,
