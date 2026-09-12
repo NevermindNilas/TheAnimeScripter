@@ -213,6 +213,8 @@ def modelsList() -> list[str]:
         "og_video_small_v2-tensorrt",
         "video_small_v2-tensorrt",
         "video_small_v2",
+        "video_small_v3",
+        "video_base_v3",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -985,11 +987,11 @@ def modelsMap(
                 else:
                     return "video_depth_anything_vits_fp32_op20_slim.onnx"
 
-        case "small_v3":
+        case "small_v3" | "video_small_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vits.safetensors"
 
-        case "base_v3":
+        case "base_v3" | "video_base_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitb.safetensors"
 

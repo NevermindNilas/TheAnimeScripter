@@ -284,6 +284,18 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Limbo v1 (`--depth_method limbo`)     |   ✅   |    ✅     |    ❌     |   ✅   |
 | Limbo v2 (`--depth_method limbo_v2`)  |   ✅   |    ✅     |    ❌     |   ✅   |
 
+DA3 depth-video streaming is available on CUDA as `video_small_v3` and
+`video_base_v3`, reusing the Apache-2.0 Small/Base checkpoints. For example:
+
+```bash
+python main.py --input input.mp4 --output depth.mp4 --depth_method video_small_v3 --depth_window 8
+```
+
+Frames attend across overlapping chunks; `--depth_window` sets the chunk size
+(4/8/16/32, default 32), with 50% overlap. Smaller windows reduce memory and
+lookahead latency. This is a depth-only adaptation of DA3-Streaming, without
+camera reconstruction or loop closure. See [details and licenses](docs/DA3_STREAMING.md).
+
 ### 🎯 Object Detection Models (YOLOv9-MIT)
 
 | Model         | CUDA  | TensorRT | DirectML | OpenVINO |

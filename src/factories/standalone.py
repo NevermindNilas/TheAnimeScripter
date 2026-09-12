@@ -358,6 +358,28 @@ def depth(self):
                 depth_window=self.depthWindow,
             )
 
+        case "video_small_v3" | "video_base_v3":
+            from src.depth.backends.da3_streaming import DA3StreamingCuda
+
+            driver = DA3StreamingCuda(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_window=self.depthWindow,
+            )
+
         case "og_small_v2-tensorrt" | "video_small_v2-tensorrt":
             from src.depth.backends.tensorrt import OGDepthV2TensorRT
 

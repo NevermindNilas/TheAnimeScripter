@@ -318,6 +318,8 @@ def downloadModels(
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
     registryModel = {
         "og_small_v2": "small_v2",
+        "video_small_v3": "small_v3",
+        "video_base_v3": "base_v3",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
