@@ -68,6 +68,30 @@ This is a temporal-consistency proxy on one short gameplay clip, not a depth
 accuracy measurement or validation on anime. The existing `limbo` and
 `limbo_v2` CLI modes remain independent-frame methods.
 
+## Limbo TensorRT streaming
+
+Use `video_limbo-tensorrt` or `video_limbo_v2-tensorrt` with the same window
+options. On first use, TAS exports a dynamic-view ONNX from the cached
+safetensors and builds a local TensorRT engine. Existing single-image ONNX
+exports cannot supply cross-frame attention. Both spatial sizes are supported;
+tails use their actual number of views, with no repeated-frame padding.
+
+```bash
+python main.py --input input.mp4 --output depth.mp4 --depth --depth_method video_limbo_v2-tensorrt --depth_window 8
+python tools/export_limbo_streaming.py --checkpoint model.safetensors --output-dir exports --height 280
+```
+
+The separate exporter also accepts height 378 and `--fp32`. Runtime
+`--half False` selects FP32. FP16 graphs retain attention products, normalization,
+softmax, resize and exponential operations in FP32 for numerical stability.
+FP16 conversion needs ONNX Runtime, included in full Windows/Linux requirements.
+Export caches include checkpoint content, spatial size, precision and exporter
+version; engine caches additionally include the temporal window. Initial export
+and build can take minutes, while subsequent runs reuse the artifacts.
+
+See the [RTX 3090 validation report](LIMBO_TENSORRT_VALIDATION.md)
+for measured throughput, temporal consistency, numerical checks and limitations.
+
 ## License review (2026-09-12)
 
 Reviewed upstream commit `3d835ec1a5802d64a8b8b15f817a1ab54809bfe4`:

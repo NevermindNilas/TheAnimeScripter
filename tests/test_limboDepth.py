@@ -231,11 +231,20 @@ def testEveryLimboCliChoiceHasAFactoryArm():
         "limbo_v2-mps",
         "limbo_v2-openvino",
         "limbo_v2-tensorrt",
+        "video_limbo",
+        "video_limbo-tensorrt",
+        "video_limbo_v2",
+        "video_limbo_v2-tensorrt",
     ]
 
     source = (SRC / "factories" / "standalone.py").read_text(encoding="utf-8")
+    patterns = {
+        node.value.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.MatchValue) and isinstance(node.value, ast.Constant)
+    }
     for method in methods:
-        assert f'case "{method}"' in source, (
+        assert method in patterns, (
             f"--depth_method {method} is an accepted CLI choice with no arm in "
             f"standalone.depth(); it would raise at runtime."
         )
