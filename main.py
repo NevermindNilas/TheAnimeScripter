@@ -262,7 +262,6 @@ class VideoProcessor:
         self.sceneChangeMethod: str = getattr(args, "scenechange_method", "ssim-cuda")
         self.sceneChangeThreshold = getattr(args, "scenechange_threshold", None)
         self.depthQuality: str = args.depth_quality
-        self.depthNorm: bool = args.depth_norm
         self.depthWindow: int = getattr(args, "depth_window", 32)
         self.depthBatch: int = getattr(args, "depth_batch", 1)
 

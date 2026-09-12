@@ -509,7 +509,6 @@ def testDepthBatchRetainedOnMps():
         depth=True,
         depth_quality="low",
         depth_method="small_v2-mps",
-        depth_norm=False,
         depth_batch=4,
         half=False,
     )

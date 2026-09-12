@@ -15,7 +15,6 @@ from src.constants import ADOBE
 from src.depth.backends._batch import iterBatches
 from src.depth.backends._shared import (
     DepthRunOutcome,
-    SlidingWindowNormalizer,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -48,7 +47,6 @@ class DepthMPS(DepthRunOutcome):
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         if not torch.backends.mps.is_available():
@@ -72,7 +70,6 @@ class DepthMPS(DepthRunOutcome):
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.depthBatch = max(1, int(depth_batch))
         self.device = torch.device("mps")
 
@@ -208,8 +205,6 @@ class DepthMPS(DepthRunOutcome):
 
     @torch.inference_mode()
     def _normalizeDepth(self, depth):
-        if self.normalizer is not None:
-            return self.normalizer.normalize(depth)
         return (depth - depth.min()) / (depth.max() - depth.min())
 
     @torch.inference_mode()
@@ -320,7 +315,7 @@ class LimboMPS(DepthMPS):
             depth = depth.unsqueeze(1).cpu()
             torch.mps.synchronize()
             for i in range(depth.shape[0]):
-                gray = limboDisparity(depth[i : i + 1], self.normalizer)
+                gray = limboDisparity(depth[i : i + 1])
                 if gray.shape[-2:] != (self.height, self.width):
                     gray = F.interpolate(
                         gray,
@@ -352,7 +347,6 @@ class OGDepthV2MPS(DepthRunOutcome):
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         if not torch.backends.mps.is_available():
@@ -376,7 +370,6 @@ class OGDepthV2MPS(DepthRunOutcome):
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.depthBatch = max(1, int(depth_batch))
         self.device = torch.device("mps")
 
@@ -515,11 +508,8 @@ class OGDepthV2MPS(DepthRunOutcome):
                 d = F.interpolate(
                     depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
                 )
-                if self.normalizer is not None:
-                    d = self.normalizer.normalize(d)
-                else:
-                    minVal = d.min()
-                    d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
+                minVal = d.min()
+                d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
                 # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once,
                 # to 8 or 16 bit per --bit_depth, instead of the byte() cast
                 # this path used to hardcode.
@@ -658,15 +648,12 @@ class OGDepthV3MPS(OGDepthV2MPS):
                 disparity = np.zeros_like(depth, dtype=np.float32)
                 disparity[validMask] = 1.0 / depth[validMask]
 
-                if self.normalizer is not None:
-                    gray = self.normalizer.normalize(disparity, mask=validMask)
-                else:
-                    disp_min = np.percentile(disparity[validMask], 2)
-                    disp_max = np.percentile(disparity[validMask], 98)
-                    if disp_min == disp_max:
-                        disp_min -= 1e-6
-                        disp_max += 1e-6
-                    gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
+                disp_min = np.percentile(disparity[validMask], 2)
+                disp_max = np.percentile(disparity[validMask], 98)
+                if disp_min == disp_max:
+                    disp_min -= 1e-6
+                    disp_max += 1e-6
+                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
                 self._writeGray(gray)
             except Exception as e:
                 self.recordFailure(e)

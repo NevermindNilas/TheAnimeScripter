@@ -14,7 +14,6 @@ from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
     DepthRunOutcome,
-    SlidingWindowNormalizer,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -53,7 +52,6 @@ class DepthDirectMLV2(DepthRunOutcome):
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        depthNorm: bool = False,
     ):
         import onnxruntime as ort
 
@@ -73,7 +71,6 @@ class DepthDirectMLV2(DepthRunOutcome):
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         if "openvino" in depth_method:
             logAndPrint(
@@ -297,10 +294,7 @@ class DepthDirectMLV2(DepthRunOutcome):
                 align_corners=True,
             )
 
-            if self.normalizer is not None:
-                depth = self.normalizer.normalize(depth)
-            else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             self.writeBuffer.write(depth)
 
         except UnicodeDecodeError as e:
@@ -504,7 +498,7 @@ class LimboOpenVino(DepthDirectMLV2):
 
             self.model.run_with_iobinding(self.IoBinding)
 
-            gray = limboDisparity(self.dummyOutput.unsqueeze(1), self.normalizer)
+            gray = limboDisparity(self.dummyOutput.unsqueeze(1))
             if gray.shape[-2:] != (self.height, self.width):
                 gray = F.interpolate(
                     gray,
@@ -547,7 +541,6 @@ class OGDepthV2DirectML(DepthRunOutcome):
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        depthNorm: bool = False,
     ):
         import onnxruntime as ort
 
@@ -567,7 +560,6 @@ class OGDepthV2DirectML(DepthRunOutcome):
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         if "openvino" in depth_method:
             logAndPrint(
@@ -748,10 +740,7 @@ class OGDepthV2DirectML(DepthRunOutcome):
                 out_tensor = out_tensor.squeeze(1)
 
             depth = out_tensor[0].cpu().numpy()
-            if self.normalizer is not None:
-                depth = self.normalizer.normalize(depth)
-            else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
 
             # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once, to 8
             # or 16 bit per --bit_depth, instead of the uint8 cast this path
