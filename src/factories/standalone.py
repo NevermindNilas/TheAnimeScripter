@@ -358,10 +358,18 @@ def depth(self):
                 depth_window=self.depthWindow,
             )
 
-        case "video_small_v3" | "video_base_v3":
-            from src.depth.backends.da3_streaming import DA3StreamingCuda
+        case "video_small_v3" | "video_base_v3" | "video_limbo" | "video_limbo_v2":
+            from src.depth.backends.da3_streaming import (
+                DA3StreamingCuda,
+                LimboStreamingCuda,
+            )
 
-            driver = DA3StreamingCuda(
+            streamingClass = (
+                LimboStreamingCuda
+                if self.depthMethod.startswith("video_limbo")
+                else DA3StreamingCuda
+            )
+            driver = streamingClass(
                 self.input,
                 self.output,
                 self.width,

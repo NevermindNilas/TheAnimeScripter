@@ -215,6 +215,8 @@ def modelsList() -> list[str]:
         "video_small_v2",
         "video_small_v3",
         "video_base_v3",
+        "video_limbo",
+        "video_limbo_v2",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -1011,11 +1013,11 @@ def modelsMap(
         # (v1) and "limbo_v2" (v2); the ONNX backends resolve the aspect
         # themselves and ask for the "_43" name when the source is closer to
         # 4:3 (_shared.limboResolution).
-        case "limbo":
+        case "limbo" | "video_limbo":
             if modelType == "pth":
                 return "Limbo.safetensors"
 
-        case "limbo_v2":
+        case "limbo_v2" | "video_limbo_v2":
             if modelType == "pth":
                 return "LimboV2.safetensors"
 

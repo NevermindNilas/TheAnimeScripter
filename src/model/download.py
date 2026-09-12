@@ -320,6 +320,8 @@ def downloadModels(
         "og_small_v2": "small_v2",
         "video_small_v3": "small_v3",
         "video_base_v3": "base_v3",
+        "video_limbo": "limbo",
+        "video_limbo_v2": "limbo_v2",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)

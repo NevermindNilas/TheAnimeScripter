@@ -107,7 +107,13 @@ def testInvalidWindowsRejected(chunk, overlap):
 
 
 @pytest.mark.parametrize(
-    "method,base", [("video_small_v3", "small_v3"), ("video_base_v3", "base_v3")]
+    "method,base",
+    [
+        ("video_small_v3", "small_v3"),
+        ("video_base_v3", "base_v3"),
+        ("video_limbo", "limbo"),
+        ("video_limbo_v2", "limbo_v2"),
+    ],
 )
 def testMethodsReusePermittedCheckpointsAndDisableIndependentBatching(
     monkeypatch, tmp_path, method, base
@@ -134,6 +140,62 @@ def testMethodsReusePermittedCheckpointsAndDisableIndependentBatching(
     )
     _handleDepthSettings(args)
     assert args.depth_batch == 1
+
+
+@pytest.mark.parametrize("method", ["video_limbo", "video_limbo_v2"])
+def testLimboStreamingQualityIsFixed(method):
+    from src.cli.validator import _handleDepthSettings
+
+    args = SimpleNamespace(
+        depth=True, depth_method=method, depth_quality="high", depth_batch=8
+    )
+    _handleDepthSettings(args)
+    assert args.depth_quality == "low"
+    assert args.depth_batch == 1
+
+
+@pytest.mark.parametrize("shape", [(280, 504), (378, 504)])
+def testLimboStreamingDecoderUsesModelResolution(monkeypatch, shape):
+    pytest.importorskip("torch")
+    pytest.importorskip("cv2")
+    pytest.importorskip("nelux")
+    from src.depth.backends.da3_streaming import LimboCuda, LimboStreamingCuda
+
+    def load(driver):
+        driver.newHeight, driver.newWidth = shape
+
+    monkeypatch.setattr(LimboCuda, "handleModels", load)
+    driver = LimboStreamingCuda.__new__(LimboStreamingCuda)
+    driver.depth_method = "video_limbo_v2"
+    driver.depthWindow = 8
+    driver.handleModels()
+    assert (driver._decodeHeight, driver._decodeWidth) == shape
+    assert driver._decodeResize
+
+
+def testLimboStreamingNormalizesRGBAndGroupsViews(monkeypatch):
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("cv2")
+    pytest.importorskip("nelux")
+    from src.depth.backends.da3_streaming import LimboCuda, LimboStreamingCuda
+
+    driver = LimboStreamingCuda.__new__(LimboStreamingCuda)
+    seen = []
+
+    def forward(images):
+        seen.append(images.clone())
+        return {"depth": images[:, :, 0]}
+
+    monkeypatch.setattr(LimboCuda, "normFrame", lambda _, images: images * 2)
+    driver.model = SimpleNamespace(
+        _get_model_device=lambda: torch.device("cpu"), forward=forward
+    )
+    frames = [np.zeros((28, 42, 3), np.uint8), np.full((28, 42, 3), 255, np.uint8)]
+    depth = driver._inferChunk(frames)
+    assert seen[0].shape == (1, 2, 3, 28, 42)
+    assert depth.shape == (2, 28, 42)
+    np.testing.assert_array_equal(depth[0], 0)
+    np.testing.assert_array_equal(depth[1], 2)
 
 
 def testChunkInferenceUsesViewsOfOneScene():

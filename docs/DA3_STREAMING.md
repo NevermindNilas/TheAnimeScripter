@@ -44,6 +44,18 @@ CC BY-NC 4.0, and is excluded from this integration.
 
 ## Limbo checkpoint compatibility
 
+Use `--depth_method video_limbo` for V1 or `video_limbo_v2` for V2 on CUDA:
+
+```bash
+python main.py --input input.mp4 --output depth.mp4 --depth_method video_limbo_v2 --depth_window 16
+```
+
+Both reuse the existing Limbo checkpoint cache and support 4/8/16/32-frame
+windows with 50% overlap (default 32). Input resolution is fixed at 504x280
+for widescreen or 504x378 for 4:3 and squarer, selected by source aspect ratio.
+`--depth_quality` is forced to `low`, and `--depth_batch` is forced to `1`.
+Frames use the same ImageNet normalization as the independent Limbo backend.
+
 An experimental CUDA test on `Raw.mp4` (78 frames, 504x280 input) confirmed
 that both Limbo V1 and V2 checkpoints accept multi-view inputs and use their
 DA3-Small cross-frame attention. Changing neighboring views while holding the
@@ -54,8 +66,7 @@ With a 16-frame window, motion-compensated display-depth variation fell by
 approximately 62% for each checkpoint compared with independent inference.
 This is a temporal-consistency proxy on one short gameplay clip, not a depth
 accuracy measurement or validation on anime. The existing `limbo` and
-`limbo_v2` CLI modes remain independent-frame methods; this release only adds
-`video_small_v3` and `video_base_v3`.
+`limbo_v2` CLI modes remain independent-frame methods.
 
 ## License review (2026-09-12)
 
@@ -68,5 +79,6 @@ Reviewed upstream commit `3d835ec1a5802d64a8b8b15f817a1ab54809bfe4`:
 - [Default weight downloader](https://github.com/ByteDance-Seed/Depth-Anything-3/blob/3d835ec1a5802d64a8b8b15f817a1ab54809bfe4/da3_streaming/scripts/download_weights.sh): selects the non-commercial Nested checkpoint; not used here.
 - [Pinned SALAD license](https://github.com/serizba/salad/blob/6aede13a3f6c25750bf7fde10209c06cb73060bb/LICENSE): GPL-3.0, not AGPL; not included here.
 
-The new integration introduces no non-commercial or AGPL third-party dependency.
+Limbo streaming reuses the already-supported Limbo checkpoints; their existing
+licenses and grants apply. See [third-party notices](../THIRD_PARTY_NOTICES.md).
 TAS itself retains its existing project license.
