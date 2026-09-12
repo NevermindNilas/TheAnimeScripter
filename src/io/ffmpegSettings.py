@@ -33,7 +33,12 @@ from src.io.encodingSettings import (
     matchEncoder,
     matchNeluxEncoder,
 )
-from src.io.getVideoMetadata import trimFrameRange
+from src.io.getVideoMetadata import (
+    isFramePoint,
+    isTrimUnset,
+    trimFrameRange,
+    trimPointToSeconds,
+)
 from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logWarning
@@ -203,8 +208,8 @@ class BuildBuffer:
     def __init__(
         self,
         videoInput: str = "",
-        inpoint: float = 0.0,
-        outpoint: float = 0.0,
+        inpoint: float | str = 0,
+        outpoint: float | str = 0,
         half: bool = True,
         resize: bool = False,
         width: int = 1920,
@@ -218,8 +223,10 @@ class BuildBuffer:
 
         Args:
             videoInput (str): Path to the input video file.
-            inpoint (float): Start time of the segment to decode, in seconds.
-            outpoint (float): End time of the segment to decode, in seconds.
+            inpoint (float | str): Start of the segment to decode, in seconds
+                by default or as frames with an 'f' suffix (e.g. "100f").
+            outpoint (float | str): End of the segment to decode, in seconds
+                by default or as frames with an 'f' suffix. 0 means EOF.
             half (bool): Whether to use half precision (float16) for tensors.
             resize (bool): Whether to resize the frames.
             width (int): Width of the output frames.
@@ -437,24 +444,70 @@ class BuildBuffer:
             raise RuntimeError(f"Failed to open video with OpenCV: {self.videoInput}")
 
         totalFramesDecoded = 0
-        startTime = float(self.inpoint)
-        endTime = float(self.outpoint)
+        useFrameIndex = isFramePoint(self.inpoint) or isFramePoint(self.outpoint)
+
+        if not useFrameIndex:
+            startTime = float(self.inpoint or 0)
+            endTime = float(self.outpoint or 0)
+
+            try:
+                if startTime > 0:
+                    cap.set(cv2.CAP_PROP_POS_MSEC, startTime * 1000.0)
+
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
+                    ptsSeconds = (
+                        (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
+                    )
+
+                    if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
+                        break
+
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = torch.from_numpy(frame)
+
+                    if self.toTorch:
+                        frame = self.processFrameToTorch(
+                            frame,
+                            self.normStream if self.cudaEnabled else None,
+                        )
+                    else:
+                        frame = frame.numpy()
+
+                    self.decodeBuffer.put(frame)
+                    totalFramesDecoded += 1
+                    self._emittedFrames += 1
+
+            except Exception as e:
+                logging.error(f"Error during OpenCV decoding loop: {e}")
+                raise
+            finally:
+                cap.release()
+
+            return totalFramesDecoded
+
+        # Frame-indexed trim: seek by frame number and count, so "<n>f"
+        # stays exact instead of rounding through seconds.
+        try:
+            ocvFps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        except Exception:
+            ocvFps = 0.0
+        startFrame, endFrame = trimFrameRange(ocvFps, self.inpoint, self.outpoint)
 
         try:
-            if startTime > 0:
-                cap.set(cv2.CAP_PROP_POS_MSEC, startTime * 1000.0)
+            if startFrame > 0:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, startFrame)
 
+            frameIdx = startFrame
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
-
-                ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
-                ptsSeconds = (
-                    (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
-                )
-
-                if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
+                if endFrame is not None and frameIdx >= endFrame:
                     break
 
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -471,6 +524,7 @@ class BuildBuffer:
                 self.decodeBuffer.put(frame)
                 totalFramesDecoded += 1
                 self._emittedFrames += 1
+                frameIdx += 1
 
         except Exception as e:
             logging.error(f"Error during OpenCV decoding loop: {e}")
@@ -582,14 +636,15 @@ class WriteBuffer:
         transparent: bool = False,
         benchmark: bool = False,
         bitDepth: str = "8bit",
-        inpoint: float = 0.0,
-        outpoint: float = 0.0,
+        inpoint: float | str = 0,
+        outpoint: float | str = 0,
         slowmo: bool = False,
         output_scale_width: int | None = None,
         output_scale_height: int | None = None,
         enablePreview: bool = False,
         previewSink=None,
         single_image_output: bool = False,
+        sourceFps: float | None = None,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -604,8 +659,12 @@ class WriteBuffer:
         audio: bool - Whether to include audio in the output video.
         benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
         bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
-        inpoint: float - The start time of the segment to encode, in seconds.
-        outpoint: float - The end time of the segment to encode, in seconds.
+        inpoint: float | str - Start of the segment in seconds, or frames as "<n>f".
+        outpoint: float | str - End of the segment in seconds, or frames as "<n>f". 0 means EOF.
+        sourceFps: float | None - Source fps used to resolve "<n>f" points to
+            seconds for the audio trim. Defaults to fps (correct for every
+            standalone driver, where output fps == source fps); main.py passes
+            the source fps explicitly because interpolation changes fps.
         output_scale_width: int - The target width for output scaling (optional).
         output_scale_height: int - The target height for output scaling (optional).
         enablePreview: bool - Whether to sample preview frames for the preview server.
@@ -672,6 +731,7 @@ class WriteBuffer:
         self.bitDepth = bitDepth
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.sourceFps = sourceFps if sourceFps else fps
         self.slowmo = slowmo
         self.output_scale_width, self.output_scale_height = _resolveOutputScale(
             output_scale_width, output_scale_height
@@ -886,10 +946,20 @@ class WriteBuffer:
             # seconds whenever --outpoint was omitted. NeluxWriteBuffer's
             # add_passthrough already gates them independently; this matches it.
             if not self.slowmo:
-                if self.inpoint:
-                    command.extend(["-ss", str(self.inpoint)])
-                if self.outpoint != 0:
-                    command.extend(["-to", str(self.outpoint)])
+                if not isTrimUnset(self.inpoint):
+                    command.extend(
+                        [
+                            "-ss",
+                            str(trimPointToSeconds(self.sourceFps, self.inpoint)),
+                        ]
+                    )
+                if not isTrimUnset(self.outpoint):
+                    command.extend(
+                        [
+                            "-to",
+                            str(trimPointToSeconds(self.sourceFps, self.outpoint)),
+                        ]
+                    )
             command.extend(["-i", self.input])
 
         filterList = self._buildFilterList()
@@ -1361,14 +1431,16 @@ class NeluxWriteBuffer:
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
-        inpoint: float = 0.0,
-        outpoint: float = 0.0,
+        inpoint: float | str = 0,
+        outpoint: float | str = 0,
         benchmark: bool = False,
         grayscale: bool = False,
+        bitDepth: str = "8bit",
         enablePreview: bool = False,
         previewSink=None,
         output_scale_width: int | None = None,
         output_scale_height: int | None = None,
+        sourceFps: float | None = None,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
         """
@@ -1383,10 +1455,17 @@ class NeluxWriteBuffer:
             width: Output width.
             height: Output height.
             fps: Output framerate.
-            inpoint: Trim start in seconds (--ss); applied to passthrough streams.
-            outpoint: Trim end in seconds (--to); applied to passthrough streams.
+            inpoint: Trim start in seconds, or frames as "<n>f";
+                applied to passthrough streams.
+            outpoint: Trim end in seconds, or frames as "<n>f";
+                applied to passthrough streams. 0 means EOF.
+            sourceFps: Source fps used to resolve "<n>f" points; defaults to
+                fps (correct for standalone drivers; main.py passes source).
             enablePreview: Whether to sample preview frames for the preview server.
             previewSink: PreviewSink the sampler pushes preview JPEGs to.
+            bitDepth: "8bit" frames go out as uint8; "16bit" frames go out as
+                uint16 at full precision (nelux >= 0.17.0) into a 10-bit
+                pixel_format -- see matchNeluxEncoder's promotion table.
             output_scale_width/output_scale_height: `--output_scale` target. The
                 encoder is built at these dims with nelux's encoder-side
                 `resize=True` (nelux >= 0.18.0), which scales incoming frames
@@ -1409,6 +1488,7 @@ class NeluxWriteBuffer:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.sourceFps = sourceFps if sourceFps else fps
         self.benchmark = benchmark
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
@@ -1437,7 +1517,11 @@ class NeluxWriteBuffer:
         # The Nelux mirror of encodingSettings.matchEncoder, one mapping per
         # FFmpeg twin; matchNeluxEncoder documents the knob translation and
         # returns a fresh dict, so the mutations below stay per-instance.
-        self.encoderKwargs = matchNeluxEncoder(encode_method)
+        # bitDepth promotes the pixel_format to 10-bit for --bit_depth 16bit
+        # (nelux >= 0.17.0 keeps uint16 frames at full precision); the
+        # validator only routes 16bit here when the installed nelux honors it.
+        self.bitDepth = bitDepth
+        self.encoderKwargs = matchNeluxEncoder(encode_method, bitDepth)
         if self.encoderKwargs is None:
             # Silently encoding H.264 when the caller asked for something else
             # is how the FFmpeg writer's *_nelux gap stayed invisible for so
@@ -1490,7 +1574,9 @@ class NeluxWriteBuffer:
         )
         logging.info(
             f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps{scaleNote}, "
-            f"codec={self.codec}"
+            f"codec={self.codec}, "
+            f"pix_fmt={self.encoderKwargs.get('pixel_format', 'default')}, "
+            f"bitDepth={self.bitDepth}"
         )
 
     def _setupPassthrough(self):
@@ -1519,7 +1605,12 @@ class NeluxWriteBuffer:
             )
             return
 
-        end = self.outpoint if self.outpoint and self.outpoint > 0 else None
+        end = (
+            trimPointToSeconds(self.sourceFps, self.outpoint)
+            if not isTrimUnset(self.outpoint)
+            else None
+        )
+        start = trimPointToSeconds(self.sourceFps, self.inpoint)
         try:
             # allow_transcode re-encodes streams the container cannot stream-copy
             # (e.g. AAC->webm) to the container default instead of dropping them,
@@ -1530,7 +1621,7 @@ class NeluxWriteBuffer:
                     self.input,
                     audio=True,
                     subtitles=True,
-                    start=float(self.inpoint),
+                    start=start,
                     end=end,
                     allow_transcode=True,
                 )
@@ -1539,7 +1630,7 @@ class NeluxWriteBuffer:
                     self.input,
                     audio=True,
                     subtitles=True,
-                    start=float(self.inpoint),
+                    start=start,
                     end=end,
                 )
             logging.info(
@@ -1622,10 +1713,20 @@ class NeluxWriteBuffer:
                     self._sawSentinel = True
                     break
 
+                # Fast path: a frame already in HWC integer form skips the
+                # float-pipeline conversion below. Both dtypes ride straight
+                # through: nelux carries uint16 at full precision into a
+                # >8-bit destination, narrows it into an 8-bit one, and
+                # upconverts uint8 into a 10-bit one -- exactly as the FFmpeg
+                # twin's rgb24/rgb48le inputs do. This also keeps the
+                # standalone drivers working: they push HWC uint8 (their
+                # pixels genuinely are 8-bit) even on a --bit_depth 16bit
+                # run, which then encodes as 8-bit data in a 10-bit container
+                # rather than scrambling through the BCHW branch below.
                 if (
                     isinstance(frame, torch.Tensor)
                     and frame.ndim == 3
-                    and frame.dtype == torch.uint8
+                    and (frame.dtype == torch.uint8 or frame.dtype == torch.uint16)
                     and frame.shape[2] == 3
                 ):
                     if not frame.is_contiguous():
@@ -1636,20 +1737,33 @@ class NeluxWriteBuffer:
                         sampler.submit(frame)
                     continue
 
+                # BCHW float pipeline frames in [0, 1]: scale to the integer
+                # range the encoder mapping expects. Mirrors
+                # WriteBuffer._toOutputFrame (including its fp16 -> fp32
+                # promotion: fp16 tops out at 65504, so mul(65535) saturates
+                # to inf and the clamp raises).
+                multiplier = 65535 if self.bitDepth == "16bit" else 255
+                outDtype = torch.uint16 if self.bitDepth == "16bit" else torch.uint8
                 if self.CudaStream is not None:
                     with torch.cuda.stream(self.CudaStream):
                         frame = frame.squeeze(0).permute(1, 2, 0)
+                        if multiplier > 255 and frame.dtype == torch.float16:
+                            frame = frame.float()
                         frame = (
-                            frame.mul(255.0)
-                            .clamp(0, 255)
-                            .to(dtype=torch.uint8, non_blocking=True)
+                            frame.mul(multiplier)
+                            .clamp(0, multiplier)
+                            .to(dtype=outDtype, non_blocking=True)
                         )
                     self.CudaStream.synchronize()
                 else:
                     # No CUDA stream on CPU/DirectML/MPS hosts; run the same
                     # conversion directly (frame is already a CPU tensor here).
                     frame = frame.squeeze(0).permute(1, 2, 0)
-                    frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8)
+                    if multiplier > 255 and frame.dtype == torch.float16:
+                        frame = frame.float()
+                    frame = (
+                        frame.mul(multiplier).clamp(0, multiplier).to(dtype=outDtype)
+                    )
 
                 if not frame.is_contiguous():
                     frame = frame.contiguous()
@@ -1751,12 +1865,12 @@ def createWriteBuffer(encode_method: str, **kwargs):
     Factory function to create the appropriate write buffer.
 
     A `*_nelux` method only reaches here when it can actually be honored:
-    NeluxWriteBuffer swallows `--bit_depth` through
-    `**kwargs` without reading it, so `src/cli/validator.py:_resolveNeluxEncoder`
-    swaps the method for its FFmpeg twin, once per run, before any writer is
-    built. (`--output_scale` is honored natively via nelux's encoder-side
-    resize since nelux 0.18.0; the validator only downgrades it on an older
-    installed nelux.)
+    `--bit_depth 16bit` is encoded at full precision via matchNeluxEncoder's
+    10-bit pixel_format promotion (nelux >= 0.17.0 keeps uint16 frames deep;
+    src/cli/validator.py:_resolveNeluxEncoder only routes 16bit here when the
+    installed nelux honors it). (`--output_scale` is honored natively via
+    nelux's encoder-side resize since nelux 0.18.0; the validator only
+    downgrades it on an older installed nelux.)
 
     One downgrade lives here instead: a .mov output whose source carries
     opus/vorbis audio runs the FFmpeg twin, because that combination breaks

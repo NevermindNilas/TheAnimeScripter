@@ -301,6 +301,9 @@ class RifeCuda:
                 torch.cuda.synchronize()
 
                 graph = torch.cuda.CUDAGraph()
+                # Capture the branch that refreshes this pair's encoder features.
+                # Python counters do not advance when a graph is replayed.
+                self._armEncoderRefresh()
                 if pool is None:
                     with torch.cuda.graph(graph, stream=self.normStream):
                         graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
@@ -321,15 +324,21 @@ class RifeCuda:
                 # Self-check: replay must match a fresh eager forward on the same
                 # inputs, else disable the graph (protects arches where capture
                 # silently misbehaves).
-                self._timestep_buffer.fill_(0.5)
-                self.I1.copy_(self.I0)
-                eagerRef = self.model(self.I0, self.I1, self._timestep_buffer).clone()
-                graph.replay()
+                with torch.cuda.stream(self.normStream):
+                    self._timestep_buffer.fill_(0.5)
+                    self.I1.copy_(self.I0)
+                    self._armEncoderRefresh()
+                    eagerRef = self.model(
+                        self.I0, self.I1, self._timestep_buffer
+                    ).clone()
+                    graph.replay()
                 self.normStream.synchronize()
                 if not torch.allclose(eagerRef, graphOut, rtol=1e-3, atol=1e-3):
                     raise RuntimeError("graph replay output != eager forward")
-                self._timestep_buffer.zero_()
-                self.I1.zero_()
+                with torch.cuda.stream(self.normStream):
+                    self._timestep_buffer.zero_()
+                    self.I1.zero_()
+                self.normStream.synchronize()
 
                 self._graphs[scale] = (graph, graphOut)
                 self._graphFeats[scale] = feats
@@ -342,6 +351,14 @@ class RifeCuda:
                 f"RifeCuda CUDA-graph capture disabled for "
                 f"{self.interpolateMethod}: {e}"
             )
+            # Warmup/capture may have populated the encoder from zero frames.
+            # Eager fallback must initialize it from the first real anchor.
+            torch.cuda.synchronize()
+            for name in ("f0", "f1"):
+                if hasattr(self.model, name):
+                    setattr(self.model, name, None)
+            if hasattr(self.model, "counter"):
+                self.model.counter = 1
             self.cudaGraph = None
             self._graphOut = None
             self._graphs = {}
@@ -408,6 +425,7 @@ class RifeCuda:
         replay reading the stale captured tensor; that is why we do not call it
         here when the graph is active.
         """
+        self.normStream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.normStream):
             padded = self.padFrame(
                 frame.to(device=checker.device, dtype=self.dType, non_blocking=True)
@@ -537,6 +555,9 @@ class RifeCuda:
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
+        # Inputs may still be produced on the caller's stream. The private
+        # stream must wait before reading them, even when dtype/device match.
+        self.normStream.wait_stream(torch.cuda.current_stream())
         if self.firstRun:
             self.processFrame(frame, "I0")
             self._seedAnchorFeature()
@@ -549,9 +570,10 @@ class RifeCuda:
             t = interpolateTimestep(i, framesToInsert, timesteps)
             # The common 2x path uses the same 0.5 timestep every frame. Avoid
             # refilling the full HxW tensor unless the requested timestep changes.
-            self._cachedTimestepValue = fillTimestepBuffer(
-                self._timestep_buffer, self._cachedTimestepValue, t
-            )
+            with torch.cuda.stream(self.normStream):
+                self._cachedTimestepValue = fillTimestepBuffer(
+                    self._timestep_buffer, self._cachedTimestepValue, t
+                )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 

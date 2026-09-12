@@ -100,7 +100,9 @@ class AutoClip:
 
     def _neluxWorthIt(self, video) -> bool:
         """True when the nelux frame source should replace cv2 for this run."""
-        if self.inPoint:
+        from src.io.getVideoMetadata import isTrimUnset
+
+        if not isTrimUnset(self.inPoint):
             # The adapter's seek() is decode-and-discard from frame 0; cv2
             # seeks the container. Deep in-points would decode MORE, not less.
             return False
@@ -118,8 +120,23 @@ class AutoClip:
         )
 
         fps = video.frame_rate
-        startTimecode = FrameTimecode(self.inPoint, fps) if self.inPoint else None
-        endTimecode = FrameTimecode(self.outPoint, fps) if self.outPoint else None
+        from src.io.getVideoMetadata import isFramePoint, isTrimUnset
+
+        def _toTimecode(value):
+            if isFramePoint(value):
+                return int(str(value).strip()[:-1].strip())
+            return float(value or 0)
+
+        startTimecode = (
+            FrameTimecode(_toTimecode(self.inPoint), fps)
+            if not isTrimUnset(self.inPoint)
+            else None
+        )
+        endTimecode = (
+            FrameTimecode(_toTimecode(self.outPoint), fps)
+            if not isTrimUnset(self.outPoint)
+            else None
+        )
 
         if startTimecode is not None:
             video.seek(startTimecode)
@@ -177,8 +194,12 @@ class AutoClip:
         return sceneManager
 
     def _expectedEndFrame(self, video) -> int:
-        if self.outPoint:
-            return FrameTimecode(self.outPoint, video.frame_rate).get_frames()
+        from src.io.getVideoMetadata import isFramePoint, isTrimUnset
+
+        if not isTrimUnset(self.outPoint):
+            if isFramePoint(self.outPoint):
+                return int(str(self.outPoint).strip()[:-1].strip())
+            return FrameTimecode(float(self.outPoint), video.frame_rate).get_frames()
         return video.duration.get_frames()
 
     def _run(self):

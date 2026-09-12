@@ -4,6 +4,8 @@ import os
 import sys
 import types
 
+import pytest
+
 
 def _installFakeTorch(monkeypatch):
     if importlib.util.find_spec("torch") is not None:
@@ -95,6 +97,197 @@ def testNeluxWriteBufferWithoutOutputScaleDoesNotAskForResize(monkeypatch, tmp_p
 
     assert (wb.outputWidth, wb.outputHeight) == (1920, 1080)
     assert "resize" not in wb.encoderKwargs
+
+
+def testNeluxWriteBufferDefaultsToEightBit(monkeypatch, tmp_path):
+    """bitDepth defaults to 8bit so every existing caller keeps its exact
+    pixel_format and uint8 frame path."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+    )
+
+    assert wb.bitDepth == "8bit"
+    assert wb.encoderKwargs["pixel_format"] == "yuv420p"
+
+
+def testNeluxWriteBufferPromotesPixelFormatAtSixteenBit(monkeypatch, tmp_path):
+    """--bit_depth 16bit must reach the encoder as a 10-bit pixel_format,
+    per matchNeluxEncoder's promotion table, instead of being swallowed."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    cases = {
+        "x264_nelux": "yuv444p10le",
+        "slow_x265_nelux": "yuv444p10le",
+        "nvenc_h265_nelux": "p010le",
+        "av1_nelux": "yuv420p10le",
+        "x264_10bit_nelux": "yuv420p10le",
+        "prores_nelux": "yuv444p10le",
+    }
+    for method, expected in cases.items():
+        wb = ffmpegSettings.NeluxWriteBuffer(
+            output=str(tmp_path / "out.mp4"),
+            encode_method=method,
+            bitDepth="16bit",
+        )
+        assert wb.bitDepth == "16bit"
+        assert wb.encoderKwargs["pixel_format"] == expected, method
+
+    gif = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="gif_nelux",
+        bitDepth="16bit",
+    )
+    assert "pixel_format" not in gif.encoderKwargs
+
+
+def testNeluxWriteBufferConvertsFloatFramesToUint16AtSixteenBit(monkeypatch, tmp_path):
+    """The encode loop must scale BCHW float pipeline frames to uint16 at
+    16bit (it used to hardcode mul(255)/uint8, quantising every frame)."""
+    torch = pytest.importorskip("torch")
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    captured = []
+
+    class FakeEncoder:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def encode_frame(self, frame):
+            captured.append(frame)
+
+        def close(self):
+            pass
+
+    fakeNelux = types.SimpleNamespace(VideoEncoder=FakeEncoder)
+    monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+    monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    monkeypatch.setattr("src.constants.AUDIO", False, raising=False)
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+        width=4,
+        height=4,
+        fps=24.0,
+        bitDepth="16bit",
+    )
+    wb.write(torch.ones((1, 3, 4, 4), dtype=torch.float32))
+    wb.close()
+    wb()
+
+    assert wb.writtenFrames == 1
+    assert len(captured) == 1
+    assert captured[0].dtype == torch.uint16
+    assert captured[0].shape == (4, 4, 3)
+    # Via int32: torch has no max() reduction kernel for uint16.
+    assert int(captured[0].to(torch.int32).max()) == 65535
+
+
+def testNeluxWriteBufferStillConvertsFloatFramesToUint8AtEightBit(
+    monkeypatch, tmp_path
+):
+    """The 8-bit frame path is pinned bit-for-bit: mul(255)/uint8."""
+    torch = pytest.importorskip("torch")
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    captured = []
+
+    class FakeEncoder:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def encode_frame(self, frame):
+            captured.append(frame)
+
+        def close(self):
+            pass
+
+    fakeNelux = types.SimpleNamespace(VideoEncoder=FakeEncoder)
+    monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+    monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    monkeypatch.setattr("src.constants.AUDIO", False, raising=False)
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+        width=4,
+        height=4,
+        fps=24.0,
+    )
+    wb.write(torch.ones((1, 3, 4, 4), dtype=torch.float32))
+    wb.close()
+    wb()
+
+    assert wb.writtenFrames == 1
+    assert len(captured) == 1
+    assert captured[0].dtype == torch.uint8
+    assert int(captured[0].max()) == 255
+
+
+@pytest.mark.parametrize(
+    "bitDepth,frameDtype",
+    [("16bit", "uint8"), ("8bit", "uint16")],
+)
+def testNeluxWriteBufferFastPathTakesEitherIntegerDepth(
+    monkeypatch, tmp_path, bitDepth, frameDtype
+):
+    """The HWC fast path must not filter on bit depth: the standalone
+    drivers push HWC uint8 (genuinely 8-bit pixels) even on a 16-bit run,
+    where they used to take the uint8 fast path and now must still encode
+    rather than scramble through the BCHW float branch."""
+    torch = pytest.importorskip("torch")
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    captured = []
+
+    class FakeEncoder:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def encode_frame(self, frame):
+            captured.append(frame)
+
+        def close(self):
+            pass
+
+    fakeNelux = types.SimpleNamespace(VideoEncoder=FakeEncoder)
+    monkeypatch.setitem(sys.modules, "nelux", fakeNelux)
+    monkeypatch.setattr(ffmpegSettings, "nelux", fakeNelux, raising=False)
+    monkeypatch.setattr("src.constants.METADATAPATH", "", raising=False)
+    monkeypatch.setattr("src.constants.AUDIO", False, raising=False)
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        encode_method="x264_nelux",
+        width=4,
+        height=4,
+        fps=24.0,
+        bitDepth=bitDepth,
+    )
+    wb.write(torch.zeros((4, 4, 3), dtype=getattr(torch, frameDtype)))
+    wb.close()
+    wb()
+
+    assert wb.writtenFrames == 1
+    assert len(captured) == 1
+    # Straight through, untouched by the float pipeline.
+    assert captured[0].dtype == getattr(torch, frameDtype)
+    assert captured[0].shape == (4, 4, 3)
 
 
 NELUX_TWINS = [
@@ -438,9 +631,10 @@ def _recordingWriterRegistry(monkeypatch, ffmpegSettings):
 def _uint8HwcFrame(monkeypatch):
     """A frame the Nelux encode loop takes on its HWC-uint8 fast path, under
     real torch and under this file's stub alike (the stub has no Tensor type)."""
-    if importlib.util.find_spec("torch") is not None:
-        import torch
-
+    # The encode loop imports torch when called. Inspect that module directly;
+    # find_spec raises on the spec-less stub installed above.
+    torch = importlib.import_module("torch")
+    if hasattr(torch, "zeros"):
         return torch.zeros((4, 4, 3), dtype=torch.uint8)
 
     class FakeFrame:
@@ -451,7 +645,7 @@ def _uint8HwcFrame(monkeypatch):
         def is_contiguous(self):
             return True
 
-    monkeypatch.setattr(sys.modules["torch"], "Tensor", FakeFrame, raising=False)
+    monkeypatch.setattr(torch, "Tensor", FakeFrame, raising=False)
     return FakeFrame()
 
 

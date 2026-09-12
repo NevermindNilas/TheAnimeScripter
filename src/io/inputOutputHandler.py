@@ -228,7 +228,17 @@ def generateOutputName(args, videoInput):
         if arg == "ytdlp" and isUrl:
             continue
         if getattr(args, arg, False):
-            val = getattr(args, valAttr, "") if valAttr else ""
+            # Sensitivity flags are remapped in-place by the validator
+            # (35 -> 0.965 for ssim), but the filename must carry what the
+            # user typed, so prefer the raw snapshot when it exists.
+            # Integral floats print as ints (35.0 -> "35", not "35.0").
+            if valAttr:
+                rawAttr = f"{valAttr}_raw"
+                val = getattr(args, rawAttr, getattr(args, valAttr, ""))
+                if isinstance(val, float) and val.is_integer():
+                    val = int(val)
+            else:
+                val = ""
             suffixes.append(f"-{label}{_sanitize(val)}")
 
     extension = _resolveExtension(args, videoInput)

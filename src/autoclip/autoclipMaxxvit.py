@@ -91,10 +91,14 @@ class AutoClipMaxxvit:
         if not fps or fps <= 0:
             raise RuntimeError(f"Invalid FPS reported for video: {self.input}")
 
-        startFrame = int(round(float(self.inPoint) * fps)) if self.inPoint else 0
+        from src.io.getVideoMetadata import isTrimUnset, trimPointToFrames
+
+        startFrame = (
+            trimPointToFrames(fps, self.inPoint) if not isTrimUnset(self.inPoint) else 0
+        )
         endFrame = (
-            int(round(float(self.outPoint) * fps))
-            if self.outPoint
+            trimPointToFrames(fps, self.outPoint)
+            if not isTrimUnset(self.outPoint)
             else reader.frame_count
         )
         startSec = startFrame / fps

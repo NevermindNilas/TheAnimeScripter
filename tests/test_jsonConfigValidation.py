@@ -39,6 +39,23 @@ def test_rejectsUnknownMethod(parser, tmp_path, capsys):
     assert "--list_methods depth" in output
 
 
+@pytest.mark.parametrize("factor", [2.5, 3.9, True, False])
+def testRejectsLossyIntegerCoercion(parser, tmp_path, capsys, factor):
+    with pytest.raises(SystemExit) as excinfo:
+        runJson(parser, tmp_path, {"upscale": True, "upscale_factor": factor})
+    assert excinfo.value.code == 1
+    output = capsys.readouterr().out
+    assert "upscale_factor" in output
+    assert "whole number" in output
+
+
+@pytest.mark.parametrize("factor", [2, 2.0, "2"])
+def testAcceptsWholeUpscaleFactor(parser, tmp_path, factor):
+    config = runJson(parser, tmp_path, {"upscale": True, "upscale_factor": factor})
+    assert type(config.args.upscale_factor) is int
+    assert config.args.upscale_factor == 2
+
+
 def test_rejectsUnknownListElement(parser, tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         runJson(parser, tmp_path, {"restore_method": ["anime1080fixer", "nope"]})

@@ -12,9 +12,17 @@ had been requested, so a sub-frame `--outpoint` collapsed to "no limit".
 not at module scope, so this file needs neither.
 """
 
+import argparse
+
 import pytest
 
-from src.io.getVideoMetadata import trimFrameRange
+from src.io.getVideoMetadata import (
+    isFramePoint,
+    isTrimUnset,
+    parseTrimArg,
+    trimFrameRange,
+    trimPointToSeconds,
+)
 
 NTSC = 24000 / 1001  # 23.976...
 PAL = 25.0
@@ -65,3 +73,50 @@ def testFloorNeverFiresWithoutATrim():
     # single frame.
     for inPoint in (0, 2.5):
         assert trimFrameRange(NTSC, inPoint, 0)[1] is None
+
+
+def testFramePointsAreExact():
+    # "<n>f" bypasses fps rounding entirely, so VFR-adjacent rates agree.
+    for fps in (NTSC, PAL, NTSC30):
+        assert trimFrameRange(fps, "100f", "500f") == (100, 500)
+        assert trimFrameRange(fps, 0, "500f") == (0, 500)
+        assert trimFrameRange(fps, "100f", 0)[1] is None
+
+
+def testMixedUnitsConvertThroughFps():
+    # 1s at NTSC is frame 24; ending at frame 100 keeps [24, 100).
+    assert trimFrameRange(NTSC, 1.0, "100f") == (round(1.0 * NTSC), 100)
+
+
+def testFrameOutpointZeroMeansEof():
+    assert trimFrameRange(NTSC, "100f", "0f")[1] is None
+    assert trimFrameRange(NTSC, "100f", 0)[1] is None
+
+
+@pytest.mark.parametrize(
+    "inPoint,outPoint", [("500f", "100f"), (10, 5), (10.0, "100f")]
+)
+def testInvalidRangeRaises(inPoint, outPoint):
+    # 10s at NTSC is frame 240, so "100f" ends before it starts.
+    with pytest.raises(ValueError, match="outpoint must be greater"):
+        trimFrameRange(NTSC, inPoint, outPoint)
+
+
+def testParseTrimArg():
+    assert parseTrimArg(None) == 0
+    assert parseTrimArg("") == 0
+    assert parseTrimArg(0) == 0
+    assert parseTrimArg("0f") == 0
+    assert parseTrimArg(60) == 60.0
+    assert parseTrimArg("60") == 60.0
+    assert parseTrimArg("100f") == "100f"
+    assert parseTrimArg(" 100F ") == "100f"
+    assert isTrimUnset(0) and isTrimUnset("0f") and not isTrimUnset("100f")
+    assert isFramePoint("100f") and not isFramePoint(60.0)
+    assert trimPointToSeconds(NTSC, "24f") == pytest.approx(24 / NTSC)
+    with pytest.raises(argparse.ArgumentTypeError):
+        parseTrimArg("-5")
+    with pytest.raises(argparse.ArgumentTypeError):
+        parseTrimArg("10.5f")
+    with pytest.raises(argparse.ArgumentTypeError):
+        parseTrimArg("abc")

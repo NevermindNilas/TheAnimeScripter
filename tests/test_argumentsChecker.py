@@ -167,7 +167,6 @@ def testNonNeluxMethodIsNeverRewritten():
 @pytest.mark.parametrize(
     "overrides",
     [
-        dict(bit_depth="16bit"),
         dict(depth=True),
     ],
 )
@@ -175,6 +174,29 @@ def testNeluxSwappedForItsTwinWhenAnOptionCannotBeHonored(overrides):
     """NeluxWriteBuffer takes these through **kwargs and never reads them, and
     --depth does not use it at all, so each used to be dropped in silence."""
     args = neluxArgs(**overrides)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
+def testNeluxKeepsSixteenBitWhenDeepEncodeIsSupported(monkeypatch):
+    """nelux >= 0.17.0 carries uint16 frames at full precision into a 10-bit
+    destination, so --bit_depth 16bit no longer costs the in-process encoder."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr(validator, "_neluxSupportsDeepEncode", lambda: True)
+    args = neluxArgs(bit_depth="16bit")
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264_nelux"
+
+
+def testNeluxSwapsSixteenBitOnAPre017Nelux(monkeypatch):
+    """An installed nelux older than 0.17.0 narrows uint16 input to 8-bit
+    before swscale ever sees it; keep the loud FFmpeg-twin downgrade instead
+    of a silent precision drop."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr(validator, "_neluxSupportsDeepEncode", lambda: False)
+    args = neluxArgs(bit_depth="16bit")
     _resolveNeluxEncoder(args)
     assert args.encode_method == "x264"
 
@@ -239,6 +261,45 @@ def testNeluxEncoderResizeGateClosedOnUnparseableVersion(monkeypatch):
 
     monkeypatch.setattr("importlib.metadata.version", lambda name: "unknowable")
     assert validator._neluxSupportsEncoderResize() is False
+
+
+@pytest.mark.parametrize(
+    "installed,expected",
+    [
+        ("0.16.0", False),
+        ("0.17.0", True),
+        ("0.18.0", True),
+        ("1.0.0", True),
+    ],
+)
+def testNeluxDeepEncodeVersionGate(monkeypatch, installed, expected):
+    import src.cli.validator as validator
+
+    monkeypatch.setattr("importlib.metadata.version", lambda name: installed)
+    assert validator._neluxSupportsDeepEncode() is expected
+
+
+def testNeluxDeepEncodeGateOpenWhenNeluxIsAbsent(monkeypatch):
+    """No nelux installed (bare CI venv): the run dies at `import nelux` long
+    before the writer matters, so don't rewrite the method on a failed probe."""
+    from importlib.metadata import PackageNotFoundError
+
+    import src.cli.validator as validator
+
+    def raiser(name):
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr("importlib.metadata.version", raiser)
+    assert validator._neluxSupportsDeepEncode() is True
+
+
+def testNeluxDeepEncodeGateClosedOnUnparseableVersion(monkeypatch):
+    """A version string the gate cannot parse downgrades loudly instead of
+    letting a pre-0.17 build silently quantise 16-bit down to 8-bit."""
+    import src.cli.validator as validator
+
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "unknowable")
+    assert validator._neluxSupportsDeepEncode() is False
 
 
 def _encodeMethodChoices():
@@ -481,6 +542,22 @@ def testMseDedupSensUntouched():
     assert a.dedup_sens == 20.0
 
 
+def testDedupSensRawSnapshotPreservedForNaming():
+    # The mapped threshold drives the detector; the raw CLI value drives the
+    # output filename (see generateOutputName).
+    a = makeArgs(dedup=True, dedup_method="ssim", dedup_sens=35.0)
+    _configureProcessingSettings(a)
+    assert a.dedup_sens == pytest.approx(0.965)
+    assert a.dedup_sens_raw == 35.0
+
+
+def testSmoothDedupSensRawSnapshotPreservedForNaming():
+    a = makeArgs(smooth_dedup=True, smooth_dedup_method="ssim", smooth_dedup_sens=35.0)
+    _configureProcessingSettings(a)
+    assert a.smooth_dedup_sens == pytest.approx(0.965)
+    assert a.smooth_dedup_sens_raw == 35.0
+
+
 def testPysceneDetectSensMappedOntoAdaptiveThresholdScale():
     # AdaptiveDetector: higher threshold = fewer cuts, so user sens is flipped —
     # onto the detector's own ~0.5-6 ratio scale, where 50 is the library
@@ -715,6 +792,37 @@ def testNormalizeUpscaleFactorClampsInvalidValue():
     warning = normalizeUpscaleFactor(args)
     assert args.upscale_factor == 2
     assert "Invalid upscale_factor" in warning
+
+
+def testNormalizeUpscaleFactorRejectsFractionalFloat():
+    # --json bypasses argparse type=int/choices: int(2.5) == 2 used to pass
+    # the check while leaving 2.5 stored for model dims.
+    args = types.SimpleNamespace(upscale=True, upscale_factor=2.5)
+    with pytest.raises(CliValidationError, match="whole number"):
+        normalizeUpscaleFactor(args)
+
+
+def testNormalizeUpscaleFactorCoercesWholeFloat():
+    args = types.SimpleNamespace(upscale=True, upscale_factor=2.0)
+    assert normalizeUpscaleFactor(args) is None
+    assert args.upscale_factor == 2
+
+
+def testRuntimeValidationRejectsCartoonSegmentMethod():
+    # cartoon is an advertised choice with no backend; it must fail here with
+    # CliValidationError, not late in the factory with NotImplementedError.
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=False,
+        interpolate=False,
+        segment=True,
+        segment_method="cartoon",
+        inpoint=0.0,
+        outpoint=0.0,
+    )
+    with pytest.raises(CliValidationError, match="cartoon"):
+        applyRuntimeValidation(args)
 
 
 def testSelectedUpscaleBackendSplitsBackendSuffix():

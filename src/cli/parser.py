@@ -3,6 +3,7 @@ import os
 import sys
 from difflib import get_close_matches
 
+from src.io.getVideoMetadata import parseTrimArg
 from src.version import __version__
 
 _logAndPrint = None
@@ -422,10 +423,16 @@ def _buildParser(outputPath):
     generalGroup.add_argument("--input", type=str, help="Input video file")
     generalGroup.add_argument("--output", type=str, help="Output video file")
     generalGroup.add_argument(
-        "--inpoint", type=float, default=0, help="Input start time"
+        "--inpoint",
+        type=parseTrimArg,
+        default=0,
+        help="Input start in seconds (e.g. 60), or frames with an 'f' suffix (e.g. 100f)",
     )
     generalGroup.add_argument(
-        "--outpoint", type=float, default=0, help="Input end time"
+        "--outpoint",
+        type=parseTrimArg,
+        default=0,
+        help="Input end in seconds (e.g. 90), or frames with an 'f' suffix (e.g. 500f). 0 means EOF",
     )
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"

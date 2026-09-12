@@ -67,6 +67,29 @@ def testExistingPresetLoadsOntoArgs(presetDir):
     assert args.upscale_factor == 4
 
 
+@pytest.mark.parametrize("factor", [2.5, 3.9, True, False])
+def testPresetRejectsLossyIntegerCoercion(presetDir, capsys, factor):
+    from src.cli.parser import _buildParser
+
+    createPreset(makeArgs(upscale=True, upscale_factor=factor))
+    with pytest.raises(SystemExit) as excinfo:
+        createPreset(makeArgs(), parser=_buildParser(str(presetDir)))
+    assert excinfo.value.code == 1
+    output = capsys.readouterr().out
+    assert "upscale_factor" in output
+    assert "whole number" in output
+
+
+@pytest.mark.parametrize("factor", [2, 2.0, "2"])
+def testPresetAcceptsWholeUpscaleFactor(presetDir, factor):
+    from src.cli.parser import _buildParser
+
+    createPreset(makeArgs(upscale=True, upscale_factor=factor))
+    args = createPreset(makeArgs(), parser=_buildParser(str(presetDir)))
+    assert type(args.upscale_factor) is int
+    assert args.upscale_factor == 2
+
+
 def testLoadingPresetKeepsPerRunIOFields(presetDir):
     createPreset(makeArgs())
     args = createPreset(makeArgs(input="other.mp4", output="elsewhere.mp4"))

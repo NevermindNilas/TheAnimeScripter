@@ -1,11 +1,10 @@
-import torch
+"""Shared RIFE arch table and lazy arch importer.
 
-from src.infra.isCudaInit import CudaChecker
-
-checker = CudaChecker()
-
-torch.set_float32_matmul_precision("medium")
-
+Deliberately free of torch/CUDA imports: the arch imports below are all
+function-level lazy, and any module-level torch import here would break
+torch-less loading (bare CI venv). Backend constructors own
+`set_float32_matmul_precision`, not this module.
+"""
 
 _RIFE_V1 = {
     # The bare "rife" alias resolves to 4.22 in modelsMap() (it returns

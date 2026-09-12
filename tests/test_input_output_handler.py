@@ -104,6 +104,20 @@ def test_dedup_suffix_carries_sensitivity():
     assert io.generateOutputName(make_args(dedup=1), "clip.mkv") == "clip-Dedup50.mkv"
 
 
+def test_dedup_suffix_prefers_raw_sensitivity_over_mapped_threshold():
+    # The validator remaps 35 -> 0.965 in place; the filename must keep the
+    # CLI value so names stay backend-independent and reproducible.
+    args = make_args(dedup=1, dedup_sens=0.965, dedup_sens_raw=35.0)
+    assert io.generateOutputName(args, "clip.mkv") == "clip-Dedup35.mkv"
+
+
+def test_smooth_dedup_suffix_prefers_raw_sensitivity():
+    args = make_args(
+        smooth_dedup=1, smooth_dedup_sens=0.965, smooth_dedup_sens_raw=35.0
+    )
+    assert io.generateOutputName(args, "clip.mkv") == "clip-SmoothDedup35.mkv"
+
+
 def test_feature_suffix_order_is_stable():
     # Suffix order is fixed by the features table, not by flag order:
     # Resize, Dedup, Int, Up, Restore, ...

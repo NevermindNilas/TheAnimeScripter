@@ -6,19 +6,21 @@ CI without downloading any model. End-to-end validation against the real
 RealCUGAN-family ONNX/pth is done manually (see CHANGELOG).
 """
 
-import pytest
-
-# src.upscale._shared imports torch at module load (matmul precision + CUDA
-# checker), so the whole module is torch-gated even though these helpers are
-# pure integer math. Skip on the torch-less CI runner per repo convention.
-pytest.importorskip("torch")
-
+import src.upscale._shared as shared
 from src.upscale._shared import (  # noqa: E402
     KNOWN_INPUT_MULTIPLES,
     calculatePadding,
     lookupRequiredMultiple,
     smallestValidMultiple,
 )
+
+
+def test_sharedHelpersStayTorchFree():
+    # Pure integer math must never regrow a torch/CUDA import: the backend
+    # modules import these names function-level lazy, and a module-level
+    # torch import here breaks torch-less loading (bare CI venv).
+    assert not hasattr(shared, "torch")
+    assert not hasattr(shared, "checker")
 
 
 def _archRequiring(multiple):

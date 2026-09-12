@@ -7,7 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `--inpoint`/`--outpoint` accept frame points with an `f` suffix (e.g. `--inpoint 100f --outpoint 500f`), resolved exactly without fps rounding; plain numbers stay seconds.
 - `--depth_method limbo_v2` (plus `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`): Limbo-V2 anime depth finetune with the same fixed-resolution setup and backend coverage as v1; README and PARAMETERS.MD now list Limbo v1 and v2 side by side.
+
+### Changed
+- An `*_nelux` `--encode_method` combined with `--bit_depth 16bit` now stays on the in-process encoder instead of falling back to the plain FFmpeg twin: frames are carried as uint16 at full precision into a 10-bit pixel format (yuv444p10le, yuv420p10le for `av1_nelux`, p010le for `nvenc_h265/h265/av1_nelux`), mirroring the twin's 16-bit output. Requires nelux >= 0.17.0; an older installed nelux still downgrades loudly, and `nvenc_h264_nelux` stays 8-bit like its twin since NVENC H.264 has no 10-bit path.
+
+### Fixed
+- `slow_x265` and `slow_x265_nelux` now select the profile from the output pixel format, allowing 16-bit input to encode without an incompatible `main` profile error.
+- RIFE CUDA inference now orders input and timestep writes before inference, refreshes captured encoder features at higher interpolation factors, and clears warmup features when graph capture fails. This prevents intermittent incorrect interpolated frames and stale-feature output in eager fallback.
+- `--dedup`/`--smooth_dedup` output names carry the CLI `--dedup_sens` value (e.g. `-Dedup35`) instead of the mapped detector threshold (`-Dedup0.965`), which varied by backend.
+- A fractional `--upscale_factor` via `--json`/`--preset` (e.g. 2.5) is rejected at startup instead of silently passing the check while leaving 2.5 stored for model dims; whole-valued floats (2.0) are coerced to int.
+- `--segment_method cartoon` is rejected at startup with a `CliValidationError` naming the supported methods instead of failing late with `NotImplementedError` after metadata probing.
+- `small_v2-tensorrt` and `og_small_v2-tensorrt` engine builds no longer fail with `Dynamic input tensor input is missing dimensions`; a failed build now raises instead of crashing on `num_io_tensors`.
+- Video inputs with only 1 detected frame now warn to check the AE work area / prerender range and time remap.
 
 ## [2.9.6] - 2026-08-25
 

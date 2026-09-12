@@ -139,3 +139,80 @@ def testDynamicScaleFallsBackToEagerAboveFactorTwo():
     m = rife.RifeCuda(True, W, H, "rife4.25", dynamicScale=True, interpolateFactor=4)
     assert not m.useGraph
     assert m._graphs == {}
+
+
+@pytest.mark.parametrize("graphed", [False, True])
+def testTimestepFillIsOrderedBeforeInference(monkeypatch, graphed):
+    _requireWeights(CASES[1][1])
+    from src.interpolate import rife
+
+    build = rife.RifeCuda if graphed else lambda *a, **kw: _eagerTwin(rife, *a, **kw)
+    model = build(True, W, H, "rife4.6", interpolateFactor=2)
+    assert model.useGraph == graphed
+    frames = _frames(3)
+    torch.cuda.synchronize()
+    want = _collect(model, frames)
+    model.cacheFrameReset(frames[0])
+    model._cachedTimestepValue = None
+    fill = rife.fillTimestepBuffer
+
+    def delayedFill(buffer, cached, timestep):
+        torch.cuda._sleep(50_000_000)
+        return fill(buffer, cached, timestep)
+
+    monkeypatch.setattr(rife, "fillTimestepBuffer", delayedFill)
+    got = _collect(model, frames[1:])
+    for a, b in zip(got, want, strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=5e-3)
+
+
+@pytest.mark.parametrize("reset", [False, True])
+def testCallerStreamInputIsReadyBeforePrivateStreamReads(reset):
+    _requireWeights(CASES[1][1])
+    from src.interpolate import rife
+
+    model = _eagerTwin(rife, True, W, H, "rife4.6", interpolateFactor=2)
+    frames = _frames(2)
+    torch.cuda.synchronize()
+    want = _collect(model, frames, factor=1)
+    model.cacheFrameReset(frames[0])
+    pending = torch.zeros_like(frames[0])
+    torch.cuda.synchronize()
+    torch.cuda._sleep(50_000_000)
+    pending.copy_(frames[0] if reset else frames[1])
+    if reset:
+        model.cacheFrameReset(pending)
+    got = _collect(model, [frames[1] if reset else pending], factor=1)
+    torch.testing.assert_close(got[0], want[0], rtol=0, atol=5e-3)
+
+
+@pytest.mark.parametrize("factor", [2, 3, 4])
+def testGraphRefreshesFeaturesForEachPair(factor):
+    _requireWeights(CASES[0][1])
+    from src.interpolate import rife
+
+    frames = _frames(4)
+    model = rife.RifeCuda(True, W, H, "rife4.25", interpolateFactor=factor)
+    assert model.useGraph
+    got = _collect(model, frames, factor=factor - 1)
+    eager = _eagerTwin(rife, True, W, H, "rife4.25", interpolateFactor=factor)
+    want = _collect(eager, frames, factor=factor - 1)
+    for a, b in zip(got, want, strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=5e-3)
+
+
+def testFailedCaptureReseedsFeaturesFromRealAnchor(monkeypatch):
+    _requireWeights(CASES[0][1])
+    from src.interpolate import rife
+
+    with monkeypatch.context() as patch:
+        patch.setattr(torch, "allclose", lambda *a, **kw: False)
+        model = rife.RifeCuda(True, W, H, "rife4.25", interpolateFactor=2)
+    assert not model.useGraph
+    frames = _frames(4)
+    torch.cuda.synchronize()
+    got = _collect(model, frames, factor=1)
+    eager = _eagerTwin(rife, True, W, H, "rife4.25", interpolateFactor=2)
+    want = _collect(eager, frames, factor=1)
+    for a, b in zip(got, want, strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=5e-3)

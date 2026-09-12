@@ -88,6 +88,8 @@ def matchEncoder(encode_method: str):
             )
 
         case "slow_x265":
+            # Let x265 select the profile from the pixel format: forcing main
+            # rejects the 10-bit 4:4:4 output used by --bit_depth 16bit.
             command.extend(
                 [
                     "-c:v",
@@ -96,8 +98,6 @@ def matchEncoder(encode_method: str):
                     "slow",
                     "-crf",
                     "18",
-                    "-profile:v",
-                    "main",
                     "-level",
                     "5.1",
                     "-tune",
@@ -332,7 +332,7 @@ def matchEncoder(encode_method: str):
     return command
 
 
-def matchNeluxEncoder(encode_method: str) -> dict | None:
+def matchNeluxEncoder(encode_method: str, bitDepth: str = "8bit") -> dict | None:
     """
     nelux.VideoEncoder kwargs mirroring matchEncoder's FFmpeg arm one-for-one,
     or None for a method with no Nelux mapping.
@@ -347,19 +347,25 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
     verified against its FFmpeg twin on real frames: PSNR within 0.1 dB,
     size within the encoder-invocation noise (prores within 0.03%).
 
-    pixel_format mirrors getPixFMT's arm for the twin at 8-bit input --
-    *_nelux methods only reach the Nelux writer at --bit_depth 8bit
-    (src/cli/validator.py:_resolveNeluxEncoder downgrades 16bit), and uint8
-    input into a 10-bit format is upconverted by nelux's libswscale pass just
-    as FFmpeg upconverts rgb24.
+    pixel_format mirrors getPixFMT's arm for the twin: at 8-bit input it is
+    the 8-bit format (uint8 input into a 10-bit format is upconverted by
+    nelux's libswscale pass just as FFmpeg upconverts rgb24). At
+    --bit_depth 16bit (nelux >= 0.17.0 carries uint16 input at full precision
+    into any >8-bit destination) an 8-bit pixel_format is promoted to its
+    10-bit counterpart -- yuv444p10le like the FFmpeg twin's default 16-bit
+    output, except libsvtav1 (yuv420p10le: it has no 444 10-bit mode and
+    nelux would fall back to 8-bit yuv420p) and hevc/av1_nvenc (p010le, the
+    CUDA 10-bit surface). h264_nvenc has no 10-bit path at all and stays
+    yuv420p with a warning, mirroring getPixFMT.
     """
+    mapping: dict | None = None
     match encode_method:
         case "x264_nelux":
             # ffmpeg `x264`: -preset veryfast -crf 15
-            return dict(codec="libx264", preset=3, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="libx264", preset=3, cq=15, pixel_format="yuv420p")
         case "slow_x264_nelux":
             # ffmpeg `slow_x264`: -preset slow -crf 18 -tune animation -g 240
-            return dict(
+            mapping = dict(
                 codec="libx264",
                 preset="slow",
                 cq=18,
@@ -368,7 +374,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             )
         case "x264_10bit_nelux":
             # ffmpeg `x264_10bit`: -preset veryfast -crf 15 -profile:v high10
-            return dict(
+            mapping = dict(
                 codec="libx264",
                 preset=3,
                 cq=15,
@@ -377,7 +383,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             )
         case "x264_animation_nelux":
             # ffmpeg `x264_animation`: -preset veryfast -tune animation -crf 15
-            return dict(
+            mapping = dict(
                 codec="libx264",
                 preset=3,
                 cq=15,
@@ -385,7 +391,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
                 options={"tune": "animation"},
             )
         case "x264_animation_10bit_nelux":
-            return dict(
+            mapping = dict(
                 codec="libx264",
                 preset=3,
                 cq=15,
@@ -395,22 +401,22 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
         case "x265_nelux":
             # ffmpeg `x265`: -preset veryfast -crf 15 (nelux itself passes
             # x265-params log-level=none, covering the 10bit arm's log-level=0)
-            return dict(codec="libx265", preset=3, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="libx265", preset=3, cq=15, pixel_format="yuv420p")
         case "slow_x265_nelux":
-            # ffmpeg `slow_x265`: -preset slow -crf 18 -profile:v main
+            # ffmpeg `slow_x265`: -preset slow -crf 18
             # -level 5.1 -tune ssim -g 240. `-level` is dropped: FFmpeg's
             # libx265 wrapper never reads the generic level field, so the twin's
             # flag is already a silent no-op.
-            return dict(
+            mapping = dict(
                 codec="libx265",
                 preset="slow",
                 cq=18,
                 pixel_format="yuv420p",
-                options={"tune": "ssim", "profile": "main", "g": "240"},
+                options={"tune": "ssim", "g": "240"},
             )
         case "x265_10bit_nelux":
             # ffmpeg `x265_10bit`: -preset veryfast -crf 15 -profile:v main10
-            return dict(
+            mapping = dict(
                 codec="libx265",
                 preset=3,
                 cq=15,
@@ -419,10 +425,10 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             )
         case "nvenc_h264_nelux":
             # ffmpeg `nvenc_h264`: -preset p1 -cq 15 (nelux cq -> constqp qp)
-            return dict(codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p")
         case "slow_nvenc_h264_nelux":
             # ffmpeg `slow_nvenc_h264`: -preset p7 -cq 15 -b:v 0 -g 240
-            return dict(
+            mapping = dict(
                 codec="h264_nvenc",
                 preset=7,
                 cq=15,
@@ -430,10 +436,10 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
                 options={"g": "240"},
             )
         case "nvenc_h265_nelux":
-            return dict(codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p")
         case "slow_nvenc_h265_nelux":
             # ffmpeg `slow_nvenc_h265`: -preset p7 -cq 12 -b:v 0 -g 240
-            return dict(
+            mapping = dict(
                 codec="hevc_nvenc",
                 preset=7,
                 cq=12,
@@ -442,7 +448,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             )
         case "nvenc_h265_10bit_nelux":
             # ffmpeg `nvenc_h265_10bit`: -preset p1 -cq 15 -profile:v main10
-            return dict(
+            mapping = dict(
                 codec="hevc_nvenc",
                 preset=1,
                 cq=15,
@@ -450,10 +456,10 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
                 options={"profile": "main10"},
             )
         case "nvenc_av1_nelux":
-            return dict(codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p")
         case "slow_nvenc_av1_nelux":
             # ffmpeg `slow_nvenc_av1`: -preset p7 -cq 15 -b:v 0 -g 240
-            return dict(
+            mapping = dict(
                 codec="av1_nvenc",
                 preset=7,
                 cq=15,
@@ -462,13 +468,13 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             )
         case "av1_nelux":
             # ffmpeg `av1`: libsvtav1 -preset 8 -crf 15 (int 5 -> svt 13-5=8)
-            return dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p")
+            mapping = dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p")
         case "slow_av1_nelux":
             # ffmpeg `slow_av1`: libsvtav1 -preset 4 -crf 27 -g 240 -b:v 0
             # (-row-mt is a libvpx knob the twin carries as a no-op; nelux
             # clears the bitrate itself whenever crf is set). The STRING "4"
             # skips nelux's 13-n int mapping and lands svt preset 4 verbatim.
-            return dict(
+            mapping = dict(
                 codec="libsvtav1",
                 preset="4",
                 cq=27,
@@ -480,7 +486,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             # -- the twin's veryfast is a no-op). nelux's cq/preset do not map
             # to libvpx, so quality goes through AVOptions; b=0 selects
             # CRF-only mode like the FFmpeg wrapper does when no bitrate is set.
-            return dict(
+            mapping = dict(
                 codec="libvpx-vp9",
                 pixel_format="yuv420p",
                 options={"crf": "15", "b": "0"},
@@ -490,7 +496,7 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             # -qscale:v is flags=+qscale with global_quality = 15 *
             # FF_QP2LAMBDA (118) = 1770; prores_ks divides it back out.
             # Verified within 0.03% of the twin's size at equal PSNR.
-            return dict(
+            mapping = dict(
                 codec="prores_ks",
                 pixel_format="yuv444p10le",
                 options={"profile": "4", "flags": "+qscale", "global_quality": "1770"},
@@ -500,22 +506,57 @@ def matchNeluxEncoder(encode_method: str) -> dict | None:
             # the gif encoder is palette+LZW and reads no qscale, and the gif
             # muxer's loop already defaults to 0 (infinite). Byte-comparable
             # output to the twin.
-            return dict(codec="gif")
+            mapping = dict(codec="gif")
         case "lossless_nelux":
             # ffmpeg `lossless`: libx264 -preset ultrafast -crf 0
-            return dict(
+            mapping = dict(
                 codec="libx264", preset="ultrafast", cq=0, pixel_format="yuv420p"
             )
         case "lossless_nvenc_nelux":
             # ffmpeg `lossless_nvenc`: h264_nvenc -preset p1 -qp 0 -b:v 0
             # (nelux cq=0 -> rc constqp qp 0, the same lossless mode)
-            return dict(codec="h264_nvenc", preset=1, cq=0, pixel_format="yuv420p")
+            mapping = dict(codec="h264_nvenc", preset=1, cq=0, pixel_format="yuv420p")
         case _:
             # png/jpeg (image sequences -- nelux writes one container),
             # qsv_*/*_amf (no hardware here to verify a mapping against), and
             # prores_segment (segment builds WriteBuffer directly) stay
             # FFmpeg-only.
-            return None
+            mapping = None
+
+    if mapping is not None and bitDepth == "16bit":
+        # Promote an 8-bit destination to 10-bit so a uint16 frame keeps its
+        # precision instead of being narrowed back to 8-bit before swscale
+        # ever sees it. Already-deep formats (the *_10bit methods, prores)
+        # and pixfmt-less ones (gif, whose palette is 8-bit by nature) pass
+        # through untouched.
+        pixFmt = str(mapping.get("pixel_format", "") or "")
+        isDeep = (
+            "10le" in pixFmt
+            or "12le" in pixFmt
+            or "16le" in pixFmt
+            or "p010" in pixFmt
+            or "p016" in pixFmt
+        )
+        if pixFmt and not isDeep:
+            codec = str(mapping.get("codec", "") or "")
+            if codec == "h264_nvenc":
+                # No 10-bit H.264 NVENC path; the uint16 input is narrowed
+                # encoder-side, exactly as the FFmpeg twin's forced yuv420p.
+                logWarning(
+                    "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit."
+                )
+            elif codec in ("hevc_nvenc", "av1_nvenc"):
+                mapping["pixel_format"] = "p010le"
+            elif codec == "libsvtav1":
+                # No yuv444p10le mode; asking for it falls back to 8-bit
+                # yuv420p with a warning, which is worse than 420 10-bit.
+                mapping["pixel_format"] = "yuv420p10le"
+            else:
+                # libx264 / libx265 / libvpx-vp9 (+ lossless libx264): the
+                # FFmpeg twin's default 16-bit output is yuv444p10le.
+                mapping["pixel_format"] = "yuv444p10le"
+
+    return mapping
 
 
 def getPixFMT(encode_method, bitDepth, grayscale, transparent):

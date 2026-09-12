@@ -59,6 +59,8 @@ def _supportsColor():
 
 _COLOR_ENABLED = _supportsColor()
 
+_LOG_ICONS = {"INFO": "i", "WARNING": "!", "ERROR": "x", "SUCCESS": "+", "DEBUG": "?"}
+
 
 def _ansi(text, color_code):
     if not _COLOR_ENABLED:
@@ -75,9 +77,7 @@ def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> N
         colorFunc (str): Color function name ('cyan', 'red', 'yellow', 'green')
         level (str): Log level ('INFO', 'WARNING', 'ERROR', 'SUCCESS', 'DEBUG')
     """
-    icons = {"INFO": "i", "WARNING": "!", "ERROR": "x", "SUCCESS": "+", "DEBUG": "?"}
-
-    icon = icons.get(level.upper(), "i")
+    icon = _LOG_ICONS.get(level.upper(), "i")
     formatted_message = f"{icon} {message}"
     if colorFunc in _COLOR_FUNCS:
         print(_COLOR_FUNCS[colorFunc](formatted_message))

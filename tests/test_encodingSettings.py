@@ -20,6 +20,14 @@ from src.io.encodingSettings import (
 # --------------------------------------------------------------------------- #
 
 
+def testSlowX265LetsPixelFormatSelectProfile():
+    assert "-profile:v" not in matchEncoder("slow_x265")
+    for bitDepth in ("8bit", "16bit"):
+        assert (
+            "profile" not in matchNeluxEncoder("slow_x265_nelux", bitDepth)["options"]
+        )
+
+
 def testX264Flags():
     assert matchEncoder("x264") == [
         "-c:v",
@@ -173,6 +181,82 @@ def testTenBitNeluxMethodsSelectTenBitPixelFormats(method, pixFmt):
     mapping = matchNeluxEncoder(method)
     assert mapping["pixel_format"] == pixFmt
     assert "10" in mapping["options"]["profile"]
+
+
+def testEightBitMappingIsUnchangedByDefault():
+    # The default keeps the historical 8-bit pixel_format exactly.
+    assert matchNeluxEncoder("x264_nelux")["pixel_format"] == "yuv420p"
+    assert matchNeluxEncoder("x264_nelux") == matchNeluxEncoder("x264_nelux", "8bit")
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("x264_nelux", "yuv444p10le"),
+        ("slow_x264_nelux", "yuv444p10le"),
+        ("x264_animation_nelux", "yuv444p10le"),
+        ("x265_nelux", "yuv444p10le"),
+        ("slow_x265_nelux", "yuv444p10le"),
+        ("vp9_nelux", "yuv444p10le"),
+        ("lossless_nelux", "yuv444p10le"),
+        ("nvenc_h265_nelux", "p010le"),
+        ("slow_nvenc_h265_nelux", "p010le"),
+        ("nvenc_av1_nelux", "p010le"),
+        ("slow_nvenc_av1_nelux", "p010le"),
+        # libsvtav1 has no 444 10-bit mode (nelux would fall back to 8-bit
+        # yuv420p), so it keeps 420 subsampling at 10-bit depth.
+        ("av1_nelux", "yuv420p10le"),
+        ("slow_av1_nelux", "yuv420p10le"),
+    ],
+)
+def testSixteenBitPromotesEightBitPixelFormatsToTenBit(method, expected):
+    """--bit_depth 16bit must not silently narrow back to 8-bit: the mapping
+    promotes the destination so uint16 frames keep their precision."""
+    mapping = matchNeluxEncoder(method, "16bit")
+    assert mapping["pixel_format"] == expected
+
+
+@pytest.mark.parametrize(
+    "method",
+    [
+        "x264_10bit_nelux",
+        "x264_animation_10bit_nelux",
+        "x265_10bit_nelux",
+        "nvenc_h265_10bit_nelux",
+        "prores_nelux",
+    ],
+)
+def testSixteenBitLeavesDeepPixelFormatsAlone(method):
+    # Already 10-bit destinations pass through untouched.
+    assert matchNeluxEncoder(method, "16bit") == matchNeluxEncoder(method)
+
+
+def testSixteenBitLeavesGifAlone():
+    # No pixel_format to promote: the palette is 8-bit by nature and the
+    # encoder narrows the input, as the FFmpeg twin does.
+    assert matchNeluxEncoder("gif_nelux", "16bit") == matchNeluxEncoder("gif_nelux")
+
+
+def testSixteenBitKeepsNvencH264AtEightBit():
+    # No 10-bit H.264 NVENC path exists; mirrors getPixFMT's forced yuv420p.
+    mapping = matchNeluxEncoder("nvenc_h264_nelux", "16bit")
+    assert mapping["pixel_format"] == "yuv420p"
+    slow = matchNeluxEncoder("slow_nvenc_h264_nelux", "16bit")
+    assert slow["pixel_format"] == "yuv420p"
+    lossless = matchNeluxEncoder("lossless_nvenc_nelux", "16bit")
+    assert lossless["pixel_format"] == "yuv420p"
+
+
+def testSixteenBitKeepsTheQualityKnobs():
+    # Promotion touches only the pixel_format, never preset/cq/options.
+    plain = matchNeluxEncoder("slow_x264_nelux")
+    deep = matchNeluxEncoder("slow_x264_nelux", "16bit")
+    for key in ("codec", "preset", "cq", "options"):
+        assert deep[key] == plain[key]
+
+
+def testUnknownNeluxEncoderStillReturnsNoneAtSixteenBit():
+    assert matchNeluxEncoder("does_not_exist", "16bit") is None
 
 
 def testSlowAv1NeluxPassesSvtPresetAsString():

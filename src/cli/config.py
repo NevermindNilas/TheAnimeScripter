@@ -73,6 +73,8 @@ def _expectedLabel(converter):
         return _TYPE_LABELS[converter]
     if getattr(converter, "__name__", "") == "str2bool":
         return "true or false"
+    if getattr(converter, "__name__", "") == "parseTrimArg":
+        return "seconds (e.g. 60 or 60.5) or frames with an 'f' suffix (e.g. 100f)"
     return f"a value accepted by {getattr(converter, '__name__', converter)}"
 
 
@@ -131,6 +133,13 @@ def coerceValueForKey(parser, key, value, sourceLabel):
     values = value if isinstance(value, list) else [value]
     converted = []
     for item in values:
+        # int() silently truncates JSON floats and accepts booleans. Reject
+        # those before conversion, while the original value is still available.
+        if converter is int and (
+            isinstance(item, bool)
+            or (isinstance(item, float) and not item.is_integer())
+        ):
+            fail(item, _expectedLabel(converter))
         # `isinstance(item, converter)` is only meaningful when the converter
         # is a real class. `--half` and `--interpolate_first` declare
         # `type=str2bool`, a plain function, and isinstance() against it raises

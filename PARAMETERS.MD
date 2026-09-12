@@ -276,12 +276,15 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--inpoint` | float | 0 | 0+ | **Start time** in seconds |
-| `--outpoint` | float | end | 0+ | **End time** in seconds |
+| `--inpoint` | float/str | 0 | 0+ | **Start** in seconds (e.g. `60`), or frames with an `f` suffix (e.g. `100f`) |
+| `--outpoint` | float/str | end | 0+ | **End (exclusive)** in seconds (e.g. `90`), or frames with an `f` suffix (e.g. `500f`). `0` means EOF |
 
 ```bash
 # Process 30 seconds starting from 1 minute
 --inpoint 60 --outpoint 90
+
+# Select a range by frame numbers (exact, no fps rounding)
+--inpoint 100f --outpoint 500f
 ```
 
 > **Note:** a range shorter than one frame still yields exactly one frame. It
@@ -893,7 +896,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **slow_nvenc_av1_nelux** | slow_nvenc_av1 | NVIDIA RTX 40+ |
 | **lossless_nvenc_nelux** | lossless_nvenc | NVIDIA GPU |
 
-> **Note:** the in-process encoder cannot apply `--bit_depth 16bit`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter); an older installed nelux falls back to the plain encoder the same way. `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
+> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path), but `--depth` does not use it at all. Ask for `--depth` with an in-process encoder and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter); an older installed nelux falls back to the plain encoder the same way. `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
 
 #### High-Quality Presets
 
