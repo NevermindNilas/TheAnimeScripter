@@ -348,6 +348,20 @@ def downloadModels(
             fullUrl = f"{TASURL}{filename}"
             return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
 
+    elif registryModel.split("-")[0] == "cyte":
+        fullUrl = (
+            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
+            f"Cyte-V1-SuperUltraCompact/{filename}"
+        )
+
+    elif registryModel.split("-")[0] in {"limbo_v2", "limbo_v2_43"}:
+        # Keep versioned cache names: upstream uses the same filenames as v1.
+        remoteFilename = filename.replace("LimboV2", "Limbo", 1)
+        fullUrl = (
+            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
+            f"Limbo-V2/{remoteFilename}"
+        )
+
     elif registryModel == "transnetv2":
         fullUrl = f"{TRANSNETV2URL}{filename}"
 

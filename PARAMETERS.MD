@@ -344,6 +344,8 @@ C:\Videos\episode3.mp4
 | **maxine-bicubic / -low / -medium / -high / -ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | NVIDIA Maxine VSR (RTX only, SDK-provided) | CUDA |
 | **maxine-highbitrate_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | Maxine VSR tuned for high-bitrate sources | CUDA |
 
+Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is a 45,156-parameter anime upscaler with a fixed **2×** scale. Use `--upscale_method cyte --upscale_factor 2`. Weights download from the [Cyte model folder](https://github.com/NevermindNilas/Ai-models/tree/main/Cyte-V1-SuperUltraCompact).
+
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality. On Apple Silicon use `shufflecugan-mps` or `span-mps`.
 
 > **⚠️ Suffix required:** the `artcnn_*` family is ONNX-only — always pass a `-tensorrt`, `-directml`, or `-openvino` suffix. There is no bare-CUDA choice for it.

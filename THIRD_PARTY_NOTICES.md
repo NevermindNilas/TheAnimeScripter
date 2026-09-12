@@ -13,3 +13,12 @@ License Agreement.
 
 - https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/
 - https://developer.download.nvidia.com/licenses/NVIDIA-Open-Model-License.pdf
+
+## Limbo V2 and Cyte V1 model weights
+
+Models by NevermindNilas, copyright (c) 2026. Both are CC BY-NC 4.0
+with an additional commercial-use grant for TheAnimeScripter users.
+See the authoritative [Limbo V2 license](https://github.com/NevermindNilas/Ai-models/blob/main/Limbo-V2/LICENSE.MD)
+and [Cyte license](https://github.com/NevermindNilas/Ai-models/blob/main/Cyte-V1-SuperUltraCompact/LICENSE.MD).
+Limbo's upstream DA3 material retains its Apache-2.0 terms;
+Cyte uses the BSD-3-Clause Real-ESRGAN SRVGGNetCompact architecture.

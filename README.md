@@ -226,6 +226,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 | Model                 | CUDA  | TensorRT | DirectML | OpenVINO  |
 | --------------------- | :---: | :------: | :------: | :---: |
+| Cyte V1 (2×)          |   ✅   |    ✅     |    ✅    |   ✅   |
 | ShuffleCugan          |   ✅   |    ✅     |    ✅    |   ✅   |
 | Fallin Soft           |   ✅   |    ✅     |    ✅     |   ✅   |
 | Fallin Strong         |   ✅   |    ✅     |    ✅     |   ✅   |

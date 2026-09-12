@@ -31,6 +31,7 @@ KNOWN_INPUT_MULTIPLES = {
     "aniscale2": 1,
     "open-proteus": 1,
     "span": 1,
+    "cyte": 1,
     "rtmosr": 1,
     "saryn": 1,  # same RTMoSR arch as rtmosr
     "smosr": 1,
