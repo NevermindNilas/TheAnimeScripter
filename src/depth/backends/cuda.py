@@ -280,7 +280,7 @@ class LimboCuda(DepthCuda):
             "depth_anything_3.mono"
         ).MonocularDepthAnything3
 
-        base = "limbo_v2" if self.depth_method.startswith("limbo_v2") else "limbo"
+        base = self.depth_method.removeprefix("video_").split("-")[0]
         self.filename = modelsMap(model=base, modelType="pth", half=self.half)
         modelPath = resolveWeightPath(
             base,

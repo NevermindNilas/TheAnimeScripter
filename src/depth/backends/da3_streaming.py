@@ -1,11 +1,11 @@
-"""Depth-video streaming with Apache-2.0 DA3 Small/Base checkpoints."""
+"""Depth-video streaming with DA3 Small/Base and Limbo checkpoints."""
 
 import logging
 
 import numpy as np
 import torch
 
-from src.depth.backends.cuda import OGDepthV3Cuda
+from src.depth.backends.cuda import LimboCuda, OGDepthV3Cuda
 from src.depth.chunk_stream import streamDepthChunks
 from src.infra.progressBarLogic import ProgressBarLogic
 
@@ -68,3 +68,31 @@ class DA3StreamingCuda(OGDepthV3Cuda):
                 bar(1)
         logging.info("Processed %d frames with DA3 streaming", count)
         self.writeBuffer.close()
+
+
+class LimboStreamingCuda(DA3StreamingCuda):
+    def handleModels(self):
+        if self.depth_method not in ("video_limbo", "video_limbo_v2"):
+            raise ValueError(f"Unsupported Limbo streaming model: {self.depth_method}")
+        LimboCuda.handleModels(self)
+        self._decodeWidth = self.newWidth
+        self._decodeHeight = self.newHeight
+        self._decodeResize = True
+        logging.info(
+            "Limbo depth streaming: %s, chunk=%d, overlap=%d, input=%dx%d",
+            self.depth_method,
+            self.depthWindow,
+            self.depthWindow // 2,
+            self.newWidth,
+            self.newHeight,
+        )
+
+    @torch.inference_mode()
+    def _inferChunk(self, frames):
+        # Decoder supplies RGB at Limbo's fixed resolution. Preserve the
+        # image backend's ImageNet normalization without the DA3 PIL resize.
+        images = torch.from_numpy(np.stack(frames)).to(self.model._get_model_device())
+        images = images.permute(0, 3, 1, 2).float() / 255
+        images = LimboCuda.normFrame(self, images)
+        result = self.model.forward(images.unsqueeze(0))
+        return result["depth"][0].float().cpu().numpy()

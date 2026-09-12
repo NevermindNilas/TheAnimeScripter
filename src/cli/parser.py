@@ -1143,6 +1143,8 @@ def _addDepthOptions(argParser):
         "video_small_v2",
         "video_small_v3",
         "video_base_v3",
+        "video_limbo",
+        "video_limbo_v2",
         "video_small_v2-tensorrt",
         "small_v2-tensorrt",
         "small_v2-directml",
@@ -1186,7 +1188,7 @@ def _addDepthOptions(argParser):
         type=int,
         choices=[4, 8, 16, 32],
         default=32,
-        help="Temporal window for CUDA video depth methods. For video_*_v3, "
+        help="Temporal window for CUDA video depth methods. For video_*_v3 and video_limbo*, "
         "the chunk size with 50%% overlap; smaller windows reduce memory and "
         "latency. For video_small_v2, the attended history (32 = full window).",
     )

@@ -291,6 +291,10 @@ DA3 depth-video streaming is available on CUDA as `video_small_v3` and
 python main.py --input input.mp4 --output depth.mp4 --depth_method video_small_v3 --depth_window 8
 ```
 
+Limbo V1 and V2 also support CUDA streaming as `video_limbo` and
+`video_limbo_v2`. They reuse the existing Limbo checkpoints and fixed input
+resolutions; `--depth_quality` is ignored for these modes.
+
 Frames attend across overlapping chunks; `--depth_window` sets the chunk size
 (4/8/16/32, default 32), with 50% overlap. Smaller windows reduce memory and
 lookahead latency. This is a depth-only adaptation of DA3-Streaming, without

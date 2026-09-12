@@ -187,7 +187,7 @@ def _handleDepthSettings(args):
         logging.info("Depth enabled, audio processing will be disabled")
         cs.AUDIO = False
 
-    isLimbo = args.depth_method.split("-")[0].startswith("limbo")
+    isLimbo = args.depth_method.removeprefix("video_").split("-")[0].startswith("limbo")
 
     # "openvino" belongs here too: it is not a separate backend, it is a
     # provider branch inside the same DepthDirectMLV2 class the "-directml"
