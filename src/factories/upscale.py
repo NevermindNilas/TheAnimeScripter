@@ -19,6 +19,7 @@ def buildUpscaleProcess(self):
     match self.upscaleMethod:
         case (
             "shufflecugan"
+            | "cyte"
             | "adore"
             | "span"
             | "open-proteus"
@@ -46,6 +47,7 @@ def buildUpscaleProcess(self):
             | "open-proteus-directml"
             | "aniscale2-directml"
             | "shufflecugan-directml"
+            | "cyte-directml"
             | "adore-directml"
             | "rtmosr-directml"
             | "saryn-directml"
@@ -55,6 +57,7 @@ def buildUpscaleProcess(self):
             | "open-proteus-openvino"
             | "aniscale2-openvino"
             | "shufflecugan-openvino"
+            | "cyte-openvino"
             | "adore-openvino"
             | "rtmosr-openvino"
             | "saryn-openvino"
@@ -78,6 +81,7 @@ def buildUpscaleProcess(self):
 
         case (
             "shufflecugan-mps"
+            | "cyte-mps"
             | "adore-mps"
             | "span-mps"
             | "open-proteus-mps"
@@ -122,6 +126,7 @@ def buildUpscaleProcess(self):
 
         case (
             "shufflecugan-tensorrt"
+            | "cyte-tensorrt"
             | "adore-tensorrt"
             | "span-tensorrt"
             | "open-proteus-tensorrt"

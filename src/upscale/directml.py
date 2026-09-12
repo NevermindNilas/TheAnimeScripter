@@ -77,7 +77,9 @@ class UniversalDirectML:
             if "openvino" in self.upscaleMethod:
                 method = method.replace("openvino", "directml")
 
-            self.filename = modelsMap(method, self.upscaleFactor, modelType="onnx")
+            self.filename = modelsMap(
+                method, self.upscaleFactor, modelType="onnx", half=self.half
+            )
             if "-directml" in self.upscaleMethod:
                 folderName = self.upscaleMethod.replace("-directml", "-onnx")
             elif "-openvino" in self.upscaleMethod:

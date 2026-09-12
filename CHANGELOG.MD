@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- Added `cyte` 2× anime upscaling for CUDA, MPS, TensorRT, DirectML, and OpenVINO; corrected Limbo V2 downloads to use its published upstream files.
 - `--inpoint`/`--outpoint` accept frame points with an `f` suffix (e.g. `--inpoint 100f --outpoint 500f`), resolved exactly without fps rounding; plain numbers stay seconds.
 - `--depth_method limbo_v2` (plus `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`): Limbo-V2 anime depth finetune with the same fixed-resolution setup and backend coverage as v1; README and PARAMETERS.MD now list Limbo v1 and v2 side by side.
 

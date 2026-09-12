@@ -75,6 +75,11 @@ def modelsList() -> list[str]:
         "artcnn_r16f96-tensorrt",
         "artcnn_r16f96-directml",
         "artcnn_r16f96-openvino",
+        "cyte",
+        "cyte-tensorrt",
+        "cyte-directml",
+        "cyte-openvino",
+        "cyte-mps",
         "span",
         "shufflecugan",
         "adore",
@@ -249,6 +254,14 @@ def modelsMap(
     """
 
     match model:
+        case "cyte" | "cyte-tensorrt" | "cyte-directml" | "cyte-openvino":
+            if upscaleFactor != 2:
+                raise ValueError("Cyte supports only 2x upscaling")
+            if modelType == "pth":
+                return "2x-Cyte-V1-SuperUltraCompact.pth"
+            precision = "fp16" if half else "fp32"
+            return f"Cyte-V1_2x_{precision}_op17_slim.onnx"
+
         case "flownets":
             return "flownets.pth"
 
