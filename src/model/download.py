@@ -316,6 +316,9 @@ def downloadModels(
     os.makedirs(weightsDir, exist_ok=True)
 
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
+    if downloadModel in ("video_limbo-tensorrt", "video_limbo_v2-tensorrt"):
+        downloadModel = downloadModel.removesuffix("-tensorrt")
+        modelType = "pth"  # The multi-view ONNX is generated locally on first use.
     registryModel = {
         "og_small_v2": "small_v2",
         "video_small_v3": "small_v3",

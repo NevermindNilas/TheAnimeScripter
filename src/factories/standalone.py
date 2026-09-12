@@ -358,7 +358,14 @@ def depth(self):
                 depth_window=self.depthWindow,
             )
 
-        case "video_small_v3" | "video_base_v3" | "video_limbo" | "video_limbo_v2":
+        case (
+            "video_small_v3"
+            | "video_base_v3"
+            | "video_limbo"
+            | "video_limbo_v2"
+            | "video_limbo-tensorrt"
+            | "video_limbo_v2-tensorrt"
+        ):
             from src.depth.backends.da3_streaming import (
                 DA3StreamingCuda,
                 LimboStreamingCuda,
@@ -369,6 +376,12 @@ def depth(self):
                 if self.depthMethod.startswith("video_limbo")
                 else DA3StreamingCuda
             )
+            if self.depthMethod.endswith("-tensorrt"):
+                from src.depth.backends.limbo_streaming_trt import (
+                    LimboStreamingTensorRT,
+                )
+
+                streamingClass = LimboStreamingTensorRT
             driver = streamingClass(
                 self.input,
                 self.output,

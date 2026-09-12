@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- Added `video_limbo-tensorrt` and `video_limbo_v2-tensorrt`: locally exported multi-view engines with 4/8/16/32-frame windows, overlapping depth alignment, and exact-length tails. Source weights, resolution and precision have separate export caches; engines also track window size. Added `tools/export_limbo_streaming.py` for raw safetensors.
 - Added CUDA streaming depth methods `video_limbo` and `video_limbo_v2`, using the existing Limbo checkpoints and fixed resolutions with overlapping windows controlled by `--depth_window`.
 - Added CUDA depth methods `video_small_v3` and `video_base_v3`, reusing DA3 Small/Base weights with cross-frame attention and overlapping 4/8/16/32-frame windows controlled by `--depth_window`.
 - Added `cyte` 2× anime upscaling for CUDA, MPS, TensorRT, DirectML, and OpenVINO; corrected Limbo V2 downloads to use its published upstream files.
