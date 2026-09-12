@@ -5,6 +5,7 @@ __all__ = [
     "DepthCuda",
     "OGDepthV2CUDA",
     "OGDepthV3Cuda",
+    "DA3StreamingCuda",
     "DepthMPS",
     "OGDepthV2MPS",
     "OGDepthV3MPS",
@@ -20,6 +21,7 @@ _EXPORTS = {
     "DepthCuda": ".cuda",
     "OGDepthV2CUDA": ".cuda",
     "OGDepthV3Cuda": ".cuda",
+    "DA3StreamingCuda": ".da3_streaming",
     "DepthMPS": ".mps",
     "OGDepthV2MPS": ".mps",
     "OGDepthV3MPS": ".mps",
@@ -33,6 +35,7 @@ _EXPORTS = {
 
 if TYPE_CHECKING:
     from .cuda import DepthCuda, OGDepthV2CUDA, OGDepthV3Cuda
+    from .da3_streaming import DA3StreamingCuda
     from .directml import DepthDirectMLV2, OGDepthV2DirectML
     from .mps import DepthMPS, OGDepthV2MPS, OGDepthV3MPS
     from .tensorrt import DepthTensorRTV2, OGDepthV2TensorRT

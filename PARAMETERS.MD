@@ -525,7 +525,7 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. `limbo`/`limbo_v2` are downgraded on every backend — their input resolution is baked into the model. |
-| `--depth_window` | int | 32 | **Temporal attention window** (frames attended) for the video depth methods (`video_small_v2`); one of `32/16/8/4`. `32` = full-quality streaming; `16` gives ~+24% forward throughput (~+14% end-to-end) with no added flicker and SSIM 0.997 / VMAF 98.1 vs the full window; `8`/`4` trade more fidelity for more speed. Frame storage is unchanged (32 retained); only the attended window shrinks. CUDA-only; ignored by other depth methods. |
+| `--depth_window` | int | 32 | **CUDA video depth window**, one of `32/16/8/4`. For `video_small_v3` / `video_base_v3`, this is the chunk size with 50% overlap; smaller values reduce memory and lookahead latency. For `video_small_v2`, this controls attended history (32 = full window; 32 frames are retained regardless). Ignored by image depth methods. |
 | `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt` (all forced to `1`). |
 
 #### 🎯 Segmentation Methods
@@ -546,6 +546,8 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT, OpenVINO, MPS |
 | **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
 | **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
+| **video_small_v3** | Window-dependent | Temporal DA3 Small | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA |
+| **video_base_v3** | Window-dependent | Temporal DA3 Base | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA |
 | **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
 | **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, MPS |
 | **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, TRT |
@@ -554,6 +556,8 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | **limbo v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Limbo successor, same fixed-resolution setup (`--depth_method limbo_v2`) | CUDA, TRT, OpenVINO, MPS |
 
 > **🎨 limbo v1 / v2:** anime-specialised DA3-small finetunes (v1: 34.3M params). Unlike every other depth method their input resolution is **fixed by the model**, not by `--depth_quality`: each ships one export per baked size and TAS picks the one whose aspect is closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer. `--depth_quality` is therefore ignored (forced to `low`), and `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 mirrors them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`. Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
+
+**DA3 streaming:** `video_small_v3` and `video_base_v3` use Apache-2.0 Small/Base weights with attention across overlapping chunks. CUDA only; memory depends on resolution and window size. This depth-video adaptation excludes camera reconstruction and loop closure. `large_v3` (DA3Mono-Large) and `og_large_v3` (DA3Metric-Large) remain independent-frame models. See [implementation and licenses](docs/DA3_STREAMING.md).
 
 > **🎞️ Temporal vs image:** `video_*` methods attend across frames (see `--depth_window`) and are far more stable over time; the rest predict each frame independently.
 

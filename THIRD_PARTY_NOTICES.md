@@ -3,6 +3,21 @@
 This product uses third-party software. Notices required by their licenses
 are reproduced below.
 
+## Depth Anything 3 / DA3-Streaming
+
+Copyright (c) 2025 ByteDance Ltd. and/or its affiliates.
+Copyright 2025 The Depth Anything 3 Team.
+The vendored DINOv2 backbone also retains its Meta Platforms copyright notices.
+
+The existing DA3 runtime and the DA3 Small/Base model weights used by our
+depth-video streaming integration are licensed under Apache License 2.0.
+See [license](src/depth/depth_anything_3/LICENSE) and
+[integration scope and provenance](docs/DA3_STREAMING.md).
+
+The chunk scheduler and depth-scale alignment are a TAS implementation inspired
+by DA3-Streaming. No SALAD, upstream loop-closure code, or non-commercial
+Giant/Nested/Large any-view checkpoint is included in this integration.
+
 ## NVIDIA Video Effects SDK (Maxine VSR)
 
 This software contains source code provided by NVIDIA Corporation.

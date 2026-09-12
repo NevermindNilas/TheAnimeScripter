@@ -593,14 +593,14 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         MonocularDepthAnything3 = importlib.import_module(
             "depth_anything_3.mono"
         ).MonocularDepthAnything3
-        toDownload = self.depth_method
+        toDownload = self.depth_method.removeprefix("video_")
         modelMap = {
             "small_v3": "da3-small",
             "base_v3": "da3-base",
             "large_v3": "da3mono-large",
             "og_large_v3": "da3metric-large",
         }
-        modelName = modelMap[self.depth_method]
+        modelName = modelMap[toDownload]
 
         self.filename = modelsMap(model=toDownload, modelType="pth", half=self.half)
 

@@ -1141,6 +1141,8 @@ def _addDepthOptions(argParser):
         "og_small_v2-mps",
         "og_video_small_v2",
         "video_small_v2",
+        "video_small_v3",
+        "video_base_v3",
         "video_small_v2-tensorrt",
         "small_v2-tensorrt",
         "small_v2-directml",
@@ -1184,9 +1186,9 @@ def _addDepthOptions(argParser):
         type=int,
         choices=[4, 8, 16, 32],
         default=32,
-        help="Temporal attention window (frames) for video depth methods (video_*). "
-        "32 = full quality (default); 16 is ~1.24x faster forward with no added "
-        "flicker at a slight quality tradeoff; 8 is faster still. CUDA-only, video_* methods.",
+        help="Temporal window for CUDA video depth methods. For video_*_v3, "
+        "the chunk size with 50%% overlap; smaller windows reduce memory and "
+        "latency. For video_small_v2, the attended history (32 = full window).",
     )
     depthGroup.add_argument(
         "--depth_batch",
