@@ -1175,11 +1175,6 @@ def _addDepthOptions(argParser):
         help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
     )
     depthGroup.add_argument(
-        "--depth_norm",
-        action="store_true",
-        help="Apply ghost-free global affine stabilization to image depth methods, or shared-range calibration to temporal video depth methods",
-    )
-    depthGroup.add_argument(
         "--depth_window",
         type=int,
         choices=[4, 8, 16, 32],

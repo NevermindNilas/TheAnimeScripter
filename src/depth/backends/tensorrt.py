@@ -14,8 +14,6 @@ from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
     DepthRunOutcome,
-    SlidingWindowNormalizer,
-    VideoRangeNormalizer,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -52,7 +50,6 @@ class DepthTensorRTV2(DepthRunOutcome):
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         self.input = input
@@ -69,7 +66,6 @@ class DepthTensorRTV2(DepthRunOutcome):
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self._reqBatch = max(1, int(depth_batch))
 
         from src.model.trtHandler import (
@@ -244,7 +240,7 @@ class DepthTensorRTV2(DepthRunOutcome):
 
     @torch.inference_mode()
     def normOutputFrame(self, i):
-        # per-frame min-max (or normalizer) on slice i so a batched forward is
+        # per-frame min-max on slice i so a batched forward is
         # bit-equivalent to one-frame-at-a-time
         with torch.cuda.stream(self.outputNormStream):
             depth = F.interpolate(
@@ -253,10 +249,7 @@ class DepthTensorRTV2(DepthRunOutcome):
                 mode="bilinear",
                 align_corners=True,
             )
-            if self.normalizer is not None:
-                depth = self.normalizer.normalize(depth)
-            else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min())
+            depth = (depth - depth.min()) / (depth.max() - depth.min())
         self.outputNormStream.synchronize()
         return depth
 
@@ -429,9 +422,7 @@ class LimboTensorRT(DepthTensorRTV2):
     @torch.inference_mode()
     def normOutputFrame(self, i):
         with torch.cuda.stream(self.outputNormStream):
-            gray = limboDisparity(
-                self.dummyOutput[i : i + 1].unsqueeze(1), self.normalizer
-            )
+            gray = limboDisparity(self.dummyOutput[i : i + 1].unsqueeze(1))
             if gray.shape[-2:] != (self.height, self.width):
                 gray = F.interpolate(
                     gray,
@@ -460,7 +451,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         self.input = input
@@ -477,7 +467,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self._reqBatch = max(1, int(depth_batch))
 
         from src.model.trtHandler import (
@@ -552,8 +541,6 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         )
 
         self.isVideoDepthTensorRT = "video_small_v2" in self.depth_method
-        if self.isVideoDepthTensorRT and self.normalizer is not None:
-            self.normalizer = VideoRangeNormalizer()
         self.temporalWindowSize = 32
 
         # The temporal video engine can't batch the frame axis; only the
@@ -705,24 +692,17 @@ class OGDepthV2TensorRT(DepthRunOutcome):
         if self.isVideoDepthTensorRT:
             depthTensor = self.dummyOutput[0, -1].float()
             depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
-            if self.normalizer is not None:
-                depthTensor = self.normalizer.normalize(depthTensor)
-            else:
-                flatTensor = depthTensor.flatten()
-                lowerBound = torch.quantile(flatTensor, 0.01)
-                upperBound = torch.quantile(flatTensor, 0.99)
-                denom = (upperBound - lowerBound).clamp_min(1e-6)
-                depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
+            flatTensor = depthTensor.flatten()
+            lowerBound = torch.quantile(flatTensor, 0.01)
+            upperBound = torch.quantile(flatTensor, 0.99)
+            denom = (upperBound - lowerBound).clamp_min(1e-6)
+            depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
             depth = (depthTensor * 255.0).byte().cpu().numpy()
         else:
             depth = self.dummyOutput.cpu().numpy()
             depth = np.reshape(depth, (self.newHeight, self.newWidth))
-            if self.normalizer is not None:
-                depth = self.normalizer.normalize(depth)
-                depth = (depth * 255.0).astype(np.uint8)
-            else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-                depth = depth.astype(np.uint8)
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+            depth = depth.astype(np.uint8)
 
         return depth
 
@@ -773,12 +753,8 @@ class OGDepthV2TensorRT(DepthRunOutcome):
     def normOutputFrameAt(self, i):
         depth = self.dummyOutput[i].cpu().numpy()
         depth = np.reshape(depth, (self.newHeight, self.newWidth))
-        if self.normalizer is not None:
-            depth = self.normalizer.normalize(depth)
-            depth = (depth * 255.0).astype(np.uint8)
-        else:
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-            depth = depth.astype(np.uint8)
+        depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+        depth = depth.astype(np.uint8)
         return depth
 
     @torch.inference_mode()

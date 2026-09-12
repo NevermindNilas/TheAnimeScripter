@@ -205,7 +205,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -228,7 +227,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -250,7 +248,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -272,7 +269,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
             )
 
         case "og_small_v2":
@@ -294,7 +290,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -317,7 +312,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -340,7 +334,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
             )
 
         case "video_small_v2":
@@ -363,7 +356,6 @@ def depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depth_window=self.depthWindow,
-                depthNorm=self.depthNorm,
             )
 
         case "og_small_v2-tensorrt" | "video_small_v2-tensorrt":
@@ -384,7 +376,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -406,7 +397,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
             )
 
         case "small_v3" | "base_v3" | "large_v3" | "og_large_v3":
@@ -428,7 +418,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -451,7 +440,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -474,7 +462,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -497,7 +484,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -520,7 +506,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -543,7 +528,6 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -565,7 +549,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -587,7 +570,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
                 depth_batch=self.depthBatch,
             )
 
@@ -609,7 +591,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
             )
 
         case "limbo_v2-openvino":
@@ -630,7 +611,6 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
-                depthNorm=self.depthNorm,
             )
 
         case _:

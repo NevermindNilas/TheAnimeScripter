@@ -292,7 +292,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - macOS now installs FFmpeg for you: when none is found on `PATH` (or under `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`), TAS runs `brew install ffmpeg` on first run instead of failing with an instruction to do it yourself. Homebrew must already be installed; TAS will not install Homebrew itself, and says so if it is missing.
 
 ### Changed
-- `--depth_norm` now removes per-frame monocular scale/shift ambiguity without compositing historical depth pixels. A stronger motion-compensated history-fusion prototype was rejected after real footage exposed stamped scene textures and structural trails. For `video_*` methods, the flag now preserves Video Depth Anything's shared coordinate system with a slowly adapting scene-wide range instead of independently min/maxing every frame. On `Raw.mp4`, `video_small_v2 --half --depth_norm` lowers encoded flow-aligned error from 0.04137 to 0.01809 (−56.3%) while retaining edge energy, and produced the visually preferred `Raw-Depth-7.mp4`. Invalid DA3 depth is also excluded from normalization.
 - The macOS portable build no longer bundles FFmpeg. `bundle_macos_ffmpeg()` used to copy Homebrew's `ffmpeg`/`ffprobe` and their entire dylib closure into `ffmpeg_shared/`, which made every macOS release asset a redistribution of GPL binaries — without the accompanying licence texts or offer of corresponding source. TAS now ships no FFmpeg bytes on any platform: Windows and Linux already downloaded it at runtime, and macOS installs it through Homebrew on the user's machine. Because the macOS nelux wheel links FFmpeg's shared libraries at absolute Homebrew paths, a Homebrew FFmpeg is what nelux needs anyway.
 - **Breaking:** `--moblur_mask` is renamed to `--mask` and moved out of the Motion Blur group into its own Masking group, since it is no longer motion-blur specific. Scripts and presets passing `--moblur_mask` must be updated.
 - The frame loop's `currentFrame`/`nextFrame` read pair is now a bounded ring buffer, `FrameWindow` (`src/io/frameWindow.py`). Drivers that need neighbouring frames declare `temporalWindow = (past, future)` as a class attribute, and the pipeline sizes the ring to the widest demand among its active stages — the lookahead now travels with the driver that needs it instead of living in a hardcoded method-name check in `main.py` (see *Fixed*, below, for what that check cost). A pipeline with no temporal driver reads no frame ahead at all, holding one fewer decoded frame (~12 MB at 1080p fp16). Throughput is unchanged: 135.7 vs 133.8 FPS mean over 4 interleaved rounds (900-frame 640×360 `shufflecugan`, RTX 3090), inside run-to-run spread. Output is bit-exact for every configuration that was already correct — `animesr` (CUDA), `distildrba`, non-temporal upscalers, and their combinations with `--restore`, `--dedup`, `--scenechange`, and `--interpolate_first`.
@@ -667,7 +666,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA and TensorRT.
 - Added motion blur support (`--moblur`). Supports `equal`, `gaussian_sym`, `pyramid`, `ascending`, and `descending` weighting using `--moblur_strength`, plus `--moblur_factor`. Works with all RIFE/GMFSS interpolation backends and includes automatic scene cut detection.
-- Added `--depth_norm` to normalize depth maps over time for better quality with minimal performance impact.
 - Terminal window/tab title now updates during processing to `★ Processing - <video name> [current/total]`, making batch progress visible at a glance from the taskbar.
 - Added new upscaling methods: `adore` (shufflecugan architecture) with TensorRT and Cuda support.
 - Major reworks for the dependency handler including --download_requirements which now allows for 2 variables `--windows-cuda` and `--windows-lite` to further specify the dependencies to be downloaded for windows users.
@@ -694,7 +692,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Graph Editor is now out of BETA.
 - Added Adore Cuda and Adore TensorRT
 - Added a Legacy models toggle in the settings tab to show or hide superseeded models.
-- Added depth normalization toggle to the depth settings.
 - Remove dead frames now properly supports multiple layers at once.
 
 ### Changed

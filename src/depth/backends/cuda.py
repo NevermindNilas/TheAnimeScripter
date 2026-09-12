@@ -19,7 +19,6 @@ from src.depth.backends._shared import (
     STDTENSOR,
     STDTENSOR_HALF,
     DepthRunOutcome,
-    SlidingWindowNormalizer,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -58,7 +57,6 @@ class DepthCuda(DepthRunOutcome):
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         self.input = input
@@ -76,7 +74,6 @@ class DepthCuda(DepthRunOutcome):
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.depthBatch = max(1, int(depth_batch))
 
         self.handleModels()
@@ -196,7 +193,7 @@ class DepthCuda(DepthRunOutcome):
     @torch.inference_mode()
     def _normalizeDepth(self, depth):
         """Normalize a single already-upscaled depth frame [1, C, H, W].
-        Per-frame min-max (or sliding-window normalizer) so a batched forward
+        Per-frame min-max so a batched forward
         stays bit-identical to one-frame-at-a-time.
 
         The result goes straight to WriteBuffer, whose writer thread copies on
@@ -205,14 +202,11 @@ class DepthCuda(DepthRunOutcome):
         kernels land and, because the allocator recycles the tensor freed two
         frames earlier, emit a byte-exact duplicate of frame N-2."""
         with torch.cuda.stream(self.outputNormStream):
-            if self.normalizer is not None:
-                depth = self.normalizer.normalize(depth)
-            else:
-                # clamp_min guards the divide only when the map is perfectly
-                # flat; any real frame has a range far above it and comes out
-                # bit-identical
-                minVal = depth.min()
-                depth = (depth - minVal) / (depth.max() - minVal).clamp_min(1e-6)
+            # clamp_min guards the divide only when the map is perfectly
+            # flat; any real frame has a range far above it and comes out
+            # bit-identical
+            minVal = depth.min()
+            depth = (depth - minVal) / (depth.max() - minVal).clamp_min(1e-6)
         self.outputNormStream.synchronize()
         return depth
 
@@ -230,8 +224,7 @@ class DepthCuda(DepthRunOutcome):
                     align_corners=True,
                 )
             self.stream.synchronize()
-            # normalize + write each frame in decode order (sliding-window
-            # normalizer, if any, must see frames sequentially)
+            # Normalize and write each frame in decode order.
             for i in range(depth.shape[0]):
                 self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
         except Exception as e:
@@ -371,7 +364,7 @@ class LimboCuda(DepthCuda):
         writer thread copies on its own private stream and never waits on ours.
         """
         with torch.cuda.stream(self.outputNormStream):
-            gray = limboDisparity(depth, self.normalizer)
+            gray = limboDisparity(depth)
             if gray.shape[-2:] != (self.height, self.width):
                 gray = F.interpolate(
                     gray,
@@ -401,7 +394,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
-        depthNorm: bool = False,
         depth_batch: int = 1,
     ):
         self.input = input
@@ -419,7 +411,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.depthBatch = max(1, int(depth_batch))
 
         self.handleModels()
@@ -558,11 +549,8 @@ class OGDepthV2CUDA(DepthRunOutcome):
                 d = F.interpolate(
                     depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
                 )
-                if self.normalizer is not None:
-                    d = self.normalizer.normalize(d)
-                else:
-                    minVal = d.min()
-                    d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
+                minVal = d.min()
+                d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
                 # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once,
                 # to 8 or 16 bit per --bit_depth, instead of the byte() cast
                 # this path used to hardcode. Land on the CPU first: the writer
@@ -726,15 +714,12 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                 disparity = np.zeros_like(depth, dtype=np.float32)
                 disparity[validMask] = 1.0 / depth[validMask]
 
-                if self.normalizer is not None:
-                    gray = self.normalizer.normalize(disparity, mask=validMask)
-                else:
-                    disp_min = np.percentile(disparity[validMask], 2)
-                    disp_max = np.percentile(disparity[validMask], 98)
-                    if disp_min == disp_max:
-                        disp_min -= 1e-6
-                        disp_max += 1e-6
-                    gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
+                disp_min = np.percentile(disparity[validMask], 2)
+                disp_max = np.percentile(disparity[validMask], 98)
+                if disp_min == disp_max:
+                    disp_min -= 1e-6
+                    disp_max += 1e-6
+                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
                 self._writeGray(gray)
             except Exception as e:
                 self.recordFailure(e)
