@@ -26,7 +26,7 @@ python build.py                     # portable build; see BUILD.md (--develop re
 - Specialized autoclip/depth/segment/obj_detect/stabilize/motion_blur operations bypass that loop through `_selectProcessingMethod()`; their drivers are in `src/factories/standalone.py`.
 - `initializeModels()` only decides which capabilities are on; the `match` on backend-suffixed method strings, the lazy backend import, and the returned inference callable live in `src/factories/{upscale,interpolate,restore,dedup,sceneChange,standalone}.py`.
 - I/O: `src/io/ffmpegSettings.py`. `BuildBuffer` uses `nelux.VideoReader`; `createWriteBuffer()` selects `NeluxWriteBuffer` or legacy FFmpeg-subprocess `WriteBuffer`. Nelux handles audio/subtitle passthrough in `_setupPassthrough` and needs FFmpeg DLLs registered by `src/infra/getFFMPEG.py`.
-- `requirements.txt` pins `nelux==0.16.0`; on cu132, verify `import nelux` because a wheel can be torch-ABI-incompatible.
+- `requirements.txt` and every dependency profile pin `nelux==0.19.0` for PyTorch 2.14; keep these pins together and verify `import torch; import nelux` after a PyTorch upgrade because the wheel is torch-ABI-specific.
 
 | Capability | Implementation | Backends/details |
 |---|---|---|

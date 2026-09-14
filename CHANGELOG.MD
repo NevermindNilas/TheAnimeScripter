@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--depth_method limbo_v2` (plus `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`): Limbo-V2 anime depth finetune with the same fixed-resolution setup and backend coverage as v1; README and PARAMETERS.MD now list Limbo v1 and v2 side by side.
 
 ### Changed
+- Updated PyTorch to 2.14.0 and torchvision to 0.29.0 across all dependency profiles, with Triton 3.8 on Windows and PyTorch-2.14-compatible Nelux 0.19.0. Corrected mismatched CUDA wheel pins in the Linux profiles.
 - An `*_nelux` `--encode_method` combined with `--bit_depth 16bit` now stays on the in-process encoder instead of falling back to the plain FFmpeg twin: frames are carried as uint16 at full precision into a 10-bit pixel format (yuv444p10le, yuv420p10le for `av1_nelux`, p010le for `nvenc_h265/h265/av1_nelux`), mirroring the twin's 16-bit output. Requires nelux >= 0.17.0; an older installed nelux still downgrades loudly, and `nvenc_h264_nelux` stays 8-bit like its twin since NVENC H.264 has no 10-bit path.
 
 ### Fixed

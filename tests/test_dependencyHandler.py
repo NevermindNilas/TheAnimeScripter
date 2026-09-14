@@ -5,6 +5,7 @@ based on OS + CUDA support. A wrong mapping here silently installs the wrong
 runtime stack, so the table is pinned exactly.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +24,16 @@ from src.infra.dependencyHandler import (
 # --------------------------------------------------------------------------- #
 # getDependencyProfile
 # --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("requirementsFile", DEPENDENCY_PROFILE_REQUIREMENTS.values())
+def testProfileUpgradesNeluxAlongsideTorch(requirementsFile):
+    """The profile installer must not leave an older torch-ABI Nelux installed."""
+    root = Path(__file__).resolve().parents[1]
+    checker = dh.DependencyChecker()
+    core = dict(checker.iterRequirements(str(root / "requirements.txt")))
+    profile = dict(checker.iterRequirements(str(root / requirementsFile)))
+    assert profile["nelux"] == core["nelux"]
 
 
 @pytest.mark.parametrize(
