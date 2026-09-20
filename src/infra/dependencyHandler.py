@@ -40,17 +40,22 @@ DEPENDENCY_PROFILE_REQUIREMENTS = {
     "windows-lite": "extra-requirements-windows-lite.txt",
     "linux-cuda": "extra-requirements-linux.txt",
     "linux-lite": "extra-requirements-linux-lite.txt",
+    "linux-rocm": "extra-requirements-linux-rocm.txt",
     "macos-lite": "extra-requirements-macos-lite.txt",
     "macos-mps": "extra-requirements-macos.txt",
 }
 
 
-def getDependencyProfile(systemName: str, supportsCuda: bool) -> str:
+def getDependencyProfile(
+    systemName: str, supportsCuda: bool, isRocm: bool = False
+) -> str:
     normalized = systemName.lower()
     if normalized == "windows":
         return "windows-cuda" if supportsCuda else "windows-lite"
     if normalized == "darwin":
         return "macos-mps"
+    if isRocm:
+        return "linux-rocm"
     return "linux-cuda" if supportsCuda else "linux-lite"
 
 

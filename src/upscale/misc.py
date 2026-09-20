@@ -341,3 +341,57 @@ class AnimeSR:
         self.outputStream.synchronize()
 
         return output
+
+
+class AnimeSRROCm(AnimeSR):
+    """ROCm (HIP) AnimeSR. Eager, no custom streams.
+
+    The CUDA parent runs the recurrent MSRSWVSR on three private streams;
+    HIP streams are functional but add cross-stream visibility risk for a
+    stateful recurrent arch, so the ROCm path runs synchronously on the
+    default stream. Same weights, same temporalWindow=(0, 1) contract.
+    """
+
+    temporalWindow = (0, 1)
+
+    def handleModel(self):
+        super().handleModel()
+        # Drop the private streams; __call__ below runs on the default stream.
+        self.stream = None
+        self.normStream = None
+        self.outputStream = None
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
+        frame = self.padFrame(frame.to(device=checker.device))
+        paddedNext = (
+            frame
+            if nextFrame is None
+            else self.padFrame(nextFrame.to(device=checker.device))
+        )
+
+        if self.firstRun:
+            self.prevFrame.copy_(frame, non_blocking=False)
+            self.firstRun = False
+
+        self.nextFrame.copy_(paddedNext, non_blocking=False)
+
+        self.dummyOutput, state = self.model(
+            self.prevFrame,
+            frame,
+            self.nextFrame,
+            self.dummyOutput,
+            self.state,
+        )
+        self.state = state
+
+        self.prevFrame.copy_(frame, non_blocking=False)
+
+        output = torch.nn.functional.interpolate(
+            self.dummyOutput[:, :, : self.height * 4, : self.width * 4],
+            size=(self.height * 2, self.width * 2),
+            mode="bicubic",
+            align_corners=False,
+        )
+        torch.cuda.current_stream().synchronize()
+        return output

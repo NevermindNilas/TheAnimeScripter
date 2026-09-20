@@ -24,6 +24,11 @@ def buildSceneChangeProcess(self):
 
             return SceneChangeSSIMCuda(threshold, self.half)
 
+        case "ssim-rocm":
+            from src.sceneChange.detector import SceneChangeSSIMROCm
+
+            return SceneChangeSSIMROCm(threshold, self.half)
+
         case "mse":
             from src.sceneChange.detector import SceneChangeMSE
 
@@ -33,6 +38,11 @@ def buildSceneChangeProcess(self):
             from src.sceneChange.detector import SceneChangeMSECuda
 
             return SceneChangeMSECuda(threshold, self.half)
+
+        case "mse-rocm":
+            from src.sceneChange.detector import SceneChangeMSEROCm
+
+            return SceneChangeMSEROCm(threshold, self.half)
 
         case "maxxvit-tensorrt" | "maxxvit-directml":
             from src.sceneChange.detector import SceneChangeScorer6chDetector

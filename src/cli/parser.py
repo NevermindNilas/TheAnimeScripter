@@ -215,7 +215,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
     """Compact, colored help formatter that groups long choice lists by backend."""
 
     _INLINE_THRESHOLD = 6
-    _KNOWN_BACKENDS = ("tensorrt", "directml", "ncnn", "openvino")
+    _KNOWN_BACKENDS = ("tensorrt", "directml", "ncnn", "openvino", "rocm", "mps")
 
     def __init__(self, prog, indent_increment=2, max_help_position=36, width=None):
         if width is None:
@@ -574,6 +574,8 @@ def _addInterpolationOptions(argParser):
         "distildrba-lite",
         "distildrba-tensorrt",
         "distildrba-lite-tensorrt",
+        "distildrba-rocm",
+        "distildrba-lite-rocm",
         "rife4.6",
         "rife4.15-lite",
         "rife4.16-lite",
@@ -609,6 +611,7 @@ def _addInterpolationOptions(argParser):
         "rife4.25-heavy-tensorrt",
         "rife-tensorrt",
         "gmfss",
+        "gmfss-rocm",
         "rife_elexor",
         "rife_elexor-tensorrt",
         "rife4.6-directml",
@@ -647,6 +650,20 @@ def _addInterpolationOptions(argParser):
         "rife4.25-lite-mps",
         "rife4.25-heavy-mps",
         "rife_elexor-mps",
+        "rife-rocm",
+        "rife4.6-rocm",
+        "rife4.15-lite-rocm",
+        "rife4.16-lite-rocm",
+        "rife4.17-rocm",
+        "rife4.18-rocm",
+        "rife4.20-rocm",
+        "rife4.21-rocm",
+        "rife4.22-rocm",
+        "rife4.22-lite-rocm",
+        "rife4.25-rocm",
+        "rife4.25-lite-rocm",
+        "rife4.25-heavy-rocm",
+        "rife_elexor-rocm",
     ]
 
     interpolationGroup.add_argument(
@@ -669,7 +686,7 @@ def _addInterpolationOptions(argParser):
     interpolationGroup.add_argument(
         "--dynamic_scale",
         action="store_true",
-        help="Pick the RIFE pyramid scale per frame pair instead of using a fixed one: near-duplicate pairs get a finer pyramid, heavily changed pairs a coarser one. Costs some performance, RIFE CUDA and MPS only",
+        help="Pick the RIFE pyramid scale per frame pair instead of using a fixed one: near-duplicate pairs get a finer pyramid, heavily changed pairs a coarser one. Costs some performance, RIFE CUDA, ROCm and MPS only",
     )
     interpolationGroup.add_argument(
         "--static_step",
@@ -793,6 +810,20 @@ def _addUpscalingOptions(argParser):
         "gauss-mps",
         "figsr-mps",
         "smosr-mps",
+        "shufflecugan-rocm",
+        "cyte-rocm",
+        "adore-rocm",
+        "span-rocm",
+        "open-proteus-rocm",
+        "aniscale2-rocm",
+        "rtmosr-rocm",
+        "saryn-rocm",
+        "fallin_soft-rocm",
+        "fallin_strong-rocm",
+        "gauss-rocm",
+        "figsr-rocm",
+        "smosr-rocm",
+        "animesr-rocm",
         "maxine-bicubic",
         "maxine-low",
         "maxine-medium",
@@ -815,7 +846,7 @@ def _addUpscalingOptions(argParser):
         "--custom_model",
         type=str,
         default="",
-        help="Path to a custom upscale model. Use .pt/.pth/.ckpt/.safetensors with CUDA methods and .onnx with -directml, -openvino, or -tensorrt methods",
+        help="Path to a custom upscale model. Use .pt/.pth/.ckpt/.safetensors with CUDA/-rocm methods and .onnx with -directml, -openvino, or -tensorrt methods",
     )
 
 
@@ -833,9 +864,13 @@ def _addDedupOptions(argParser):
             "mse",
             "ssim-cuda",
             "mse-cuda",
+            "ssim-rocm",
+            "mse-rocm",
             "flownets",
+            "flownets-rocm",
             "vmaf",
             "vmaf-cuda",
+            "vmaf-rocm",
         ],
         help="Deduplication method",
     )
@@ -860,9 +895,13 @@ def _addSmoothDedupOptions(argParser):
             "mse",
             "ssim-cuda",
             "mse-cuda",
+            "ssim-rocm",
+            "mse-rocm",
             "flownets",
+            "flownets-rocm",
             "vmaf",
             "vmaf-cuda",
+            "vmaf-rocm",
         ],
         help="Duplicate detection method used by --smooth_dedup",
     )
@@ -892,12 +931,13 @@ def _addVideoProcessingOptions(argParser):
         "--stabilize_method",
         type=str,
         default="classic",
-        choices=["classic", "dut"],
+        choices=["classic", "dut", "dut-rocm"],
         help=(
             "Stabilization method. classic: feature-point global "
             "translation/rotation smoothing (CPU). dut: DUT deep unsupervised "
             "stabilization with per-region mesh warping (CUDA only, downloads "
-            "weights on first use). Specifying this auto-enables --stabilize"
+            "weights on first use). dut-rocm: same DUT on AMD ROCm/HIP. "
+            "Specifying this auto-enables --stabilize"
         ),
     )
 
@@ -906,36 +946,48 @@ def _addVideoProcessingOptions(argParser):
         "scunet-tensorrt",
         "scunet-directml",
         "scunet-openvino",
+        "scunet-rocm",
         "nafnet",
+        "nafnet-rocm",
         "dpir",
+        "dpir-rocm",
         "real-plksr",
+        "real-plksr-rocm",
         "anime1080fixer",
         "anime1080fixer-tensorrt",
         "anime1080fixer-directml",
         "anime1080fixer-openvino",
+        "anime1080fixer-rocm",
         "fastlinedarken",
+        "fastlinedarken-rocm",
         "fastlinedarken-tensorrt",
         "autocas",
         "gater3",
         "gater3-directml",
         "gater3-openvino",
+        "gater3-rocm",
         "deepdeband-f",
+        "deepdeband-f-rocm",
         "deh264_real",
         "deh264_real-tensorrt",
         "deh264_real-directml",
         "deh264_real-openvino",
+        "deh264_real-rocm",
         "deh264_span",
         "deh264_span-tensorrt",
         "deh264_span-directml",
         "deh264_span-openvino",
+        "deh264_span-rocm",
         "hurrdeblur",
         "hurrdeblur-tensorrt",
         "hurrdeblur-directml",
         "hurrdeblur-openvino",
+        "hurrdeblur-rocm",
         "dehalo",
         "dehalo-tensorrt",
         "dehalo-directml",
         "dehalo-openvino",
+        "dehalo-rocm",
         "scunet-mps",
         "nafnet-mps",
         "dpir-mps",
@@ -952,6 +1004,9 @@ def _addVideoProcessingOptions(argParser):
         "linethinner-lite-cuda",
         "linethinner-medium-cuda",
         "linethinner-heavy-cuda",
+        "linethinner-lite-rocm",
+        "linethinner-medium-rocm",
+        "linethinner-heavy-rocm",
         "maxine-denoise_low",
         "maxine-denoise_medium",
         "maxine-denoise_high",
@@ -1007,11 +1062,14 @@ def _addMotionBlurOptions(argParser):
             "rife4.25-tensorrt",
             "rife4.6-mps",
             "rife4.25-mps",
+            "rife4.6-rocm",
+            "rife4.25-rocm",
         ],
         help="Interpolation model + backend used to synthesize the motion-blur samples. "
         "rife4.25 is sharper/slower, rife4.6 is faster. Suffix picks the backend: "
         "none = CUDA (NVIDIA; the only path that gets the windowed-sample speedup), "
-        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs, -mps = Apple Silicon.",
+        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs, -mps = Apple Silicon, "
+        "-rocm = AMD ROCm/HIP (eager, no windowing).",
     )
     moblurGroup.add_argument(
         "--moblur_factor",
@@ -1063,7 +1121,13 @@ def _addSegmentationOptions(argParser):
         "--segment_method",
         type=str,
         default="anime",
-        choices=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
+        choices=[
+            "anime",
+            "anime-tensorrt",
+            "anime-directml",
+            "anime-rocm",
+            "cartoon",
+        ],
         help="Segmentation method",
     )
     segmentationGroup.add_argument(
@@ -1073,7 +1137,7 @@ def _addSegmentationOptions(argParser):
         help="Number of frames processed per model forward. 1 = default (one "
         "frame at a time). Higher values raise throughput by amortizing "
         "kernel-launch overhead, at a proportional VRAM cost. Supported on the "
-        "CUDA and TensorRT backends; forced to 1 for DirectML/OpenVINO, where "
+        "CUDA, ROCm and TensorRT backends; forced to 1 for DirectML/OpenVINO, where "
         "batching measured slower.",
     )
 
@@ -1092,6 +1156,7 @@ def _addSceneDetectionOptions(argParser):
             "maxxvit-directml",
             "maxxvit-tensorrt",
             "transnetv2",
+            "transnetv2-rocm",
         ],
         help="Autoclip detection backend",
     )
@@ -1111,8 +1176,10 @@ def _addSceneDetectionOptions(argParser):
         choices=[
             "ssim",
             "ssim-cuda",
+            "ssim-rocm",
             "mse",
             "mse-cuda",
+            "mse-rocm",
             "maxxvit-tensorrt",
             "maxxvit-directml",
         ],
@@ -1137,14 +1204,22 @@ def _addDepthOptions(argParser):
     depthMethods = [
         "small_v2",
         "small_v2-mps",
+        "small_v2-rocm",
         "og_small_v2",
         "og_small_v2-mps",
+        "og_small_v2-rocm",
         "og_video_small_v2",
+        "og_video_small_v2-rocm",
         "video_small_v2",
+        "video_small_v2-rocm",
         "video_small_v3",
+        "video_small_v3-rocm",
         "video_base_v3",
+        "video_base_v3-rocm",
         "video_limbo",
         "video_limbo_v2",
+        "video_limbo-rocm",
+        "video_limbo_v2-rocm",
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",
         "video_small_v2-tensorrt",
@@ -1159,14 +1234,20 @@ def _addDepthOptions(argParser):
         "base_v3-mps",
         "large_v3-mps",
         "og_large_v3-mps",
+        "small_v3-rocm",
+        "base_v3-rocm",
+        "large_v3-rocm",
+        "og_large_v3-rocm",
         "small_v2-openvino",
         "og_small_v2-openvino",
         "limbo",
         "limbo-mps",
+        "limbo-rocm",
         "limbo-tensorrt",
         "limbo-openvino",
         "limbo_v2",
         "limbo_v2-mps",
+        "limbo_v2-rocm",
         "limbo_v2-tensorrt",
         "limbo_v2-openvino",
     ]
@@ -1202,7 +1283,7 @@ def _addDepthOptions(argParser):
         "methods. 1 = default (one frame at a time). Higher values raise "
         "throughput at lower resolutions where the model is launch-bound "
         "(e.g. --depth_quality low/medium) at a small VRAM cost; negligible "
-        "gain at high quality. Supported on the CUDA, MPS, and TensorRT "
+        "gain at high quality. Supported on the CUDA, ROCm, MPS, and TensorRT "
         "image backends; forced to 1 for video_* methods and the "
         "DirectML/OpenVINO backends.",
     )
@@ -1309,7 +1390,7 @@ def _addMiscOptions(argParser):
         metavar="PROFILE",
         help=(
             "Download dependencies for a runtime profile. Supported profiles: "
-            "windows-cuda, windows-lite, linux-cuda, linux-lite, macos-mps, "
+            "windows-cuda, windows-lite, linux-cuda, linux-lite, linux-rocm, macos-mps, "
             "macos-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
             "or lite dependencies, with guidance for newer NVIDIA GPUs, Apple "

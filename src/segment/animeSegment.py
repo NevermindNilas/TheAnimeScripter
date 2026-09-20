@@ -261,6 +261,81 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
+class AnimeSegmentROCm(AnimeSegment):
+    """ROCm (HIP) segmentation. Eager, no CUDA graphs or custom streams.
+
+    Same ISNet weights as CUDA ("segment"); HIP runs synchronously on the
+    default stream. Inherits the standalone driver contract (processingError,
+    truncated-decode reporting) unchanged.
+    """
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update({"status": "Loading ROCm background removal model..."})
+
+        filename = modelsMap("segment")
+        modelPath = resolveWeightPath("segment", filename)
+
+        from .train import AnimeSegmentation
+
+        self.model = AnimeSegmentation.try_load(
+            "isnet_is", modelPath, checker.device, img_size=1024
+        )
+        self.model.eval()
+        self.model.gt_encoder = None
+        self.model.to(checker.device)
+        self.stream = None
+
+        s = 1024
+        h, w = self.height, self.width
+        self.boxHeight, self.boxWidth = (
+            (s, int(s * w / h)) if h > w else (int(s * h / w), s)
+        )
+        ph, pw = s - self.boxHeight, s - self.boxWidth
+        self.padTop, self.padLeft = ph // 2, pw // 2
+        self.pad = (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
+
+        self.dummyInput = torch.zeros(
+            (self.segmentBatch, 3, s, s),
+            device=checker.device,
+            dtype=torch.float32,
+        )
+
+        self.cudaGraph = None
+        with torch.inference_mode():
+            for _ in range(2):
+                _ = self.model(self.dummyInput)
+        if checker.device.type == "cuda":
+            torch.cuda.synchronize()
+
+    @torch.inference_mode()
+    def getMask(self, frames: list) -> torch.Tensor:
+        input_img = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+        input_img = input_img.to(checker.device).float()
+        h0, w0 = input_img.shape[2], input_img.shape[3]
+        img_input = F.pad(
+            F.interpolate(
+                input_img,
+                size=(self.boxHeight, self.boxWidth),
+                mode="bilinear",
+                align_corners=False,
+            ),
+            self.pad,
+        )
+        pred = self.model(img_input)
+        pred = pred[
+            :,
+            :,
+            self.padTop : self.padTop + self.boxHeight,
+            self.padLeft : self.padLeft + self.boxWidth,
+        ]
+        pred = F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
+        pred = torch.cat((input_img, pred), dim=1)
+        if checker.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+        return pred
+
+
 class AnimeSegmentTensorRT:
     def __init__(
         self,

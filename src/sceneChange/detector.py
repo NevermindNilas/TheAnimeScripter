@@ -151,3 +151,15 @@ class SceneChangeScorer6chDetector:
         prob = self.scorer.score(self.prevFrame, cur)
         self.prevFrame = cur
         return prob > self.threshold
+
+
+class SceneChangeSSIMROCm(SceneChangeSSIMCuda):
+    """ROCm (HIP) SSIM scene-cut detector. Same eager compare as CUDA."""
+
+    pass
+
+
+class SceneChangeMSEROCm(SceneChangeMSECuda):
+    """ROCm (HIP) MSE scene-cut detector. Same eager compare as CUDA."""
+
+    pass

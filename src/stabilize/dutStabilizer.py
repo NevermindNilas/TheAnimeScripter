@@ -83,8 +83,8 @@ class VideoStabilizeDUT:
         try:
             if not torch.cuda.is_available():
                 raise RuntimeError(
-                    "--stabilize_method dut requires a CUDA-capable GPU; "
-                    "use --stabilize_method classic instead"
+                    "--stabilize_method dut/dut-rocm requires a CUDA-capable (NVIDIA) "
+                    "or ROCm-capable (AMD HIP) GPU; use --stabilize_method classic instead"
                 )
             self.device = torch.device("cuda")
             self._loadModels()

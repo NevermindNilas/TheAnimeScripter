@@ -57,13 +57,20 @@ def _downgradeCudaDetector(method: str, flagName: str) -> str:
     if cudaAvailable:
         return method
 
-    downgrade = {"ssim-cuda": "ssim", "mse-cuda": "mse", "vmaf-cuda": "vmaf"}
+    downgrade = {
+        "ssim-cuda": "ssim",
+        "mse-cuda": "mse",
+        "vmaf-cuda": "vmaf",
+        "ssim-rocm": "ssim",
+        "mse-rocm": "mse",
+        "vmaf-rocm": "vmaf",
+    }
     if method in downgrade:
         logging.warning(f"CUDA unavailable; {flagName} {method} -> {downgrade[method]}")
         return downgrade[method]
-    if method == "flownets":
+    if method in ("flownets", "flownets-rocm"):
         logAndPrint(
-            f"{flagName} flownets requires CUDA, falling back to ssim",
+            f"{flagName} {method} requires CUDA/ROCm, falling back to ssim",
             "yellow",
         )
         return "ssim"
@@ -165,6 +172,7 @@ _BARE_RIFE_ALIASES = {
     "rife-ncnn": "rife4.22-ncnn",
     "rife-tensorrt": "rife4.22-tensorrt",
     "rife-mps": "rife4.22-mps",
+    "rife-rocm": "rife4.22-rocm",
 }
 
 
@@ -297,16 +305,16 @@ def _mapDedupSensitivity(method, sensitivity):
     Shared by --dedup and --smooth_dedup: both drive the same detectors from
     src/factories/dedup.py, so they must agree on the scale.
     """
-    if method in ["ssim", "ssim-cuda"]:
+    if method in ["ssim", "ssim-cuda", "ssim-rocm"]:
         return 1.0 - (sensitivity / 1000)
-    if method in ["vmaf", "vmaf-cuda"]:
+    if method in ["vmaf", "vmaf-cuda", "vmaf-rocm"]:
         # VMAF is SSIM's "high == similar" scale times 100, so it needs the same
         # mapping. Passed through raw, a sensitivity of 35 became "any pair
         # scoring VMAF >= 35 is a duplicate" -- true of nearly every consecutive
         # pair -- and raising the flag made dedup *less* aggressive, the opposite
         # of what it does for every other method.
         return 100.0 - (sensitivity / 10.0)
-    if method in ["flownets"]:
+    if method in ["flownets", "flownets-rocm"]:
         return sensitivity / 100
     # MSE takes the raw value.
     return sensitivity
@@ -342,9 +350,9 @@ def _configureProcessingSettings(args):
         args.static_step = False
 
     # --dynamic_scale is read by the RIFE torch arches only (src/rifearches/),
-    # i.e. by RifeCuda and RifeMPS. The TensorRT / DirectML / OpenVINO / NCNN
-    # classes and the gmfss / distildrba families never receive the flag, so
-    # leaving it set there was a silent no-op instead of an error. rife_elexor
+    # i.e. by RifeCuda, RifeMPS and RifeROCm. The TensorRT / DirectML / OpenVINO
+    # / NCNN classes and the gmfss / distildrba families never receive the flag,
+    # so leaving it set there was a silent no-op instead of an error. rife_elexor
     # is caught later, in RifeCuda.handleModel -- its arch takes no such argument.
     if getattr(args, "dynamic_scale", False):
         backend = args.interpolate_method.rsplit("-", 1)[-1]
@@ -354,7 +362,7 @@ def _configureProcessingSettings(args):
         elif backend in _NON_TORCH_INTERP_BACKENDS:
             logAndPrint(
                 f"--dynamic_scale is not supported by the {backend} interpolation "
-                "backend (CUDA and MPS only), disabling it",
+                "backend (CUDA, ROCm and MPS only), disabling it",
                 "yellow",
             )
             args.dynamic_scale = False
@@ -407,9 +415,13 @@ def _configureProcessingSettings(args):
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
 
-    if getattr(args, "stabilize", False) and args.stabilize_method == "dut":
-        # DUT initializes four torch models on torch.device("cuda"); same
-        # visible-downgrade contract as the CUDA frame comparators above.
+    if getattr(args, "stabilize", False) and args.stabilize_method in (
+        "dut",
+        "dut-rocm",
+    ):
+        # DUT initializes four torch models on torch.device("cuda") (HIP on
+        # ROCm); same visible-downgrade contract as the CUDA frame comparators
+        # above.
         try:
             from src.infra.isCudaInit import CudaChecker
 
@@ -418,7 +430,8 @@ def _configureProcessingSettings(args):
             cudaAvailable = False
         if not cudaAvailable:
             logAndPrint(
-                "stabilize_method dut requires CUDA, falling back to classic",
+                f"stabilize_method {args.stabilize_method} requires CUDA/ROCm, "
+                "falling back to classic",
                 "yellow",
             )
             args.stabilize_method = "classic"
@@ -456,6 +469,8 @@ def _configureProcessingSettings(args):
                 downgrade = {
                     "ssim-cuda": "ssim",
                     "mse-cuda": "mse",
+                    "ssim-rocm": "ssim",
+                    "mse-rocm": "mse",
                     "maxxvit-tensorrt": "maxxvit-directml",
                 }
                 if method in downgrade:
@@ -465,10 +480,10 @@ def _configureProcessingSettings(args):
                     )
                     method = downgrade[method]
                     args.scenechange_method = method
-            if method in ("ssim", "ssim-cuda"):
+            if method in ("ssim", "ssim-cuda", "ssim-rocm"):
                 # cut when ssim < threshold; higher sensitivity -> higher threshold
                 args.scenechange_threshold = sens / 100.0
-            elif method in ("mse", "mse-cuda"):
+            elif method in ("mse", "mse-cuda", "mse-rocm"):
                 # cut when mse > threshold; higher sensitivity -> lower threshold
                 args.scenechange_threshold = (100.0 - sens) * 50.0
             elif method in ("maxxvit-tensorrt", "maxxvit-directml"):
@@ -492,6 +507,7 @@ def _configureProcessingSettings(args):
 def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
     supportsCuda = getattr(args, "supportsCuda", None)
 
+    preferRocm = False
     if supportsCuda is None:
         from src.infra.isCudaInit import CudaChecker, detectGPUArchitecture
 
@@ -499,17 +515,33 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
 
         needsFallback = False
         if isCuda.cudaAvailable:
-            isModernGPU, gpuName, computeCap = detectGPUArchitecture()
-            if not isModernGPU:
-                logAndPrint(
-                    f"Detected {gpuName} (compute capability: {computeCap}). "
-                    f"This GPU may not support modern CUDA kernels. "
-                    f"Automatically switching to DirectML/NCNN backends for compatibility.",
-                    "yellow",
-                )
-                needsFallback = True
+            if isCuda.rocmAvailable:
+                # ROCm/HIP torch on AMD: torch.cuda works, but NVML/nvidia-smi
+                # see no NVIDIA GPU, so detectGPUArchitecture would report
+                # "not modern" and needlessly downgrade to DirectML. The CUDA
+                # paths run via HIP; explicit -rocm picks stay as-is.
+                logging.info("ROCm/HIP torch detected; keeping CUDA-capable methods")
+            else:
+                isModernGPU, gpuName, computeCap = detectGPUArchitecture()
+                if not isModernGPU:
+                    logAndPrint(
+                        f"Detected {gpuName} (compute capability: {computeCap}). "
+                        f"This GPU may not support modern CUDA kernels. "
+                        f"Automatically switching to DirectML/NCNN backends for compatibility.",
+                        "yellow",
+                    )
+                    needsFallback = True
         else:
             needsFallback = True
+            try:
+                from src.infra.isCudaInit import isRocmTorch
+
+                # No usable torch.cuda at all; still prefer -rocm siblings in
+                # the message ordering if the torch build is HIP (e.g. AMD box
+                # where HIP init failed) — the suggestions stay honest.
+                preferRocm = bool(isRocmTorch())
+            except Exception:
+                preferRocm = False
     else:
         needsFallback = not supportsCuda
 
@@ -533,6 +565,7 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
             availableModels,
             preferMps=cs.SYSTEM == "Darwin",
             methodChoices=methodChoices,
+            preferRocm=preferRocm,
         )
 
 
@@ -600,14 +633,22 @@ def prepareRuntimeArgs(args, outputPath, parser):
                 storedProfile = None
 
         if not storedProfile:
-            from src.infra.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
+            from src.infra.isCudaInit import (
+                detectGPUArchitecture,
+                detectNVidiaGPU,
+                detectRocmGPU,
+            )
 
             isNvidia = detectNVidiaGPU()
             supportsCuda = False
             if isNvidia:
                 supportsCuda, _, _ = detectGPUArchitecture()
+            try:
+                isRocm = detectRocmGPU()
+            except Exception:
+                isRocm = False
             extension = getRequirementsFileForProfile(
-                getDependencyProfile(cs.SYSTEM, supportsCuda)
+                getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
             )
 
         success, message = uninstallDependencies(extension=extension)

@@ -61,12 +61,42 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.22-lite-mps"
             | "rife4.25-mps"
             | "rife4.25-lite-mps"
-            | "rife_elexor-mps"
             | "rife4.25-heavy-mps"
+            | "rife_elexor-mps"
         ):
             from src.interpolate.rife import RifeMPS
 
             return RifeMPS(
+                self.half,
+                interpWidth,
+                interpHeight,
+                self.interpolateMethod,
+                self.ensemble,
+                self.interpolateFactor,
+                self.dynamicScale,
+                self.staticStep,
+                compileMode=self.compileMode,
+            )
+
+        case (
+            "rife-rocm"
+            | "rife4.6-rocm"
+            | "rife4.15-lite-rocm"
+            | "rife4.16-lite-rocm"
+            | "rife4.17-rocm"
+            | "rife4.18-rocm"
+            | "rife4.20-rocm"
+            | "rife4.21-rocm"
+            | "rife4.22-rocm"
+            | "rife4.22-lite-rocm"
+            | "rife4.25-rocm"
+            | "rife4.25-lite-rocm"
+            | "rife4.25-heavy-rocm"
+            | "rife_elexor-rocm"
+        ):
+            from src.interpolate.rife import RifeROCm
+
+            return RifeROCm(
                 self.half,
                 interpWidth,
                 interpHeight,
@@ -140,6 +170,18 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 compileMode=self.compileMode,
             )
 
+        case "gmfss-rocm":
+            from src.gmfss.gmfss import GMFSSROCm
+
+            return GMFSSROCm(
+                int(self.interpolateFactor),
+                self.half,
+                interpWidth,
+                interpHeight,
+                self.ensemble,
+                compileMode=self.compileMode,
+            )
+
         case (
             "rife4.6-directml"
             | "rife4.6-openvino"
@@ -179,6 +221,18 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             from src.interpolate.distildrba import DistilDRBACuda
 
             return DistilDRBACuda(
+                self.half,
+                interpWidth,
+                interpHeight,
+                self.interpolateMethod,
+                interpolateFactor=self.interpolateFactor,
+                compileMode=self.compileMode,
+            )
+
+        case "distildrba-rocm" | "distildrba-lite-rocm":
+            from src.interpolate.distildrba import DistilDRBAROCm
+
+            return DistilDRBAROCm(
                 self.half,
                 interpWidth,
                 interpHeight,

@@ -521,3 +521,213 @@ class UniversalPytorchMPS:
                 : self.width * self.upscaleFactor,
             ]
         return output.cpu()
+
+
+class UniversalPytorchROCm:
+    """
+    AMD ROCm (HIP) PyTorch upscaler. Eager, no CUDA graphs or custom streams:
+    HIP graphs are less mature than CUDA graphs across the RDNA/CDNA range,
+    so this mirrors UniversalPytorchMPS's eager path but stays on the
+    torch.cuda (HIP) device and returns GPU tensors like the CUDA path.
+
+    Shares .pth weights with the CUDA path — the "-rocm" suffix is stripped
+    before resolving model filenames.
+    """
+
+    def __init__(
+        self,
+        upscaleMethod: str = "shufflecugan-rocm",
+        upscaleFactor: int = 2,
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+        customModel: str = None,
+        compileMode: str = "default",
+    ):
+        self.upscaleMethod = upscaleMethod
+        self.baseMethod = upscaleMethod.replace("-rocm", "")
+        self.upscaleFactor = upscaleFactor
+        self.half = half
+        self.width = width
+        self.height = height
+        self.customModel = customModel
+        self.compileMode = compileMode
+        self.device = checker.device
+        self.dtype = torch.float16 if self.half else torch.float32
+
+        self.handleModel()
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading ROCm upscale model: {self.upscaleMethod}..."}
+            )
+
+        from src.spandrelCompat import (
+            ImageModelDescriptor,
+            ModelLoader,
+            UnsupportedDtypeError,
+        )
+
+        if not self.customModel:
+            self.filename = modelsMap(
+                self.baseMethod, self.upscaleFactor, modelType="pth"
+            )
+            modelPath = resolveWeightPath(
+                self.baseMethod,
+                self.filename,
+                upscaleFactor=self.upscaleFactor,
+            )
+        else:
+            if not os.path.isfile(self.customModel):
+                raise FileNotFoundError(
+                    f"Custom model file {self.customModel} not found"
+                )
+            modelPath = self.customModel
+
+        if self.baseMethod == "saryn":
+            from src.extraArches.RTMoSR import RTMoSR
+
+            self.model = RTMoSR()
+            stateDict = torch.load(modelPath, map_location="cpu")
+            self.model.load_state_dict(stateDict)
+            del stateDict
+        elif self.baseMethod == "figsr":
+            from src.extraArches.figsr import FIGSR
+
+            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
+            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
+            self.model.load_state_dict(stateDict, strict=False)
+            del stateDict
+        elif self.baseMethod == "smosr":
+            self.model = ModelLoader().load_from_file(modelPath)
+            if not isinstance(self.model, ImageModelDescriptor):
+                raise TypeError(
+                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
+                )
+            self.model = self.model.model
+        elif self.baseMethod == "gauss":
+            from safetensors.torch import load_file
+
+            from src.extraArches.DIS import DIS
+
+            self.model = DIS(scale=2, num_features=32, num_blocks=12)
+            stateDict = load_file(modelPath)
+            self.model.load_state_dict(stateDict)
+            del stateDict
+        else:
+            if self.customModel:
+                self.model = ModelLoader().load_from_file(modelPath)
+                if not isinstance(self.model, ImageModelDescriptor):
+                    raise TypeError(
+                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
+                    )
+            else:
+                self.model = torch.load(
+                    modelPath, map_location="cpu", weights_only=False
+                )
+                if isinstance(self.model, dict):
+                    self.model = ModelLoader().load_from_state_dict(self.model)
+
+            try:
+                self.model = self.model.model
+            except Exception:
+                pass
+
+        self.model = self.model.eval()
+
+        if self.half:
+            try:
+                self.model = self.model.half()
+            except UnsupportedDtypeError as e:
+                logging.error(f"Model does not support half precision on ROCm: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dtype = torch.float32
+            except Exception as e:
+                logging.error(f"Error converting model to half precision on ROCm: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dtype = torch.float32
+
+        self.model = self.model.to(self.device)
+
+        self.model = ModelOptimizer(
+            self.model,
+            torch.float16 if self.half else torch.float32,
+            memoryFormat=torch.channels_last,
+        ).optimizeModel()
+
+        if self.compileMode != "default":
+            logAndPrint(
+                f"compileMode '{self.compileMode}' ignored on ROCm backend (unsupported).",
+                "yellow",
+            )
+            self.compileMode = "default"
+
+        self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+
+        with torch.inference_mode():
+            dummy = (
+                torch.zeros(
+                    (
+                        1,
+                        3,
+                        self.height + self.padding[3],
+                        self.width + self.padding[1],
+                    ),
+                    device=self.device,
+                    dtype=self.dtype,
+                )
+                .contiguous()
+                .to(memory_format=torch.channels_last)
+            )
+            for _ in range(2):
+                _ = self.model(dummy)
+            if self.device.type == "cuda":
+                torch.cuda.synchronize()
+
+    def _detectRequiredMultiple(self) -> int:
+        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
+
+        if not self.customModel:
+            known = lookupRequiredMultiple(self.baseMethod)
+            if known is not None:
+                return known
+
+        def runOK(h, w):
+            try:
+                probe = (
+                    torch.zeros((1, 3, h, w), device=self.device, dtype=self.dtype)
+                    .contiguous()
+                    .to(memory_format=torch.channels_last)
+                )
+                with torch.no_grad():
+                    self.model(probe)
+                return True
+            except Exception:
+                return False
+
+        return smallestValidMultiple(runOK)
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor, nextFrame=None) -> torch.Tensor:
+        if frame.device != self.device or frame.dtype != self.dtype:
+            frame = frame.to(device=self.device, dtype=self.dtype)
+            frame = frame.to(memory_format=torch.channels_last)
+        if self.padding[1] or self.padding[3]:
+            frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
+        output = self.model(frame)
+        if self.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+        if self.padding[1] or self.padding[3]:
+            output = output[
+                :,
+                :,
+                : self.height * self.upscaleFactor,
+                : self.width * self.upscaleFactor,
+            ].contiguous()
+        return output

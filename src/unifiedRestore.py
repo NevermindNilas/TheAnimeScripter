@@ -145,6 +145,39 @@ class UnifiedRestoreCuda:
         return frame
 
 
+class UnifiedRestoreROCm(UnifiedRestoreCuda):
+    """ROCm (HIP) restore. Eager, no custom streams.
+
+    Strips "-rocm" before weight resolution, then runs on the default HIP
+    stream. Same weights and device placement (torch.cuda/HIP) as CUDA.
+    """
+
+    def __init__(
+        self,
+        model: str = "scunet-rocm",
+        half: bool = True,
+    ):
+        base = model.replace("-rocm", "")
+        super().__init__(model=base, half=half)
+        self.stream = None
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
+        if self.CHANNELSLAST:
+            frame = frame.to(
+                checker.device,
+                non_blocking=True,
+                dtype=self.dType,
+                memory_format=torch.channels_last,
+            )
+        else:
+            frame = frame.to(checker.device, non_blocking=True, dtype=self.dType)
+        frame = self.model(frame)
+        if frame.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+        return frame
+
+
 class AutoCAS:
     """
     AutoCAS — AMD FidelityFX Contrast Adaptive Sharpening (PyTorch port) with

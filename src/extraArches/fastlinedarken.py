@@ -368,3 +368,53 @@ class FastLineDarkenTRT(FastLineDarken):
             self.cudaGraph.replay()
         self.stream.synchronize()
         return self.processOutput()
+
+
+class FastLineDarkenROCm(FastLineDarkenWithStreams):
+    """ROCm (HIP) FastLineDarken. Eager, no custom streams.
+
+    The CUDA parent runs the Sobel/thin/blur chain on a private stream; HIP
+    runs it synchronously on the default stream. No weights to resolve.
+    """
+
+    def __init__(
+        self,
+        half: bool = False,
+        thinEdges: bool = True,
+        gaussian: bool = True,
+        darkenStrength: float = 0.7,
+    ):
+        super().__init__(
+            half=half,
+            thinEdges=thinEdges,
+            gaussian=gaussian,
+            darkenStrength=darkenStrength,
+        )
+        self.stream = None
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        if not isinstance(image, torch.Tensor):
+            raise ValueError("Input must be a torch.Tensor")
+        image = image.half() if self.half else image.float()
+        image = image.squeeze(0)
+        grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
+        edgesX = self.applyFilter(grayscale, self.sobelXLocal)
+        edgesY = self.applyFilter(grayscale, self.sobelYLocal)
+        edges = torch.sqrt(edgesX**2 + edgesY**2)
+        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        if self.thinEdges:
+            edges = edges.unsqueeze(0).unsqueeze(0)
+            thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
+            thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
+        else:
+            thinnedEdges = edges
+        if self.gaussian:
+            softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
+        else:
+            softenedEdges = thinnedEdges
+        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = enhancedImage.clamp(0, 1)
+        enhancedImage = enhancedImage.unsqueeze(0)
+        if enhancedImage.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+        return enhancedImage

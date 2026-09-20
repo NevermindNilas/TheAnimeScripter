@@ -607,3 +607,36 @@ class DistilDRBATensorRT:
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
         self.tImg0.copy_(self.tImg1, non_blocking=True)
         torch.cuda.synchronize()
+
+
+class DistilDRBAROCm(DistilDRBACuda):
+    """ROCm (HIP) DistilDRBA. Eager, no custom streams.
+
+    Strips "-rocm" before weight resolution, then disables the private
+    streams so __call__/cacheFrame run synchronously on the default HIP
+    stream. Same temporalWindow=(0, 1) contract as the CUDA parent.
+    """
+
+    temporalWindow = (0, 1)
+
+    def __init__(
+        self,
+        half: bool,
+        width: int,
+        height: int,
+        interpolateMethod: str,
+        interpolateFactor: int = 2,
+        compileMode: str = None,
+    ):
+        base = interpolateMethod.replace("-rocm", "")
+        super().__init__(
+            half=half,
+            width=width,
+            height=height,
+            interpolateMethod=base,
+            interpolateFactor=interpolateFactor,
+            compileMode=compileMode,
+        )
+        self.interpolateMethod = interpolateMethod
+        self.stream = None
+        self.normStream = None
