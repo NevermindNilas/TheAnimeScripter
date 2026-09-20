@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Added
+- Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
+
 ## [2.10.0] - 2026-09-19
 
 ### Added

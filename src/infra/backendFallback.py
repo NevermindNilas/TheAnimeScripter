@@ -2,7 +2,7 @@ import logging
 
 from src.infra.logAndPrint import logAndPrint
 
-BACKEND_SUFFIXES = ("-directml", "-ncnn", "-tensorrt", "-mps", "-openvino")
+BACKEND_SUFFIXES = ("-directml", "-ncnn", "-tensorrt", "-mps", "-openvino", "-rocm")
 
 # Preference order when downgrading a CUDA method, fastest first.
 FALLBACK_SUFFIXES = ("-directml", "-ncnn")
@@ -16,13 +16,15 @@ CAPABILITY_FALLBACK_SUFFIXES = {
 
 MPS_SUFFIX = "-mps"
 
+ROCM_SUFFIX = "-rocm"
+
 # Capabilities whose methods all have a working CPU path, so a method surviving
 # the downgrade is not a problem worth warning about.
 CPU_CAPABLE_CAPABILITIES = frozenset({"dedup"})
 
 # Not auto-selected (OpenVINO is flagged experimental in the backends), but
 # worth naming when telling the user what else they could pick.
-SUGGESTABLE_SUFFIXES = ("-directml", "-ncnn", "-openvino", "-mps")
+SUGGESTABLE_SUFFIXES = ("-directml", "-ncnn", "-openvino", "-mps", "-rocm")
 
 METHOD_ATTRIBUTES = {
     "interpolate_method": "interpolate",
@@ -39,13 +41,20 @@ def hasExplicitBackend(method):
     return any(backend in method.lower() for backend in BACKEND_SUFFIXES)
 
 
-def _suffixOrder(preferMps, capability=None):
+def _suffixOrder(preferMps, capability=None, preferRocm=False):
     order = CAPABILITY_FALLBACK_SUFFIXES.get(capability, FALLBACK_SUFFIXES)
+    if preferRocm:
+        return (ROCM_SUFFIX, *order)
     return (MPS_SUFFIX, *order) if preferMps else order
 
 
 def fallbackMethod(
-    method, availableModels, preferMps=False, choices=None, capability=None
+    method,
+    availableModels,
+    preferMps=False,
+    choices=None,
+    capability=None,
+    preferRocm=False,
 ):
     """Rewrite ``method`` to a non-CUDA sibling, or return it unchanged.
 
@@ -60,9 +69,12 @@ def fallbackMethod(
     ``rife*-directml`` entries at all.
     """
     base = method.lower()
+    # A -rocm pick already names its backend; never rewrite it to -directml.
+    if base.endswith(ROCM_SUFFIX):
+        return method
     candidates = set(choices) if choices else set(availableModels)
 
-    for suffix in _suffixOrder(preferMps, capability):
+    for suffix in _suffixOrder(preferMps, capability, preferRocm):
         candidate = f"{base}{suffix}"
         if candidate in candidates:
             return candidate
@@ -70,7 +82,7 @@ def fallbackMethod(
     return method
 
 
-def _warnNoFallback(attr, method, choices, preferMps, capability):
+def _warnNoFallback(attr, method, choices, preferMps, capability, preferRocm=False):
     """Say so out loud when a CUDA-only method survives the downgrade.
 
     Silence here meant an opaque ``torch.cuda.Stream()`` traceback several
@@ -82,14 +94,16 @@ def _warnNoFallback(attr, method, choices, preferMps, capability):
     report. The suggestions include ``-openvino``, which is a real, wired-up
     choice even though it is never auto-selected, but exclude ``-mps`` off
     Darwin -- pointing a Windows user at an Apple Silicon backend is worse than
-    saying nothing.
+    saying nothing. Same for ``-rocm`` off ROCm boxes.
     """
     if capability in CPU_CAPABLE_CAPABILITIES:
         return
 
-    tried = _suffixOrder(preferMps, capability)
+    tried = _suffixOrder(preferMps, capability, preferRocm)
     suggestable = tuple(
-        suffix for suffix in SUGGESTABLE_SUFFIXES if suffix != MPS_SUFFIX or preferMps
+        suffix
+        for suffix in SUGGESTABLE_SUFFIXES
+        if (suffix != MPS_SUFFIX or preferMps) and (suffix != ROCM_SUFFIX or preferRocm)
     )
     alternatives = sorted(
         choice
@@ -108,7 +122,9 @@ def _warnNoFallback(attr, method, choices, preferMps, capability):
     logAndPrint(message, "yellow", level="WARNING")
 
 
-def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=None):
+def applyBackendFallbacks(
+    args, availableModels, preferMps=False, methodChoices=None, preferRocm=False
+):
     methodChoices = methodChoices or {}
 
     for attr, flagName in METHOD_ATTRIBUTES.items():
@@ -132,11 +148,14 @@ def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=
                     preferMps=preferMps,
                     choices=choices,
                     capability=flagName,
+                    preferRocm=preferRocm,
                 )
                 if newMethod != method:
                     logging.info(f"Adjusted {attr} method from {method} to {newMethod}")
                 else:
-                    _warnNoFallback(attr, method, choices, preferMps, flagName)
+                    _warnNoFallback(
+                        attr, method, choices, preferMps, flagName, preferRocm
+                    )
                 adjusted.append(newMethod)
             setattr(args, attr, adjusted)
             continue
@@ -151,6 +170,7 @@ def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=
             preferMps=preferMps,
             choices=choices,
             capability=flagName,
+            preferRocm=preferRocm,
         )
         if newMethod != currentMethod:
             logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
@@ -159,12 +179,15 @@ def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=
             logging.info(
                 f"No adjustment for {attr} ({currentMethod} remains unchanged)"
             )
-            _warnNoFallback(attr, currentMethod, choices, preferMps, flagName)
+            _warnNoFallback(
+                attr, currentMethod, choices, preferMps, flagName, preferRocm
+            )
 
     if getattr(args, "moblur", False):
         moblurMethod = args.moblur_method
         if not any(
-            backend in moblurMethod for backend in ("-directml", "-openvino", "-mps")
+            backend in moblurMethod
+            for backend in ("-directml", "-openvino", "-mps", "-rocm")
         ):
             base = moblurMethod.replace("-tensorrt", "")
             # Checked against the choice list rather than assigned blind: this
@@ -178,6 +201,7 @@ def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=
                 preferMps=preferMps,
                 choices=methodChoices.get("moblur"),
                 capability="moblur",
+                preferRocm=preferRocm,
             )
             if newMethod != base:
                 args.moblur_method = newMethod
@@ -195,4 +219,5 @@ def applyBackendFallbacks(args, availableModels, preferMps=False, methodChoices=
                     methodChoices.get("moblur"),
                     preferMps,
                     "moblur",
+                    preferRocm,
                 )

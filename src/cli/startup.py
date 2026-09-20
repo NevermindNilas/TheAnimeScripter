@@ -25,6 +25,10 @@ def _promptDownloadRequirementsSelection() -> str:
                 f"{currentPlatform}-cuda",
             ),
             (
+                "ROCm dependencies (AMD RDNA/CDNA on Linux, experimental)",
+                "linux-rocm",
+            ),
+            (
                 "Lite dependencies (GTX 10xx, AMD, Intel)",
                 f"{currentPlatform}-lite",
             ),
@@ -120,21 +124,27 @@ def _handleDependencies(args):
         addFfmpegToDllSearchPath(cs.FFMPEGPATH)
 
     try:
-        from src.infra.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
+        from src.infra.isCudaInit import (
+            detectGPUArchitecture,
+            detectNVidiaGPU,
+            detectRocmGPU,
+        )
 
         isNvidia = detectNVidiaGPU()
         supportsCuda = False
         if isNvidia:
             supportsCuda, _, _ = detectGPUArchitecture()
-        args.supportsCuda = supportsCuda
+        isRocm = detectRocmGPU()
+        args.supportsCuda = supportsCuda or isRocm
     except ImportError:
         isNvidia = False
         supportsCuda = False
+        isRocm = False
         args.supportsCuda = False
 
     from src.infra.dependencyHandler import getDependencyProfile
 
-    args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
+    args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
 
     if args.download_requirements is None and not args.cleanup:
         from src.infra.dependencyHandler import DependencyChecker

@@ -351,7 +351,7 @@ class DedupVMAF:
         self.sampleSize = sampleSize
         self.half = half
         self.prevFrame = None
-        self.isCuda = "cuda" in dedupMethod
+        self.isCuda = "cuda" in dedupMethod or "rocm" in dedupMethod
 
         from torch.nn import functional as F
         from vmaf_torch import VMAF
@@ -407,3 +407,51 @@ class DedupVMAF:
                 0.299 * tensor[:, 0:1] + 0.587 * tensor[:, 1:2] + 0.114 * tensor[:, 2:3]
             )
         return tensor
+
+
+class DedupSSIMROCm(DedupSSIMCuda):
+    """ROCm (HIP) SSIM dedup. Same eager compare as CUDA; HIP device."""
+
+    pass
+
+
+class DedupMSEROCm(DedupMSECuda):
+    """ROCm (HIP) MSE dedup. Same eager compare as CUDA; HIP device."""
+
+    pass
+
+
+class DedupFlownetSROCm(DedupFlownetS):
+    """ROCm (HIP) FlowNetS dedup. Eager, no CUDA graphs or custom streams.
+
+    The CUDA parent captures the flownet forward in a CUDAGraph; HIP graphs
+    are skipped here for compatibility across RDNA/CDNA.
+    """
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        self.cudaGraph = None
+
+    @torch.inference_mode()
+    def __call__(self, frame):
+        if self.prevFrame is None:
+            self.prevFrame = self.prepareFrame(frame)
+            return False
+
+        frame = self.prepareFrame(frame)
+        self.dummyInput.copy_(
+            torch.cat((self.prevFrame, frame), dim=1), non_blocking=True
+        )
+        if self.dummyInput.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+
+        output = self.model(self.dummyInput)
+        if output.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
+
+        isDuplicate = bool(output.abs().mean() < self.dedupSens)
+
+        if not isDuplicate:
+            self.prevFrame.copy_(frame, non_blocking=True)
+
+        return isDuplicate

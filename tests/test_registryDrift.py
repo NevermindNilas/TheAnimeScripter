@@ -73,12 +73,13 @@ def testModelsListHasNoDuplicates():
     assert dupes == []
 
 
-# Registry entries with no modelsMap arm even after the runtime's -mps strip.
+# Registry entries with no modelsMap arm even after the runtime's -mps/-rocm strip.
 # These would crash any code path that feeds them to modelsMap directly. Frozen
 # so the set can only shrink; add a modelsMap arm instead of extending this.
 KNOWN_MISSING_MODELSMAP_ARM = {
     "smosr-openvino",
     "video_small_v2",
+    "video_small_v2-rocm",
     "yolov9_small_mit",
     "yolov9_medium_mit",
     "yolov9_large_mit",
@@ -95,11 +96,15 @@ def _modelTypeFor(name):
 
 def testEveryModelsListEntryHasModelsMapArm():
     # half=False because some arms (scunet onnx) deliberately reject fp16.
-    # The runtime strips "-mps" before calling modelsMap (adjustMethod /
-    # RifeMPS.baseMethod), so probe the stripped name.
+    # The runtime strips "-mps"/"-rocm" before calling modelsMap (adjustMethod /
+    # RifeMPS.baseMethod / RifeROCm.baseMethod), so probe the stripped name.
     missing = set()
     for name in modelsList():
-        probe = name[: -len("-mps")] if name.endswith("-mps") else name
+        probe = name
+        if probe.endswith("-mps"):
+            probe = probe[: -len("-mps")]
+        elif probe.endswith("-rocm"):
+            probe = probe[: -len("-rocm")]
         try:
             modelsMap(probe, modelType=_modelTypeFor(probe), half=False)
         except ValueError as e:
@@ -127,9 +132,11 @@ def testEveryModelsListEntryHasModelsMapArm():
 KNOWN_UNREGISTERED_METHODS = {
     "autoclip": {
         "pyscenedetect",  # CPU PySceneDetect, no weights
+        "transnetv2-rocm",  # weights ship via the base transnetv2 entry
     },
     "stabilize": {
         "classic",  # CPU ORB/LK feature tracking, no weights
+        "dut-rocm",  # weights ship via the dut_* component entries
     },
     "dedup": {
         # algorithmic comparators, no weights (only flownets downloads)
@@ -137,8 +144,12 @@ KNOWN_UNREGISTERED_METHODS = {
         "mse",
         "ssim-cuda",
         "mse-cuda",
+        "ssim-rocm",
+        "mse-rocm",
         "vmaf",
         "vmaf-cuda",
+        "vmaf-rocm",
+        "flownets-rocm",  # weights ship via the base flownets entry
     },
     "smooth_dedup": {
         # same comparators as dedup, driven off --smooth_dedup_method
@@ -146,8 +157,12 @@ KNOWN_UNREGISTERED_METHODS = {
         "mse",
         "ssim-cuda",
         "mse-cuda",
+        "ssim-rocm",
+        "mse-rocm",
         "vmaf",
         "vmaf-cuda",
+        "vmaf-rocm",
+        "flownets-rocm",
     },
     "interpolate": {
         # Bare aliases: absent from modelsList, but modelsMap resolves them to
@@ -159,6 +174,9 @@ KNOWN_UNREGISTERED_METHODS = {
         "rife4.15-openvino",  # rides the rife4.15 ONNX via suffix replace
         "distildrba-tensorrt",  # weights ship via the base distildrba entry
         "distildrba-lite-tensorrt",  # weights ship via the base distildrba-lite entry
+        "distildrba-rocm",  # weights ship via the base distildrba entry
+        "distildrba-lite-rocm",  # weights ship via the base distildrba-lite entry
+        "gmfss-rocm",  # weights ship via the base gmfss entry
     },
     "scenechange": {
         # streaming scene-cut detectors; the cheap tier is algorithmic (no
@@ -167,11 +185,14 @@ KNOWN_UNREGISTERED_METHODS = {
         "mse",
         "ssim-cuda",
         "mse-cuda",
+        "ssim-rocm",
+        "mse-rocm",
     },
     "restore": {
         # registered under their -mps/-tensorrt siblings or external SDKs
         "fastlinedarken",
         "fastlinedarken-tensorrt",
+        "fastlinedarken-rocm",  # no weights, same filter as fastlinedarken
         "autocas",  # sharpening kernel, no weights
         "deh264_real",
         "deh264_real-tensorrt",
@@ -187,6 +208,9 @@ KNOWN_UNREGISTERED_METHODS = {
         "linethinner-lite-cuda",
         "linethinner-medium-cuda",
         "linethinner-heavy-cuda",
+        "linethinner-lite-rocm",
+        "linethinner-medium-rocm",
+        "linethinner-heavy-rocm",
         "maxine-denoise_low",
         "maxine-denoise_medium",
         "maxine-denoise_high",
@@ -201,6 +225,7 @@ KNOWN_UNREGISTERED_METHODS = {
         "anime",
         "anime-tensorrt",
         "anime-directml",
+        "anime-rocm",
         "cartoon",
     },
     "upscale": {
@@ -223,12 +248,15 @@ def _registeredVariants(method):
 
     Mirrors the backend aliasing conventions: OpenVINO is a branch inside the
     DirectML/ORT classes, rife/distildrba DirectML+OpenVINO reuse the TensorRT
-    ONNX, and the depth backends strip the ``og_`` prefix.
+    ONNX, and the depth backends strip the ``og_`` prefix. ``-rocm`` strips to
+    the base CUDA weights like ``-mps`` does.
     """
     variants = {method}
     variants.add(method.replace("-openvino", "-directml"))
     variants.add(method.replace("-openvino", "-tensorrt"))
     variants.add(method.replace("-directml", "-tensorrt"))
+    if method.endswith("-rocm"):
+        variants.add(method[: -len("-rocm")])
     variants |= {v.removeprefix("og_") for v in set(variants)}
     return variants
 
@@ -307,7 +335,9 @@ def _interpolateResolution(method):
             modelsMap(base, modelType="pth"),
             importRifeArch(method, "v3")[0],
         )
-    base = method.replace("-mps", "")  # RifeMPS.baseMethod; CUDA uses it as-is
+    base = method.replace("-mps", "").replace(
+        "-rocm", ""
+    )  # RifeMPS/RifeROCm.baseMethod
     return "v1", modelsMap(base, modelType="pth"), importRifeArch(base, "v1", half=True)
 
 
@@ -317,7 +347,7 @@ def testEveryInterpolateChoiceResolves(methodChoices):
     failures = {}
     resolved = {}
     for method in methodChoices["interpolate"]:
-        if "drba" in method or method == "gmfss":
+        if "drba" in method or method in ("gmfss", "gmfss-rocm"):
             continue  # own resolution path, not the rife arch table
         try:
             resolved[method] = _interpolateResolution(method)

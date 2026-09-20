@@ -198,3 +198,14 @@ class GMFSS:
                 interpQueue.put(output)
 
             self.cacheFrame()
+
+
+class GMFSSROCm(GMFSS):
+    """ROCm (HIP) GMFSS. Same eager path as CUDA; HIP device via checker.
+
+    GMFSS has no CUDA-graph capture (streams only), so the parent already
+    runs eager. This alias exists so the -rocm factory arm imports a named
+    sibling class per repo convention and can diverge later.
+    """
+
+    pass

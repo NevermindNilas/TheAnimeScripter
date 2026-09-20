@@ -99,6 +99,19 @@ def autoClip(self):
             self.outpoint,
             self.half,
         )
+    elif self.autoclipMethod == "transnetv2-rocm":
+        # Same TransNetV2 weights/arch as CUDA; torch.cuda (HIP) is selected
+        # inside AutoClipTransnetv2 via torch.cuda.is_available().
+        from src.autoclip.autoclipTransnetv2 import AutoClipTransnetv2
+
+        AutoClipTransnetv2(
+            self.input,
+            self.output,
+            self.autoclipSens,
+            self.inpoint,
+            self.outpoint,
+            self.half,
+        )
     else:
         raise ValueError(f"Unknown autoclip_method: {self.autoclipMethod}")
 
@@ -155,6 +168,22 @@ def segment(self):
             self.encodeMethod,
             self.benchmark,
             self.totalFrames,
+        )
+    elif self.segmentMethod == "anime-rocm":
+        from src.segment.animeSegment import AnimeSegmentROCm
+
+        driver = AnimeSegmentROCm(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.benchmark,
+            self.totalFrames,
+            segment_batch=self.segmentBatch,
         )
     elif self.segmentMethod == "anime-openvino":
         from src.segment.animeSegment import AnimeSegmentOpenVino
@@ -656,6 +685,181 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case "small_v2-rocm":
+            from src.depth.backends.rocm import DepthROCm
+
+            driver = DepthROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "og_small_v2-rocm":
+            from src.depth.backends.rocm import OGDepthV2ROCm
+
+            driver = OGDepthV2ROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "og_video_small_v2-rocm":
+            from src.depth.backends.rocm import VideoDepthAnythingROCm
+
+            driver = VideoDepthAnythingROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+            )
+
+        case "video_small_v2-rocm":
+            from src.depth.backends.rocm import VideoDepthTorchROCm
+
+            driver = VideoDepthTorchROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_window=self.depthWindow,
+            )
+
+        case "video_small_v3-rocm" | "video_base_v3-rocm":
+            from src.depth.backends.rocm import DA3StreamingROCm
+
+            driver = DA3StreamingROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_window=self.depthWindow,
+            )
+
+        case "video_limbo-rocm" | "video_limbo_v2-rocm":
+            from src.depth.backends.rocm import LimboStreamingROCm
+
+            driver = LimboStreamingROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_window=self.depthWindow,
+            )
+
+        case "small_v3-rocm" | "base_v3-rocm" | "large_v3-rocm" | "og_large_v3-rocm":
+            from src.depth.backends.rocm import OGDepthV3ROCm
+
+            driver = OGDepthV3ROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "limbo-rocm" | "limbo_v2-rocm":
+            from src.depth.backends.rocm import LimboROCm
+
+            driver = LimboROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
         case _:
             raise ValueError(
                 f"Unsupported depth_method: {self.depthMethod}. "
@@ -703,7 +907,7 @@ def motionBlur(self):
 
 
 def stabilize(self):
-    if self.stabilizeMethod == "dut":
+    if self.stabilizeMethod in ("dut", "dut-rocm"):
         from src.stabilize.dutStabilizer import VideoStabilizeDUT as VideoStabilize
     else:
         from src.stabilize.stabilize import VideoStabilize

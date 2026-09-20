@@ -149,12 +149,15 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | Backend | Suffix | Hardware | Covers |
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
+| **ROCm** | `-rocm` | AMD (Linux, HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU | Upscale, interpolate, restore, depth, object detection |
 | **NCNN** | `-ncnn` | Vulkan / low-power | Upscale (`shufflecugan`, `span`), interpolate (RIFE) |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
+> **🎮 ROCm note:** install the `linux-rocm` profile (`python main.py --download_requirements linux-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only.
+>
 > **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication, stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
 
 ---
@@ -314,7 +317,7 @@ C:\Videos\episode3.mp4
 | `--upscale` | flag | False | - | **Enable AI upscaling** — automatically enabled when `--upscale_method` is specified |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
@@ -324,24 +327,24 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **adore** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime (shufflecugan-arch, 2x) | CUDA, TRT, DML, OpenVINO, MPS |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML, OpenVINO, MPS |
-| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML, OpenVINO, MPS |
-| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML, OpenVINO, MPS |
-| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | CUDA, TRT, DML, OpenVINO, MPS |
-| **saryn** | ⚡⚡ | ⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **gauss** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | DIS-based, quality focus | CUDA, TRT, DML, OpenVINO, MPS |
-| **smosr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA SmoSR v1 (2x) | CUDA, TRT, DML, OpenVINO, MPS |
-| **figsr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA FigSR (2x) | CUDA, MPS |
-| **animesr** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | High-quality restoration (temporal, uses the next frame) | CUDA, TRT, DML, OpenVINO |
+| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **adore** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime (shufflecugan-arch, 2x) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **saryn** | ⚡⚡ | ⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **gauss** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | DIS-based, quality focus | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **smosr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA SmoSR v1 (2x) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **figsr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA FigSR (2x) | CUDA, ROCm, MPS |
+| **animesr** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | High-quality restoration (temporal, uses the next frame) | CUDA, ROCm, TRT, DML, OpenVINO |
 | **artcnn_c4f16** / `_dn` / `_ds` | ⚡⚡⚡⚡ | ⭐⭐ | <2GB | Luma-only 2x, very light | TRT, DML, OpenVINO |
 | **artcnn_c4f32** / `_dn` / `_ds` | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | Luma-only 2x, `_dn` denoises, `_ds` de-sharpens | TRT, DML, OpenVINO |
 | **artcnn_r8f64** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | Luma-only 2x, heavier | TRT, DML, OpenVINO |
 | **artcnn_r16f96** | ⚡ | ⭐⭐⭐⭐ | 3GB | Luma-only 2x, heaviest | TRT, DML, OpenVINO |
-| **maxine-bicubic / -low / -medium / -high / -ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | NVIDIA Maxine VSR (RTX only, SDK-provided) | CUDA |
+| **maxine-bicubic / -low / -medium / -high / -ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | NVIDIA Maxine VSR (RTX only, SDK-provided) | CUDA (NVIDIA-only, no ROCm) |
 | **maxine-highbitrate_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | Maxine VSR tuned for high-bitrate sources | CUDA |
 
 Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is a 45,156-parameter anime upscaler with a fixed **2×** scale. Use `--upscale_method cyte --upscale_factor 2`. Weights download from the [Cyte model folder](https://github.com/NevermindNilas/Ai-models/tree/main/Cyte-V1-SuperUltraCompact).
@@ -358,7 +361,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
-| `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, MPS); ignored by `rife_elexor`, `gmfss` and `distildrba` |
+| `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, ROCm, MPS); ignored by `rife_elexor`, `gmfss` and `distildrba` |
 
 > **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
@@ -366,24 +369,24 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, TRT, DML, OpenVINO, MPS |
-| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML, OpenVINO, MPS |
-| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice (default) | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice (default) | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
 | **rife** | ⚡⚡ | ⭐⭐⭐ | 4GB | Alias for the current recommended RIFE build | TRT, NCNN, MPS |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | TRT, DML, OpenVINO |
-| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN, MPS |
-| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN, MPS |
-| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, MPS |
-| **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, TRT |
-| **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, TRT |
-| **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA |
+| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, ROCm, NCNN, MPS |
+| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, ROCm, NCNN, MPS |
+| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, MPS |
+| **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, ROCm, TRT |
+| **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, ROCm, TRT |
+| **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, ROCm |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews. On Apple Silicon use `rife4.6-mps` or `rife4.25-mps`.
 
@@ -394,7 +397,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--slowmo` | flag | False | **Slow motion mode** - Slows video instead of increasing frame rate |
-| `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA |
+| `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA, ROCm |
 | `--interpolate_first` | bool | True | **Processing order** - Write interpolated frames to queue immediately |
 
 #### ✂️ Scene-Cut-Aware Interpolation
@@ -404,7 +407,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--scenechange` | flag | False | - | **Skip interpolation across hard cuts** (requires `--interpolate`) |
-| `--scenechange_method` | str | "ssim-cuda" | ssim, ssim-cuda, mse, mse-cuda, maxxvit-tensorrt, maxxvit-directml | **Streaming cut detector** — cheap `ssim`/`mse` (no model) or the `maxxvit` classifier |
+| `--scenechange_method` | str | "ssim-cuda" | ssim, ssim-cuda, ssim-rocm, mse, mse-cuda, mse-rocm, maxxvit-tensorrt, maxxvit-directml | **Streaming cut detector** — cheap `ssim`/`mse` (no model) or the `maxxvit` classifier |
 | `--scenechange_sens` | float | 50 | 0-100 | **Cut sensitivity** (higher = more cuts detected); mapped to a per-method threshold |
 
 > **Note:** `transnetv2` and `pyscenedetect` are prepass-only (windowed / whole-file) and are not available here — use `--autoclip` for those.
@@ -423,12 +426,12 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
 |--------|-------|----------|------|----------|--------------|
 | **ssim** | ⚡⚡⚡ | ⭐⭐⭐ | Low | General use | CPU |
-| **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | <1GB | GPU accelerated | CUDA |
+| **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | <1GB | GPU accelerated | CUDA, ROCm |
 | **mse** | ⚡⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
-| **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | <1GB | Fast GPU processing | CUDA |
-| **flownets** | ⚡ | ⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA |
+| **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | <1GB | Fast GPU processing | CUDA, ROCm |
+| **flownets** | ⚡ | ⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA, ROCm |
 | **vmaf** | ⚡ | ⭐⭐⭐⭐ | <2GB | Perceptual duplicate detection | CPU |
-| **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA |
+| **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA, ROCm |
 
 > **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
 
@@ -492,26 +495,26 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
 | `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
 | `--stabilize` | flag | False | - | **Enable video stabilization** (black border fill, no crop) |
-| `--stabilize_method` | str | "classic" | ["classic", "dut"] | **Stabilization method** — specifying it auto-enables `--stabilize`. `classic`: feature-point global translation/rotation smoothing (CPU); `dut`: DUT deep unsupervised stabilization with per-region mesh warping — markedly smoother output and less content pushed off-frame, CUDA only, slower, downloads ~57MB of weights on first use |
+| `--stabilize_method` | str | "classic" | ["classic", "dut", "dut-rocm"] | **Stabilization method** — specifying it auto-enables `--stabilize`. `classic`: feature-point global translation/rotation smoothing (CPU); `dut` / `dut-rocm`: DUT deep unsupervised stabilization with per-region mesh warping — markedly smoother output and less content pushed off-frame, CUDA / ROCm respectively, slower, downloads ~57MB of weights on first use |
 
 #### 🎯 Restoration Models
 
 | Model | Speed | Noise Removal | Detail Recovery | Best For | Acceleration |
 |-------|-------|---------------|-----------------|----------|--------------|
-| **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, TRT, DML, OpenVINO, MPS |
-| **nafnet** | ⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA, MPS |
-| **dpir** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA, MPS |
-| **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA, MPS |
-| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement (default) | CUDA, TRT, DML, OpenVINO, MPS |
-| **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, TRT |
-| **autocas** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐⭐ | Adaptive sharpening (auto-tuned FidelityFX CAS, no weights) | CUDA, CPU |
+| **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **nafnet** | ⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA, ROCm, MPS |
+| **dpir** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA, ROCm, MPS |
+| **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA, ROCm, MPS |
+| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement (default) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, ROCm, TRT |
+| **autocas** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐⭐ | Adaptive sharpening (auto-tuned FidelityFX CAS, no weights) | CUDA, ROCm, CPU |
 | **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML, OpenVINO, MPS |
-| **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, TRT, DML, OpenVINO, MPS |
-| **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, TRT, DML, OpenVINO, MPS |
-| **hurrdeblur** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Deblurring | CUDA, TRT, DML, OpenVINO, MPS |
-| **dehalo** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Halo/ringing removal around lines | CUDA, TRT, DML, OpenVINO, MPS |
-| **deepdeband-f** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Debanding on flat gradients | CUDA |
-| **linethinner-lite / -medium / -heavy** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐ | Line thinning, three strengths (no weights) | CPU, CUDA (`-cuda`) |
+| **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **hurrdeblur** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Deblurring | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **dehalo** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Halo/ringing removal around lines | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **deepdeband-f** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Debanding on flat gradients | CUDA, ROCm |
+| **linethinner-lite / -medium / -heavy** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐ | Line thinning, three strengths (no weights) | CPU, CUDA, ROCm (`-cuda`) |
 | **maxine-denoise_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | NVIDIA Maxine denoise (RTX only, SDK-provided) | CUDA |
 | **maxine-deblur_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐ | NVIDIA Maxine deblur (RTX only, SDK-provided) | CUDA |
 
@@ -521,18 +524,18 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 |-----------|------|---------|-------------|
 | `--segment` | flag | False | **Background/foreground separation** — automatically enabled when `--segment_method` is specified |
 | `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) — specifying a non-default method auto-enables segmentation |
-| `--segment_batch` | int | 1 | **Frames per model forward** for segmentation. `>1` batches independent frames to amortize kernel-launch overhead, at a proportional VRAM cost. ISNet is fully convolutional and per-frame independent, so batching cannot change a frame's mask. `1` matches the previous one-frame path exactly. Gains depend on where the model sits between launch-bound and compute-bound. **CUDA** (`anime`) always runs the model in a fixed 1024-box, so the gain is resolution-independent: RTX 3090, 402 frames, ~**+10%** at `4` (24.2 → 26.7 FPS end-to-end); `8` is usually a regression at 720p+ (peak model VRAM 0.95 → 3.2 GB at `4`, 6.2 GB at `8`). **TensorRT** (`anime-tensorrt`) runs at the native `/64`-padded resolution, so batching pays only at low resolution: at 640×360 `4` gives **+57%** (93.8 → 147.1 FPS), while at 1280×720 it is already compute-bound and gains nothing (38.4 → 38.6). A batch-`N` engine is a separate build cached under a batch-aware filename. Forced to `1` for DirectML/OpenVINO, where batching measured *slower*. |
+| `--segment_batch` | int | 1 | **Frames per model forward** for segmentation. `>1` batches independent frames to amortize kernel-launch overhead, at a proportional VRAM cost. ISNet is fully convolutional and per-frame independent, so batching cannot change a frame's mask. `1` matches the previous one-frame path exactly. Gains depend on where the model sits between launch-bound and compute-bound. **CUDA, ROCm** (`anime`) always runs the model in a fixed 1024-box, so the gain is resolution-independent: RTX 3090, 402 frames, ~**+10%** at `4` (24.2 → 26.7 FPS end-to-end); `8` is usually a regression at 720p+ (peak model VRAM 0.95 → 3.2 GB at `4`, 6.2 GB at `8`). **TensorRT** (`anime-tensorrt`) runs at the native `/64`-padded resolution, so batching pays only at low resolution: at 640×360 `4` gives **+57%** (93.8 → 147.1 FPS), while at 1280×720 it is already compute-bound and gains nothing (38.4 → 38.6). A batch-`N` engine is a separate build cached under a batch-aware filename. Forced to `1` for DirectML/OpenVINO, where batching measured *slower*. |
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. `limbo`/`limbo_v2` are downgraded on every backend — their input resolution is baked into the model. |
 | `--depth_window` | int | 32 | **Video depth window**, one of `32/16/8/4`. For `video_small_v3`, `video_base_v3`, `video_limbo`, `video_limbo_v2`, and their TensorRT variants, this is the chunk size with 50% overlap; smaller values reduce memory and lookahead latency. For `video_small_v2`, this controls attended history (32 = full window; 32 frames are retained regardless). Ignored by image depth methods. |
-| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt` (all forced to `1`). |
+| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA, ROCm image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt` (all forced to `1`). |
 
 #### 🎯 Segmentation Methods
 
 | Method | Speed | Quality | VRAM | Best For | Acceleration |
 |--------|-------|---------|------|----------|--------------|
-| **anime** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime content | CUDA |
+| **anime** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime content | CUDA, ROCm |
 | **anime-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Fast anime processing | TensorRT |
 | **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | AMD/Intel GPUs | DirectML |
 
@@ -542,22 +545,22 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use (default) | CUDA, TRT, DML, OpenVINO, MPS |
-| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT, OpenVINO, MPS |
-| **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
-| **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
-| **video_small_v3** | Window-dependent | Temporal DA3 Small | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA |
-| **video_base_v3** | Window-dependent | Temporal DA3 Base | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA |
-| **video_limbo** | Window-dependent | Temporal Limbo V1 | Window-dependent | Anime video depth, fixed 504x280 or 504x378 input | CUDA |
-| **video_limbo_v2** | Window-dependent | Temporal Limbo V2 | Window-dependent | Anime video depth, fixed 504x280 or 504x378 input | CUDA |
+| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use (default) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, ROCm, MPS |
+| **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, ROCm, MPS |
+| **video_small_v3** | Window-dependent | Temporal DA3 Small | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA, ROCm |
+| **video_base_v3** | Window-dependent | Temporal DA3 Base | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA, ROCm |
+| **video_limbo** | Window-dependent | Temporal Limbo V1 | Window-dependent | Anime video depth, fixed 504x280 or 504x378 input | CUDA, ROCm |
+| **video_limbo_v2** | Window-dependent | Temporal Limbo V2 | Window-dependent | Anime video depth, fixed 504x280 or 504x378 input | CUDA, ROCm |
 | **video_limbo-tensorrt** | Window-dependent | Temporal Limbo V1 | Window-dependent | Multi-view TensorRT; exports locally on first use | TensorRT |
 | **video_limbo_v2-tensorrt** | Window-dependent | Temporal Limbo V2 | Window-dependent | Multi-view TensorRT; exports locally on first use | TensorRT |
-| **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
-| **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, MPS |
-| **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, TRT |
-| **og_video_small_v2** | ⚡ | ⭐⭐⭐⭐ | 4GB | Original temporal implementation | CUDA |
-| **limbo v1** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Depth Anything 3 small finetuned on an anime corpus (`--depth_method limbo`) | CUDA, TRT, OpenVINO, MPS |
-| **limbo v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Limbo successor, same fixed-resolution setup (`--depth_method limbo_v2`) | CUDA, TRT, OpenVINO, MPS |
+| **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, ROCm, MPS |
+| **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, ROCm, MPS |
+| **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, ROCm, TRT |
+| **og_video_small_v2** | ⚡ | ⭐⭐⭐⭐ | 4GB | Original temporal implementation | CUDA, ROCm |
+| **limbo v1** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Depth Anything 3 small finetuned on an anime corpus (`--depth_method limbo`) | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **limbo v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Limbo successor, same fixed-resolution setup (`--depth_method limbo_v2`) | CUDA, ROCm, TRT, OpenVINO, MPS |
 
 > **🎨 limbo v1 / v2:** anime-specialised DA3-small finetunes (v1: 34.3M params). Unlike every other depth method their input resolution is **fixed by the model**, not by `--depth_quality`: each ships one export per baked size and TAS picks the one whose aspect is closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer. `--depth_quality` is therefore ignored (forced to `low`), and `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 mirrors them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`. Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
 
@@ -596,7 +599,7 @@ See the [TensorRT streaming validation report](docs/LIMBO_TENSORRT_VALIDATION.md
 | Parameter | Type | Default | Range/Choices | Description |
 |-----------|------|---------|---------------|-------------|
 | `--moblur` | flag | False | - | **Add motion blur** via interpolation + frame blending — auto-enabled when `--moblur_method` is set |
-| `--moblur_method` | str | "rife4.25" | rife4.6, rife4.25 (each also `-tensorrt` / `-directml` / `-mps`) | **Interpolation model + backend.** rife4.25 sharper, rife4.6 faster. No suffix = CUDA (fastest); `-tensorrt` = NVIDIA, `-directml` = AMD/Intel, `-mps` = Apple Silicon |
+| `--moblur_method` | str | "rife4.25" | rife4.6, rife4.25 (each also `-tensorrt` / `-directml` / `-mps` / `-rocm`) | **Interpolation model + backend.** rife4.25 sharper, rife4.6 faster. No suffix = CUDA (NVIDIA, fastest with windowing); `-tensorrt` = NVIDIA, `-directml` = AMD/Intel, `-mps` = Apple Silicon, `-rocm` = AMD ROCm/HIP (eager) |
 | `--moblur_factor` | int | 8 | 8-16 | **Sample count** — higher = smoother trails, slower |
 | `--moblur_shutter_angle` | float | 180 | 0-360 | **Blur amount.** 180 = cinema standard, 360 = max smear, 90 = crisp, 0 = off |
 | `--moblur_strength` | str | "gaussian_sym" | gaussian_sym, equal, pyramid, ascending, descending | **Frame-weighting scheme** (gaussian_sym mimics a natural shutter) |
@@ -636,7 +639,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 | Method | Speed | Accuracy | Best For | Acceleration |
 |--------|-------|----------|----------|--------------|
 | **pyscenedetect** | ⚡⚡⚡ | ⭐⭐⭐ | No model, works everywhere (default) | CPU |
-| **transnetv2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Learned shot-boundary detection | CUDA |
+| **transnetv2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Learned shot-boundary detection | CUDA, ROCm |
 | **maxxvit-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | Fast classifier on NVIDIA | TensorRT |
 | **maxxvit-directml** | ⚡⚡ | ⭐⭐⭐⭐ | Same classifier on AMD/Intel | DirectML |
 
@@ -700,7 +703,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 |-----------|------|---------|---------|-------------|
 | `--half` | str | True | True/False | **Use half precision for inference (default: True)** |
 | `--static` | flag | False | - | **Force Static Mode engine generation for TensorRT** |
-| `--compile_mode` | str | "default" | default/max/max-graphs | **PyTorch compilation** (CUDA only) |
+| `--compile_mode` | str | "default" | default/max/max-graphs | **PyTorch compilation** (CUDA, ROCm only) |
 
 #### Compilation Modes Explained
 
@@ -760,7 +763,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. |
 | `--list_methods` | optional str | None | **List available methods** for one capability (e.g. `--list_methods upscale`) or, with no value, for every capability |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 

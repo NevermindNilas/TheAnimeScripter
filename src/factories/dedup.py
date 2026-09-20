@@ -37,7 +37,15 @@ def buildDedupProcess(self, method=None, sens=None):
                 self.half,
             )
 
-        case "vmaf" | "vmaf-cuda":
+        case "ssim-rocm":
+            from src.dedup.dedup import DedupSSIMROCm
+
+            return DedupSSIMROCm(
+                sens,
+                self.half,
+            )
+
+        case "vmaf" | "vmaf-cuda" | "vmaf-rocm":
             from src.dedup.dedup import DedupVMAF
 
             return DedupVMAF(
@@ -54,10 +62,28 @@ def buildDedupProcess(self, method=None, sens=None):
                 self.half,
             )
 
+        case "mse-rocm":
+            from src.dedup.dedup import DedupMSEROCm
+
+            return DedupMSEROCm(
+                sens,
+                self.half,
+            )
+
         case "flownets":
             from src.dedup.dedup import DedupFlownetS
 
             return DedupFlownetS(
+                half=self.half,
+                dedupSens=sens,
+                height=self.height,
+                width=self.width,
+            )
+
+        case "flownets-rocm":
+            from src.dedup.dedup import DedupFlownetSROCm
+
+            return DedupFlownetSROCm(
                 half=self.half,
                 dedupSens=sens,
                 height=self.height,

@@ -106,6 +106,44 @@ def buildUpscaleProcess(self):
                 self.compileMode,
             )
 
+        case (
+            "shufflecugan-rocm"
+            | "cyte-rocm"
+            | "adore-rocm"
+            | "span-rocm"
+            | "open-proteus-rocm"
+            | "aniscale2-rocm"
+            | "rtmosr-rocm"
+            | "saryn-rocm"
+            | "fallin_soft-rocm"
+            | "fallin_strong-rocm"
+            | "gauss-rocm"
+            | "figsr-rocm"
+            | "smosr-rocm"
+        ):
+            from src.upscale.pytorch import UniversalPytorchROCm
+
+            return UniversalPytorchROCm(
+                self.upscaleMethod,
+                self.upscaleFactor,
+                self.half,
+                self.width,
+                self.height,
+                self.customModel,
+                self.compileMode,
+            )
+
+        case "animesr-rocm":
+            from src.upscale.misc import AnimeSRROCm
+
+            return AnimeSRROCm(
+                2,
+                self.half,
+                self.width,
+                self.height,
+                self.compileMode,
+            )
+
         case "animesr-openvino" | "animesr-directml":
             from src.upscale.directml import AnimeSRDirectML
 

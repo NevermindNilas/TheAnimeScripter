@@ -263,6 +263,22 @@ class MotionBlurPipeline:
                 # (self.windowed stays False) -- identical output, just no
                 # windowing shortcut.
 
+            case "rife4.6-rocm" | "rife4.25-rocm":
+                from src.interpolate.rife import RifeROCm
+
+                self.interpolateProcess = RifeROCm(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    self.ensemble,
+                    self.interpolateFactor,
+                    self.dynamicScale,
+                    self.staticStep,
+                    compileMode=self.compileMode,
+                )
+                # Eager ROCm has no graph windowing either; keep full samples.
+
             case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
@@ -364,7 +380,7 @@ class MotionBlurPipeline:
                 raise ValueError(
                     f"Motion blur does not support interpolate_method "
                     f"'{self.interpolateMethod}'. Supported methods are the "
-                    f"rife (cuda/ncnn/tensorrt/directml/openvino) variants and gmfss."
+                    f"rife (cuda/rocm/ncnn/tensorrt/directml/openvino) variants and gmfss."
                 )
 
     def _run(self):

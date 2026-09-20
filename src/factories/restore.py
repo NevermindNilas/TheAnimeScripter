@@ -77,6 +77,28 @@ def buildRestoreProcess(self):
                 )
 
             case (
+                "scunet-rocm"
+                | "dpir-rocm"
+                | "nafnet-rocm"
+                | "real-plksr-rocm"
+                | "anime1080fixer-rocm"
+                | "gater3-rocm"
+                | "deepdeband-f-rocm"
+                | "deh264_real-rocm"
+                | "deh264_span-rocm"
+                | "hurrdeblur-rocm"
+                | "dehalo-rocm"
+            ):
+                from src.unifiedRestore import UnifiedRestoreROCm
+
+                restoreProcesses.append(
+                    UnifiedRestoreROCm(
+                        method,
+                        self.half,
+                    )
+                )
+
+            case (
                 "anime1080fixer-tensorrt"
                 | "gater3-tensorrt"
                 | "scunet-tensorrt"
@@ -139,6 +161,15 @@ def buildRestoreProcess(self):
                     )
                 )
 
+            case "fastlinedarken-rocm":
+                from src.extraArches.fastlinedarken import FastLineDarkenROCm
+
+                restoreProcesses.append(
+                    FastLineDarkenROCm(
+                        self.half,
+                    )
+                )
+
             case "fastlinedarken-tensorrt":
                 from src.extraArches.fastlinedarken import FastLineDarkenTRT
 
@@ -177,6 +208,23 @@ def buildRestoreProcess(self):
                         variant=variant,
                         half=self.half,
                         device=device,
+                    )
+                )
+
+            case (
+                "linethinner-lite-rocm"
+                | "linethinner-medium-rocm"
+                | "linethinner-heavy-rocm"
+            ):
+                from src.extraArches.linethinner import LineThin
+
+                variant = method.replace("-rocm", "").replace("linethinner-", "")
+
+                restoreProcesses.append(
+                    LineThin(
+                        variant=variant,
+                        half=self.half,
+                        device="cuda",
                     )
                 )
 

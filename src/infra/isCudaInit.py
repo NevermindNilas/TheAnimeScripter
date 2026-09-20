@@ -13,6 +13,12 @@ class CudaChecker:
         Checks available torch accelerators (CUDA, then MPS on Apple Silicon)
         and exposes a unified .device property. Falls back to CPU otherwise.
 
+        ROCm (AMD) PyTorch reuses the torch.cuda API over HIP, so
+        torch.cuda.is_available() is True on ROCm boxes and .device stays
+        "cuda". Use .rocmAvailable / .isRocm to distinguish HIP from NVIDIA
+        CUDA when backend-specific behavior matters (no TensorRT/Maxine/NVML
+        on AMD, no CUDA graphs on the -rocm paths).
+
         Note: This class checks accelerator availability in PyTorch, but does
         not validate CUDA GPU architecture compatibility. Use
         detectGPUArchitecture() to check for Pascal or older GPUs.
@@ -28,6 +34,15 @@ class CudaChecker:
         except Exception as e:
             self._cuda_available = False
             self.logging.warning(f"CUDA is not available: {e}")
+
+        self._rocm_available = False
+        if self._cuda_available:
+            try:
+                self._rocm_available = (
+                    getattr(self.torch.version, "hip", None) is not None
+                )
+            except Exception:
+                self._rocm_available = False
 
         self._mps_available = False
         if not self._cuda_available:
@@ -46,9 +61,21 @@ class CudaChecker:
     def cudaAvailable(self):
         return self._cuda_available
 
+    @property
+    def rocmAvailable(self):
+        """True when torch.cuda is backed by ROCm/HIP (AMD), not NVIDIA CUDA."""
+        return self._rocm_available
+
+    @property
+    def isRocm(self):
+        return self._rocm_available
+
     def enableCudaOptimizations(self):
-        self.torch.backends.cudnn.benchmark = False
-        self.torch.backends.cudnn.enabled = True
+        try:
+            self.torch.backends.cudnn.benchmark = False
+            self.torch.backends.cudnn.enabled = True
+        except Exception as e:
+            self.logging.warning(f"Could not enable cudnn optimizations: {e}")
 
     @property
     def device(self):
@@ -242,6 +269,73 @@ def listWindowsGpuNames():
 def checkWindowsAdapters():
     """True if any display adapter is NVIDIA (registry scan, no WMI/subprocess)."""
     return any("nvidia" in name.lower() for name in listWindowsGpuNames())
+
+
+def checkWindowsAmdAdapters():
+    """True if any display adapter is AMD (registry scan, no WMI/subprocess)."""
+    return any(
+        vendor in name.lower()
+        for name in listWindowsGpuNames()
+        for vendor in ("amd", "radeon", "rx ", "vega", "navi")
+    )
+
+
+def isRocmTorch() -> bool:
+    """True when the installed torch is a ROCm/HIP build with HIP available.
+
+    No torch import side effects beyond the import itself; returns False when
+    torch is missing or is a CUDA/CPU build.
+    """
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return False
+        return getattr(torch.version, "hip", None) is not None
+    except Exception:
+        return False
+
+
+def checkLinuxPciAmd() -> bool:
+    """True when an AMD GPU is present on the PCI bus (vendor 0x1002)."""
+    vendorPaths = glob.glob("/sys/bus/pci/devices/*/vendor")
+    for vendorPath in vendorPaths:
+        try:
+            with open(vendorPath, encoding="utf-8") as handle:
+                if handle.read().strip().lower() == "0x1002":
+                    return True
+        except OSError:
+            continue
+    try:
+        result = subprocess.run(["lspci"], capture_output=True, text=True, check=False)
+        if result.returncode == 0 and "amd" in result.stdout.lower():
+            return True
+    except subprocess.SubprocessError, FileNotFoundError:
+        pass
+    return False
+
+
+def detectRocmGPU() -> bool:
+    """True when an AMD GPU with a HIP-capable torch is usable.
+
+    Requires BOTH: a ROCm torch build (torch.version.hip) with cuda available,
+    and AMD hardware visible to the OS. The torch check alone would misfire on
+    an NVIDIA box with a stray HIP version string; the hardware check alone
+    would misfire on an AMD box running a CUDA-only torch.
+    """
+    if not isRocmTorch():
+        return False
+    systemName = platform.system().lower()
+    if systemName == "windows" and checkWindowsAmdAdapters():
+        logging.info("AMD GPU detected via registry scan (ROCm torch present)")
+        return True
+    if systemName == "linux" and checkLinuxPciAmd():
+        logging.info("AMD GPU detected via PCI scan (ROCm torch present)")
+        return True
+    # Headless / container without PCI visibility, or macOS: trust the torch
+    # build — HIP torch with cuda available has no other GPU to address.
+    logging.info("ROCm torch detected; assuming AMD GPU is present")
+    return True
 
 
 def checkLinuxPci():
