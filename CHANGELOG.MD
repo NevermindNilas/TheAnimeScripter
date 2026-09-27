@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
 ### Fixed
-- Streaming-depth tests skip cleanly when their shared NumPy dependency is absent, allowing collection in minimal CI environments.
+- Kept local development and agent artifacts out of the repository; portable builds and the manual Limbo exporter remain available from `src`.
 - Prevented CUDA depth and held-frame output corruption by ordering batch construction and finishing new output operations before writer handoff. The legacy CUDA writer now protects queued input storage until its asynchronous reads complete.
 - Limbo disparity normalization computes both quantiles in one sort; a one-thread CPU benchmark fell from 37.15ms to 18.99ms at 280x504.
 - Temporal TensorRT depth normalization shares its quantile sort, reducing the measured 518x924 normalization stage from 0.60ms to 0.41ms on an RTX 3090.
@@ -19,7 +19,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Nearest scene-cut sampling casts the small sampled frame instead of the full frame, reducing temporary CUDA allocation by 91–98% when FP32 restored frames feed half-precision detection.
 - Unequal-weight motion blur reuses its private frame stack, reducing temporary CUDA allocation by 44–47% with gamma correction enabled; dtype-promotion and broadcasting fallbacks are preserved.
 - Restored full-frame object-detection mask blending to preserve OpenCV's exact pixel rounding for small boxes.
-- AnimeSR recurrence tests now skip when NumPy is unavailable instead of failing collection in minimal test environments.
 - Segmentation with an explicit `prores_segment` encoder now keeps its alpha channel instead of writing an opaque output.
 - Startup probes CUDA once and passes it down to the dedup, smooth-dedup, stabilize, scenechange and backend-fallback guards (reusing the live parser instead of building a second one), and CLI action/default maps are cached per parser instead of rebuilt per access; saves ~1-2ms of startup.
 - `gapPlan` returns `(count, None)` for integer-factor unit gaps so drivers run their own timestep ladder with the buffer cached, and `FrameWindow.staged()` caches `None` stage results via a sentinel instead of recomputing them.

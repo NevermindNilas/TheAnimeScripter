@@ -4,7 +4,6 @@ import argparse
 from pathlib import Path
 
 
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)

@@ -250,7 +250,7 @@ def _downloadFile(
 def _safeExtractZip(archive, destination: str) -> None:
     """Extract a zip, refusing any member that would land outside `destination`.
 
-    Mirrors tools/build_support/python_runtime.py, which already guards its
+    Mirrors src/build_support/python_runtime.py, which already guards its
     archives this way.
     """
     resolved = os.path.realpath(destination)

@@ -575,8 +575,6 @@ TensorRT streaming exports a separate multi-view ONNX locally from the cached sa
 
 Example: `python main.py --input input/Raw.mp4 --depth --depth_method video_limbo_v2-tensorrt --depth_window 8`. For raw checkpoint export, run `python -m src.depth.export_limbo_streaming --help` to see the separate exporter options.
 
-See the [TensorRT streaming validation report](docs/LIMBO_TENSORRT_VALIDATION.md) for measured speed, flicker and memory on an RTX 3090.
-
 > **🎞️ Temporal vs image:** `video_*` methods attend across frames (see `--depth_window`) and are far more stable over time; the rest predict each frame independently.
 
 ### 🎯 Object Detection

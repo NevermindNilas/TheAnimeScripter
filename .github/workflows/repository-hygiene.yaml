@@ -1,0 +1,65 @@
+name: Repository hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  local-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Reject local artifacts in tracked history
+        shell: bash
+        run: |
+          local_paths=(
+            ':(top,icase,literal)perf_council'
+            ':(top,icase,literal)scripts'
+            ':(top,icase,literal)tests'
+            ':(top,icase,literal)tools'
+            ':(top,icase,literal)benchmarks'
+            ':(top,icase,literal).claude'
+            ':(top,icase,literal).codex'
+            ':(top,icase,literal)docs/agents'
+            ':(top,icase,literal)AGENTS.md'
+            ':(top,icase,literal)CLAUDE.md'
+            ':(top,icase,literal).graphifyignore'
+            ':(top,icase,literal).github/workflows/tests.yaml'
+            ':(top,icase,literal).opencode'
+            ':(top,icase,literal)docs/LIMBO_TENSORRT_VALIDATION.md'
+            ':(top,icase,literal)docs/PYTORCH_214_VALIDATION.md'
+            ':(top,icase,literal)benchmark.py'
+            ':(top,icase,literal)benchmark.spec'
+            ':(top,icase,literal)BENCHMARKS.MD'
+            ':(top,icase,literal)profile_startup.py'
+            ':(top,icase,literal)test.py'
+            ':(top,icase,literal)tests.py'
+            ':(top,icase,literal)bench_animesr'
+            ':(top,icase,literal)profiler_trace'
+            ':(top,icase,literal)cpp-poc'
+            ':(top,icase,literal).pytest_tmp'
+            ':(top,icase,literal).pytest-tmp'
+            ':(top,icase,literal).worker14_pytest_tmp'
+            ':(top,icase,literal)ptmp_nelux'
+            ':(top,icase,literal)pytesttmp4'
+            ':(top,icase,literal).venv314'
+            ':(top,icase,literal)graphify-out'
+            ':(top,icase,literal).openclaude-profile.json'
+            ':(top,icase,literal)docs/ARCHITECTURE.md'
+            ':(top,icase,literal)docs/audit-2026-08-09-open-findings.md'
+            ':(top,icase,glob)pytest-of-*/**'
+            ':(top,icase,glob).venv*/**'
+          )
+          git log --all --full-history --format= --name-only -- "${local_paths[@]}" > "$RUNNER_TEMP/local-artifact-paths.txt"
+          if grep -q . "$RUNNER_TEMP/local-artifact-paths.txt"; then
+            echo "::error::Local development or agent artifacts occur in repository history."
+            sort -u "$RUNNER_TEMP/local-artifact-paths.txt"
+            exit 1
+          fi

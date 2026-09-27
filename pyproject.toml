@@ -19,7 +19,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E402"]                 # tests import modules after pytest.importorskip() guards
 "src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
 "src/depth/og_dpt_v2.py" = ["B006"]  # vendored DPT arch — keep upstream signatures intact
 "src/segment/train.py" = ["F821"]    # training-only path; InSPyReNet arch not vendored for inference
@@ -76,14 +75,3 @@ possibly-missing-submodule = "ignore"
 # `# type: ignore` comments in this tree target other checkers; ty policing them
 # would just churn vendored-adjacent arch files.
 unused-type-ignore-comment = "ignore"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-norecursedirs = [
-    ".git",
-    ".pytest_cache",
-    ".venv",
-    "__pycache__",
-    "dist-portable",
-    "portable-python",
-]

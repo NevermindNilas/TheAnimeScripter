@@ -322,7 +322,7 @@ def matchEncoder(encode_method: str):
             # its own CRF -- a wrong-looking output file with nothing in the log
             # to explain it. No CLI choice can reach this today (WriteBuffer
             # maps the *_nelux names to their twins first, and every remaining
-            # choice is pinned to an arm by tests/test_registryDrift.py); it is
+            # choice has a matching arm); it is
             # here so the next unmapped name is loud instead of silent.
             logWarning(
                 f"Unrecognized encode method '{encode_method}'. FFmpeg will "

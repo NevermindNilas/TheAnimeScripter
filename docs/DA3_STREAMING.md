@@ -89,9 +89,6 @@ Export caches include checkpoint content, spatial size, precision and exporter
 version; engine caches additionally include the temporal window. Initial export
 and build can take minutes, while subsequent runs reuse the artifacts.
 
-See the [RTX 3090 validation report](LIMBO_TENSORRT_VALIDATION.md)
-for measured throughput, temporal consistency, numerical checks and limitations.
-
 ## License review (2026-09-12)
 
 Reviewed upstream commit `3d835ec1a5802d64a8b8b15f817a1ab54809bfe4`:

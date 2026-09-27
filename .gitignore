@@ -272,3 +272,7 @@ out_audit/
 /pytesttmp4/
 /.venv314/
 /.venv*/
+/graphify-out/
+/.openclaude-profile.json
+/docs/ARCHITECTURE.md
+/docs/audit-2026-08-09-open-findings.md
