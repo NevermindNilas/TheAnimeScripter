@@ -468,6 +468,8 @@ class AnimeSRDirectML:
             "fb": self.fb.numpy(),
             "state": self.state.numpy(),
         }
+        self._fbShape = self._ortInputs["fb"].shape
+        self._stateShape = self._ortInputs["state"].shape
 
         self.firstRun = True
         self.modelPath = modelPath
@@ -475,6 +477,44 @@ class AnimeSRDirectML:
     def padFrame(self, frame: torch.tensor) -> torch.tensor:
         return torch.nn.functional.pad(frame, self.padding, mode="reflect")
 
+    def _checkedRecurrentOutput(
+        self, name: str, output, expectedShape: tuple[int, ...]
+    ):
+        if not isinstance(output, self.np.ndarray):
+            raise RuntimeError(f"AnimeSR ORT output {name} was not a NumPy array")
+        if output.dtype != self.numpyDType:
+            raise RuntimeError(
+                f"AnimeSR ORT output {name} had dtype {output.dtype}, expected {self.numpyDType}"
+            )
+        if output.shape != expectedShape:
+            raise RuntimeError(
+                f"AnimeSR ORT output {name} had shape {output.shape}, expected {expectedShape}"
+            )
+        if not output.flags.c_contiguous:
+            raise RuntimeError(f"AnimeSR ORT output {name} was not C-contiguous")
+
+        for inputName, inputArray in self._ortInputs.items():
+            if self.np.may_share_memory(output, inputArray):
+                raise RuntimeError(
+                    f"AnimeSR ORT output {name} reused input buffer {inputName}"
+                )
+
+        return output
+
+    def _rotateRecurrentOutputs(self, outImg, outState):
+        outImg = self._checkedRecurrentOutput("out_img", outImg, self._fbShape)
+        outState = self._checkedRecurrentOutput("out_state", outState, self._stateShape)
+        if self.np.may_share_memory(outImg, outState):
+            raise RuntimeError("AnimeSR ORT recurrent outputs shared memory")
+
+        self._ortInputs["fb"] = outImg
+        self._ortInputs["state"] = outState
+        self.outImg = torch.from_numpy(outImg)
+        self.outState = torch.from_numpy(outState)
+        self.fb = self.outImg
+        self.state = self.outState
+
+    @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
         frame = frame.half() if self.half else frame.float()
         paddedFrame = self.padFrame(frame).cpu()
@@ -492,11 +532,7 @@ class AnimeSRDirectML:
 
         outputs = self.model.run(["out_img", "out_state"], self._ortInputs)
 
-        self.outImg = torch.from_numpy(outputs[0])
-        self.outState = torch.from_numpy(outputs[1])
-
-        self.state.copy_(self.outState)
-        self.fb.copy_(self.outImg)
+        self._rotateRecurrentOutputs(outputs[0], outputs[1])
         self.prevFrame.copy_(paddedFrame)
 
         # Crop the reflect-padded border off before resizing. Resizing the

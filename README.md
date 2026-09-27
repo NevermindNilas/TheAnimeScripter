@@ -328,7 +328,8 @@ camera reconstruction or loop closure. See [details and licenses](docs/DA3_STREA
 | [DepthAnything](https://github.com/DepthAnything) | Depth map generation         | [Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)                |
 | [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
 | [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
-| [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
+| [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer; BiRefNet-Real_Anime | [BiRefNet-Real_Anime](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) |
+| [ZhengPeng7](https://github.com/ZhengPeng7)       | BiRefNet architecture        | [BiRefNet](https://github.com/ZhengPeng7/BiRefNet)                                     |
 | [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
 | [Phhofm](https://github.com/Phhofm/models)        | DeJpeg & DeH264 restoration  | [Phhofm/models](https://github.com/Phhofm/models)                                      |
 | [Kim2091](https://github.com/Kim2091)             | DIS Architecture (Gauss)  | [DIS](https://github.com/Kim2091/DIS)                                                  |

@@ -22,6 +22,7 @@ along with this program.  If not, see {http://www.gnu.org/licenses/}.
 Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
+import gc
 import logging
 import os
 import sys
@@ -102,6 +103,63 @@ class _FrameCollector:
 
     def clear(self) -> None:
         self.frames.clear()
+
+
+class _HeldFrame:
+    """Collected held source frame with the anchor it was copied from."""
+
+    __slots__ = ("frame", "cacheKey")
+
+    def __init__(self, frame, cacheKey: int) -> None:
+        self.frame = frame
+        self.cacheKey = cacheKey
+
+
+_BASE_STATELESS_UPSCALE_METHODS = frozenset(
+    {
+        "shufflecugan",
+        "cyte",
+        "adore",
+        "span",
+        "open-proteus",
+        "aniscale2",
+        "rtmosr",
+        "saryn",
+        "fallin_soft",
+        "fallin_strong",
+        "gauss",
+        "figsr",
+        "smosr",
+    }
+)
+_ORT_STATELESS_UPSCALE_METHODS = frozenset(
+    method
+    for base in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
+    for method in (f"{base}-directml", f"{base}-openvino")
+)
+_STATELESS_HELD_UPSCALE_ALLOWLIST = {
+    "UniversalPytorch": _BASE_STATELESS_UPSCALE_METHODS,
+    "UniversalPytorchMPS": frozenset(
+        f"{method}-mps" for method in _BASE_STATELESS_UPSCALE_METHODS
+    ),
+    "UniversalPytorchROCm": frozenset(
+        f"{method}-rocm" for method in _BASE_STATELESS_UPSCALE_METHODS
+    ),
+    "UniversalDirectML": _ORT_STATELESS_UPSCALE_METHODS,
+    "UniversalNCNN": frozenset({"shufflecugan-ncnn", "adore-ncnn", "span-ncnn"}),
+    "UniversalTensorRT": frozenset(
+        f"{method}-tensorrt" for method in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
+    ),
+}
+
+
+def _canReuseHeldUpscale(upscaleProcess, upscaleMethod: str, customModel: str) -> bool:
+    if customModel or getattr(upscaleProcess, "customModel", None):
+        return False
+    allowedMethods = _STATELESS_HELD_UPSCALE_ALLOWLIST.get(
+        type(upscaleProcess).__name__
+    )
+    return allowedMethods is not None and upscaleMethod in allowedMethods
 
 
 def _setTerminalTitle(title: str) -> None:
@@ -418,17 +476,25 @@ class VideoProcessor:
         slot as ``dupsBefore`` so ``processFrame`` can widen that gap's
         interpolation instead of shortening the video.
         """
-        if (self.dedup or self.smoothDedup) and self.dedup_process(rawFrame):
-            self._pendingDups += 1
-            return None
+        reusableScore = None
+        if self.dedup or self.smoothDedup:
+            isDuplicate = self.dedup_process(rawFrame)
+            if isDuplicate:
+                self._pendingDups += 1
+                return None
+            if not self.restore:
+                reusableScore = getattr(self.dedup_process, "lastReusableScore", None)
 
         frame = self.restore_process(rawFrame) if self.restore else rawFrame
 
-        isCut = bool(
-            self.interpolate
-            and self.sceneChange_process is not None
-            and self.sceneChange_process(frame)
-        )
+        isCut = False
+        if self.interpolate and self.sceneChange_process is not None:
+            if reusableScore is not None and getattr(
+                self.sceneChange_process, "supportsScoreReuse", False
+            ):
+                isCut = bool(self.sceneChange_process(frame, reusableScore))
+            else:
+                isCut = bool(self.sceneChange_process(frame))
         slot = FrameSlot(frame, isCut, self._pendingDups)
         self._pendingDups = 0
         return slot
@@ -462,6 +528,7 @@ class VideoProcessor:
         self._isCut = slot.isCut
         self._holdGap = False
         self._holdFromPrev = 0
+        self._heldCentreKey = None
 
         if self.interpolate:
             # Every driver emits its intermediates for the interval *ending* at
@@ -545,15 +612,20 @@ class VideoProcessor:
         ``frame``, or ``None`` at the end of the stream or across a scene cut.
         """
         if self._isCut or self._holdGap:
+            prevKey = id(self._lastFedFrame) if self._lastFedFrame is not None else None
+            currentKey = id(frame)
             fromPrev = (
                 min(self._holdFromPrev, self.framesToInsert)
                 if self._lastFedFrame is not None
                 else 0
             )
             for _ in range(fromPrev):
-                sink.put(self._lastFedFrame.clone())
-            for _ in range(self.framesToInsert - fromPrev):
-                sink.put(frame.clone())
+                self._putHeldFrame(sink, self._lastFedFrame, prevKey)
+            fromCurrent = self.framesToInsert - fromPrev
+            if fromCurrent:
+                self._heldCentreKey = currentKey
+            for _ in range(fromCurrent):
+                self._putHeldFrame(sink, frame, currentKey)
             self.interpolate_process.cacheFrameReset(frame)
         elif self.interpolateMethod.startswith("distildrba"):
             if self.maskedSink is not None:
@@ -572,6 +644,25 @@ class VideoProcessor:
 
         self.maskAnchor = frame
         self._lastFedFrame = frame
+
+    def _putHeldFrame(self, sink: any, frame: any, cacheKey: int | None) -> None:
+        heldFrame = frame.clone()
+        device = getattr(heldFrame, "device", None)
+        if device is not None and device.type == "cuda":
+            import torch
+
+            # The sink may consume immediately on an independent stream.
+            torch.cuda.current_stream(device).synchronize()
+        if (
+            self.interpolateFirst
+            and self.upscale
+            and self._heldUpscaleReuse
+            and sink is self.interpQueue
+            and cacheKey is not None
+        ):
+            sink.put(_HeldFrame(heldFrame, cacheKey))
+        else:
+            sink.put(heldFrame)
 
     def _drainInterpQueue(self) -> None:
         """Write every intermediate collected so far, upscaling it on the way.
@@ -604,11 +695,41 @@ class VideoProcessor:
         if self.upscale:
             nextFrame = self._interpNextFrame
             for item in self.interpQueue.frames:
-                self.writeBuffer.write(self.upscale_process(item, nextFrame))
+                cacheKey = None
+                if isinstance(item, _HeldFrame):
+                    cacheKey = item.cacheKey
+                    item = item.frame
+                self.writeBuffer.write(
+                    self._upscaleInterpFrame(item, nextFrame, cacheKey)
+                )
         else:
             for item in self.interpQueue.frames:
+                if isinstance(item, _HeldFrame):
+                    item = item.frame
                 self.writeBuffer.write(item)
         self.interpQueue.clear()
+
+    def _upscaleInterpFrame(self, frame: any, nextFrame: any, cacheKey: int | None):
+        if cacheKey is None or not self._heldUpscaleReuse:
+            return self.upscale_process(frame, nextFrame)
+
+        cached = self._heldUpscaleCache.get(cacheKey)
+        if cached is None:
+            cached = self.upscale_process(frame, nextFrame)
+            self._heldUpscaleCache[cacheKey] = cached
+        cloned = cached.clone()
+        # The writer copies on a private stream and never waits for this new
+        # clone. Finish it before handing the tensor to the writer queue.
+        device = getattr(cloned, "device", None)
+        if device is not None and device.type == "cuda":
+            import torch
+
+            torch.cuda.current_stream(device=device).synchronize()
+        elif device is not None and device.type == "mps":
+            import torch
+
+            torch.mps.synchronize()
+        return cloned
 
     def ifInterpolateFirst(self, frame: any) -> None:
         """
@@ -629,15 +750,23 @@ class VideoProcessor:
         # upscaler needs has to be reachable from _drainInterpQueue too.
         self._interpNextFrame = nextFrame
 
-        if self.interpolate:
-            self.interpQueue.clear()
-            self._interpolateOrHold(frame, self.interpQueue, nextFrame)
-            self._drainInterpQueue()
+        self._heldUpscaleCache.clear()
+        self._heldCentreKey = None
+        try:
+            if self.interpolate:
+                self.interpQueue.clear()
+                self._interpolateOrHold(frame, self.interpQueue, nextFrame)
+                self._drainInterpQueue()
 
-        if self.upscale:
-            self._writeOut(self.upscale_process(frame, nextFrame))
-        else:
-            self._writeOut(frame)
+            if self.upscale:
+                self._writeOut(
+                    self._upscaleInterpFrame(frame, nextFrame, self._heldCentreKey)
+                )
+            else:
+                self._writeOut(frame)
+        finally:
+            self._heldUpscaleCache.clear()
+            self._heldCentreKey = None
 
     def ifInterpolateLast(self, frame: any) -> None:
         """
@@ -697,7 +826,13 @@ class VideoProcessor:
             self._sourcePos * self.factorNum
         ) // self.factorDen
         for _ in range(owed):
-            self.writeBuffer.write(self._lastOutFrame.clone())
+            heldFrame = self._lastOutFrame.clone()
+            device = getattr(heldFrame, "device", None)
+            if device is not None and device.type == "cuda":
+                import torch
+
+                torch.cuda.current_stream(device).synchronize()
+            self.writeBuffer.write(heldFrame)
         self._sourcePos = endPos
         self._pendingDups = 0
 
@@ -708,7 +843,7 @@ class VideoProcessor:
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
-        from src.io.ffmpegSettings import closeWriterAndDrainReader
+        from src.io.ffmpegSettings import adaptiveQueueDepth, closeWriterAndDrainReader
         from src.io.frameWindow import FrameWindow, temporalDemand
 
         frameCount = 0
@@ -722,6 +857,16 @@ class VideoProcessor:
         self._holdFromPrev = 0
         self._lastFedFrame = None
         self._lastOutFrame = None
+        self._heldCentreKey = None
+        self._heldUpscaleCache = {}
+        self._heldUpscaleReuse = (
+            self.interpolate
+            and self.interpolateFirst
+            and self.upscale
+            and _canReuseHeldUpscale(
+                self.upscale_process, self.upscaleMethod, self.customModel
+            )
+        )
 
         self.maskedSink = None
         self.maskAnchor = None
@@ -747,11 +892,17 @@ class VideoProcessor:
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolateFirst:
-            # 32 mirrors the writer's own queue depth: past that the writer is
+            # The limit mirrors the writer's own queue depth: past that the writer is
             # the backpressure, so holding more here buys nothing and a widened
             # --smooth_dedup gap would keep hundreds of frames alive at once.
             self._interpNextFrame = None
-            self.interpQueue = _FrameCollector(drain=self._drainInterpQueue, limit=32)
+            self.interpQueue = _FrameCollector(
+                drain=self._drainInterpQueue,
+                limit=adaptiveQueueDepth(
+                    getattr(self, "new_width", self.width),
+                    getattr(self, "new_height", self.height),
+                ),
+            )
 
         # Drivers declare how many neighbouring frames they need handed to them.
         # Restore runs at window entry, so every slot already shares its domain
@@ -1261,6 +1412,7 @@ def main():
         succeededVideos = 0
         failedVideos = 0
         for idx, entry in enumerate(results, 1):
+            processor = None
             try:
                 _videoName = os.path.basename(entry["videoPath"])
                 if len(_videoName) > 60:
@@ -1322,6 +1474,22 @@ def main():
                 # retries -- never reached _notifyAdobe, so the panel sat on
                 # the last progress string with the run already over.
                 _notifyAdobeOfFatalError(e)
+                if totalVideos > 1 and processor is not None:
+                    processor = None
+                    tb = e.__traceback__
+                    while tb is not None:
+                        nextTb = tb.tb_next
+                        try:
+                            tb.tb_frame.clear()
+                        except RuntimeError:
+                            tb = nextTb
+                            continue
+                        tb = nextTb
+                    gc.collect()
+            finally:
+                if totalVideos > 1 and processor is not None:
+                    processor = None
+                    gc.collect()
 
         _setTerminalTitle("TAS")
 

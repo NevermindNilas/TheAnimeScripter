@@ -131,17 +131,6 @@ class NvidiaVSR:
             dtype=torch.float32,
         ).contiguous()
 
-        self.dummyOutput = torch.zeros(
-            (
-                1,
-                3,
-                self.height * self.upscaleFactor,
-                self.width * self.upscaleFactor,
-            ),
-            device=checker.device,
-            dtype=torch.float32,
-        ).contiguous()
-
         for _ in range(5):
             _out = self.model.run(self.dummyInput, stream_ptr=0)
             _ = torch.from_dlpack(_out.image).clone()
@@ -161,9 +150,28 @@ class NvidiaVSR:
         )  # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
         self.dummyInput.copy_(src.contiguous(), non_blocking=False)
         outCapsule = self.model.run(self.dummyInput, stream_ptr=0)
-        upscaled = torch.from_dlpack(outCapsule.image)  # (3, H', W')
-        self.dummyOutput[0].copy_(upscaled, non_blocking=False)
-        output = self.dummyOutput.clone()
+        outImage = outCapsule.image
+        upscaled = torch.from_dlpack(outImage)  # (3, H', W')
+        expectedShape = (
+            3,
+            self.height * self.upscaleFactor,
+            self.width * self.upscaleFactor,
+        )
+        if (
+            upscaled.shape == expectedShape
+            and upscaled.dtype == self.dummyInput.dtype
+            and upscaled.device == self.dummyInput.device
+        ):
+            output = upscaled.unsqueeze(0).clone(memory_format=torch.contiguous_format)
+        else:
+            # Match the old fixed float32 buffer's conversion and broadcasting.
+            staging = torch.empty(
+                (1, *expectedShape),
+                device=self.dummyInput.device,
+                dtype=self.dummyInput.dtype,
+            )
+            staging[0].copy_(upscaled, non_blocking=False)
+            output = staging.clone()
         torch.cuda.synchronize()
         return output
 

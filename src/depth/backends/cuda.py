@@ -213,8 +213,9 @@ class DepthCuda(DepthRunOutcome):
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
-            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             with torch.cuda.stream(self.stream):
+                # Produce the batch on the stream that reads it.
+                batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
                 batch = self.normFrame(batch)
                 depth = self.model(batch)
                 depth = F.interpolate(
@@ -335,8 +336,9 @@ class LimboCuda(DepthCuda):
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
-            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             with torch.cuda.stream(self.stream):
+                # Produce the batch on the stream that reads it.
+                batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
                 batch = self.normFrame(batch)
                 # DA3 takes [B, views, C, H, W]; one frame is one single-view
                 # scene, so the view axis is 1 and the batch axis stays
@@ -714,8 +716,11 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                 disparity = np.zeros_like(depth, dtype=np.float32)
                 disparity[validMask] = 1.0 / depth[validMask]
 
-                disp_min = np.percentile(disparity[validMask], 2)
-                disp_max = np.percentile(disparity[validMask], 98)
+                # Scalar percentile rounds q in the input dtype; preserve that
+                # rounding when requesting both bounds in one partition pass.
+                disp_min, disp_max = np.percentile(
+                    disparity[validMask], np.array((2, 98), dtype=disparity.dtype)
+                )
                 if disp_min == disp_max:
                     disp_min -= 1e-6
                     disp_max += 1e-6

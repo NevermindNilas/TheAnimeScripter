@@ -11,7 +11,7 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.providerCheck import warnIfProviderMissing
 from src.interpolate._shared import importRifeArch
-from src.interpolate._timesteps import interpolateTimestep
+from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -291,6 +291,7 @@ class RifeDirectML:
             dtype=self.dtype,
             device=self.device,
         ).contiguous()
+        self._cachedTimestepValue = 0.5
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height, self.width),
@@ -371,7 +372,13 @@ class RifeDirectML:
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 
-            self.dummyTimeStep.fill_(t)
+            # Skip the fill when the timestep already holds this value
+            # (matches RifeTensorRT's fillTimestepBuffer caching). The ORT
+            # rebind below stays mandatory every insert: ORT snapshots bound
+            # inputs at bind_input() time, not at run time.
+            self._cachedTimestepValue = fillTimestepBuffer(
+                self.dummyTimeStep, self._cachedTimestepValue, t
+            )
 
             # ORT reads bound inputs at bind_input() time, not at run time, so the
             # timestep MUST be rebound after every fill_; otherwise all inserted

@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from src.infra.isCudaInit import CudaChecker
-from src.interpolate._timesteps import interpolateTimestep
+from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -471,6 +471,7 @@ class DistilDRBATensorRT:
         self.tTimestep = torch.full(
             (1, 1, self.ph, self.pw), 0.75, dtype=self.dtype, device=self.device
         )
+        self._cachedTimestepValue = 0.75
 
         self.tOutput = torch.zeros(
             1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
@@ -592,8 +593,12 @@ class DistilDRBATensorRT:
             with torch.cuda.stream(self.stream):
                 # Fill the timestep on the SAME stream that replays the graph so
                 # the replay is ordered after the write; filling on the default
-                # stream races the replay and can read a stale timestep.
-                self.tTimestep.fill_(tDrba)
+                # stream races the replay and can read a stale timestep. Skip
+                # the fill when the buffer already holds this value (shared
+                # fillTimestepBuffer caching, as in RifeTensorRT).
+                self._cachedTimestepValue = fillTimestepBuffer(
+                    self.tTimestep, self._cachedTimestepValue, tDrba
+                )
                 self.cudaGraph.replay()
             self.stream.synchronize()
 

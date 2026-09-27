@@ -147,8 +147,8 @@ def limboDisparity(depth):
     disparity = torch.where(valid, 1.0 / depth.clamp_min(1e-6), torch.zeros_like(depth))
 
     sample = torch.where(valid, disparity, torch.full_like(disparity, float("nan")))
-    low = torch.nanquantile(sample.flatten(), 0.02)
-    high = torch.nanquantile(sample.flatten(), 0.98)
+    # A quantile vector sorts the map once for both bounds.
+    low, high = torch.nanquantile(sample.flatten(), sample.new_tensor([0.02, 0.98]))
     gray = (disparity - low) / (high - low).clamp_min(1e-6)
     # An all-invalid frame makes both quantiles NaN; write black rather than
     # letting a NaN reach the writer's quantization.

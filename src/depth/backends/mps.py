@@ -648,8 +648,9 @@ class OGDepthV3MPS(OGDepthV2MPS):
                 disparity = np.zeros_like(depth, dtype=np.float32)
                 disparity[validMask] = 1.0 / depth[validMask]
 
-                disp_min = np.percentile(disparity[validMask], 2)
-                disp_max = np.percentile(disparity[validMask], 98)
+                disp_min, disp_max = np.percentile(
+                    disparity[validMask], np.array((2, 98), dtype=disparity.dtype)
+                )
                 if disp_min == disp_max:
                     disp_min -= 1e-6
                     disp_max += 1e-6

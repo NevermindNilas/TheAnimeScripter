@@ -21,6 +21,11 @@ DEPTHV2URLSMALL = (
 
 TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
 
+BIREFNET_URL = (
+    "https://huggingface.co/Zarxrax/BiRefNet-Real_Anime/resolve/"
+    "608646577c85b7e5ba77b06f6e165b08c0b35a14/"
+)
+
 
 def modelsList() -> list[str]:
     return [
@@ -90,6 +95,7 @@ def modelsList() -> list[str]:
         "segment",
         "segment-tensorrt",
         "segment-directml",
+        "birefnet",
         "scunet",
         "scunet-tensorrt",
         "scunet-directml",
@@ -549,6 +555,9 @@ def modelsMap(
                         return "2x_Fallin_strong_renarchi_fp32_op17_slim.onnx"
         case "segment":
             return "isnetis.ckpt"
+
+        case "birefnet":
+            return "BiRefNet-Real_Anime_lite_v1.pth"
 
         case "scunet" | "scunet-tensorrt" | "scunet-directml":
             if modelType == "pth":

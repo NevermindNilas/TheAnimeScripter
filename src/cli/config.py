@@ -8,6 +8,47 @@ from dataclasses import dataclass, field
 from src.infra.logAndPrint import logAndPrint
 
 
+def _actionsByDest(parser):
+    """Cached ``{dest: action}`` map for a parser (built once, then reused).
+
+    :func:`validateChoiceForKey` and :func:`coerceValueForKey` used to scan
+    ``parser._actions`` on every call, so a preset load (one call per stored
+    key) re-scanned the whole action list hundreds of times. The map is cached
+    on the parser instance itself, so each built parser pays for one scan.
+    """
+    cached = getattr(parser, "_tas_actions_by_dest", None)
+    if cached is None:
+        cached = {action.dest: action for action in parser._actions}
+        parser._tas_actions_by_dest = cached
+    return cached
+
+
+def _publicActionsByDest(parser):
+    """Cached action map minus the ``help``/``version`` pseudo-actions."""
+    cached = getattr(parser, "_tas_public_actions_by_dest", None)
+    if cached is None:
+        cached = {
+            action.dest: action
+            for action in parser._actions
+            if action.dest not in ("help", "version")
+        }
+        parser._tas_public_actions_by_dest = cached
+    return cached
+
+
+def _defaultsByDest(parser):
+    """Cached ``{dest: default}`` map for a parser (built once, then reused)."""
+    cached = getattr(parser, "_tas_defaults_by_dest", None)
+    if cached is None:
+        cached = {
+            action.dest: action.default
+            for action in parser._actions
+            if action.dest not in ("help", "version", "json")
+        }
+        parser._tas_defaults_by_dest = cached
+    return cached
+
+
 def validateChoiceForKey(parser, key, value, sourceLabel):
     """Reject a value argparse would have rejected on the command line.
 
@@ -23,7 +64,7 @@ def validateChoiceForKey(parser, key, value, sourceLabel):
     case-insensitive match is accepted and mapped onto the declared choice.
     Callers must assign the return value, not the original.
     """
-    action = next((a for a in parser._actions if a.dest == key), None)
+    action = _actionsByDest(parser).get(key)
     if action is None or not action.choices:
         return value
 
@@ -96,7 +137,7 @@ def coerceValueForKey(parser, key, value, sourceLabel):
     Exits 1 with the same red diagnostic style as the choices check. Returns
     the coerced value; callers must assign it.
     """
-    action = next((a for a in parser._actions if a.dest == key), None)
+    action = _actionsByDest(parser).get(key)
     if action is None or value is None:
         return value
 
@@ -230,19 +271,14 @@ class CliConfig:
 
     @property
     def parserActionsByDest(self):
-        return {
-            action.dest: action
-            for action in self.parser._actions
-            if action.dest not in ["help", "version"]
-        }
+        # Reuses the parser-level cache: no per-access rebuild.
+        return _publicActionsByDest(self.parser)
 
     @property
     def parserDefaults(self):
-        defaults = {}
-        for action in self.parser._actions:
-            if action.dest not in ["help", "version", "json"]:
-                defaults[action.dest] = action.default
-        return defaults
+        # Reuses the parser-level cache: no per-access rebuild. Read-only;
+        # callers must not mutate the returned map.
+        return _defaultsByDest(self.parser)
 
     def normalize(self):
         if self.args.json:

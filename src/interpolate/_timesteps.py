@@ -9,9 +9,13 @@ def gapPlan(prevPos, curPos, factorNum, factorDen):
 
     Returns ``(framesToInsert, timesteps)`` with timesteps in ``(0, 1)``,
     relative to that interval. For an integer factor ``f`` over a unit interval
-    it yields exactly ``[1/f, 2/f, ..., (f-1)/f]`` -- the same values
-    ``interpolateTimestep`` produces on its own.
+    it returns ``(f - 1, None)``: the values would be exactly ``[1/f, 2/f, ...,
+    (f-1)/f]`` -- the same ladder ``interpolateTimestep`` produces on its own
+    -- so the driver runs its default path and keeps its timestep buffer
+    cached. Every other gap returns an explicit list.
     """
+    if curPos - prevPos == 1 and factorNum % factorDen == 0:
+        return factorNum // factorDen - 1, None
     outPrev = (prevPos * factorNum) // factorDen
     outCur = (curPos * factorNum) // factorDen
     # Keep the whole numerator in integers: dividing an absolute source position

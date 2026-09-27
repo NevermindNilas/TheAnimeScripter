@@ -33,6 +33,18 @@ if ADOBE:
 checker = CudaChecker()
 
 
+def _updateVideoDepthTemporalWindow(window, frame, initialized: bool) -> None:
+    """Build the Video Depth Anything temporal input in its bound TRT buffer."""
+    if not initialized:
+        for i in range(window.shape[0]):
+            window[i].copy_(frame, non_blocking=True)
+        return
+
+    for i in range(window.shape[0] - 1):
+        window[i].copy_(window[i + 1], non_blocking=True)
+    window[-1].copy_(frame, non_blocking=True)
+
+
 class DepthTensorRTV2(DepthRunOutcome):
     def __init__(
         self,
@@ -672,17 +684,12 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                 frame = frame.half()
             if self.isVideoDepthTensorRT:
                 frame = frame.squeeze(0)
-                if not hasattr(self, "frameWindow"):
-                    self.frameWindow = frame.unsqueeze(0).repeat(
-                        self.temporalWindowSize, 1, 1, 1
-                    )
-                else:
-                    # shift the window left by one; clone the source slice first
-                    # because frameWindow[:-1] and frameWindow[1:] alias overlapping
-                    # memory (copy_ rejects a self-overlapping src/dst).
-                    self.frameWindow[:-1].copy_(self.frameWindow[1:].clone())
-                    self.frameWindow[-1].copy_(frame)
-                self.dummyInput.copy_(self.frameWindow.unsqueeze(0), non_blocking=True)
+                _updateVideoDepthTemporalWindow(
+                    self.dummyInput[0],
+                    frame,
+                    hasattr(self, "_videoDepthWindowInitialized"),
+                )
+                self._videoDepthWindowInitialized = True
             else:
                 self.dummyInput.copy_(frame, non_blocking=True)
         self.normStream.synchronize()
@@ -693,8 +700,9 @@ class OGDepthV2TensorRT(DepthRunOutcome):
             depthTensor = self.dummyOutput[0, -1].float()
             depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
             flatTensor = depthTensor.flatten()
-            lowerBound = torch.quantile(flatTensor, 0.01)
-            upperBound = torch.quantile(flatTensor, 0.99)
+            lowerBound, upperBound = torch.quantile(
+                flatTensor, flatTensor.new_tensor([0.01, 0.99])
+            )
             denom = (upperBound - lowerBound).clamp_min(1e-6)
             depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
             depth = (depthTensor * 255.0).byte().cpu().numpy()
@@ -721,6 +729,8 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                 .unsqueeze(0)
                 .mul(1 / 255)
             )
+            # The writer reads on its own stream; finish the final multiply.
+            torch.cuda.current_stream(depthTensor.device).synchronize()
             self.writeBuffer.write(depthTensor)
         except Exception as e:
             self.recordFailure(e)
@@ -776,6 +786,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                     .unsqueeze(0)
                     .mul(1 / 255)
                 )
+                torch.cuda.current_stream(depthTensor.device).synchronize()
                 self.writeBuffer.write(depthTensor)
         except Exception as e:
             self.recordFailure(e)

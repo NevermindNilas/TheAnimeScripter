@@ -31,6 +31,9 @@ increasing frame order. Recurrent drivers (AnimeSR carries ``prevFrame`` and a
 hidden ``state``) therefore still see frames in sequence.
 """
 
+_SENTINEL = object()
+"""Cache-miss marker for ``FrameWindow.staged``: ``None`` is a cached value, not a miss."""
+
 
 class FrameSlot:
     """One frame in the window, plus whatever later stages have computed for it.
@@ -165,13 +168,14 @@ class FrameWindow:
 
         ``compute(offset)`` runs at most once per slot. Callers only look
         forward, so slots are computed in increasing frame order and recurrent
-        drivers stay in sequence.
+        drivers stay in sequence. A ``None`` result is a real value and is
+        cached like any other, so ``compute`` is never re-run for the slot.
         """
         slot = self.at(offset)
         if slot is None:
             return None
-        value = slot.cache.get(key)
-        if value is None:
+        value = slot.cache.get(key, _SENTINEL)
+        if value is _SENTINEL:
             value = compute(offset)
             slot.cache[key] = value
         return value

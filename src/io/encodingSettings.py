@@ -574,9 +574,9 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
     outPixFmt = defaultOutPixFMT
     enc = encode_method
 
-    if transparent and encode_method not in ["prores_segment"]:
+    if transparent:
         enc = "prores_segment"
-        inPixFmt = "rgba"
+        inPixFmt = "rgba" if bitDepth == "8bit" else "rgba64le"
         outPixFmt = "yuva444p10le"
     elif grayscale:
         if bitDepth == "8bit":

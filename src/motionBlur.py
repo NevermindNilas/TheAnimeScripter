@@ -90,6 +90,17 @@ class GammaCorrectBlender:
 
         if self.isEqual:
             blended = stacked.mean(dim=0, keepdim=True)
+        elif (
+            (self.gamma or not stacked.is_cuda)
+            and stacked.dtype == self.weightTensor.dtype
+            and stacked.device == self.weightTensor.device
+            and stacked.ndim == self.weightTensor.ndim
+            and stacked.shape[0] == self.weightTensor.shape[0]
+        ):
+            # cat owns this storage; multiplying it cannot touch input frames.
+            # Keep the allocating path when the original math would promote.
+            # CUDA without gamma is quicker with a separate multiply output.
+            blended = stacked.mul_(self.weightTensor).sum(dim=0, keepdim=True)
         else:
             blended = (stacked * self.weightTensor).sum(dim=0, keepdim=True)
 

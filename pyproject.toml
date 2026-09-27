@@ -8,6 +8,7 @@ extend-exclude = [
     "src/depth/depth_anything_3",      # vendored Depth-Anything-3 arch
     "src/depth/video_depth_anything",  # vendored Video-Depth-Anything arch
     "src/depth/dinov2_layers",         # vendored DINOv2 layers
+    "src/segment/birefnet_arch",      # adapted upstream BiRefNet inference arch
     "dist-portable",                   # portable-Python build output (also gitignored)
 ]
 
@@ -46,6 +47,7 @@ exclude = [
     "src/depth/depth_anything_3",
     "src/depth/video_depth_anything",
     "src/depth/dinov2_layers",
+    "src/segment/birefnet_arch",
     "dist-portable",
     "portable-python",
 ]

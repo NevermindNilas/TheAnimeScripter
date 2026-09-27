@@ -179,4 +179,6 @@ def draw_masks(
         # Draw fill rectangle in mask image
         cv2.rectangle(mask_img, (x1, y1), (x2, y2), color, -1)
 
+    # Keep the full-frame shape: cropping can select a different OpenCV SIMD
+    # kernel or scalar tail and change half-integer rounding by one intensity.
     return cv2.addWeighted(mask_img, mask_alpha, image, 1 - mask_alpha, 0)

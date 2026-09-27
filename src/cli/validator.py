@@ -34,7 +34,25 @@ def isAnyOtherProcessingMethodEnabled(args):
     )
 
 
-def _downgradeCudaDetector(method: str, flagName: str) -> str:
+# Sentinel for "no CUDA probe was handed in". Startup probes once (see
+# prepareRuntimeArgs) and passes the result down, instead of every guard
+# constructing its own CudaChecker. As a *value*, None means the probe itself
+# failed -- no torch at all, e.g. a bare CI venv -- which the dedup guards
+# treat as "leave the pick alone".
+_UNPROBED = object()
+
+
+def _probeCudaAvailability():
+    """One CudaChecker construction; None when torch is absent (bare CI)."""
+    try:
+        from src.infra.isCudaInit import CudaChecker
+
+        return bool(CudaChecker().cudaAvailable)
+    except Exception:
+        return None
+
+
+def _downgradeCudaDetector(method: str, flagName: str, cudaAvailable=_UNPROBED) -> str:
     """Swap a CUDA-only frame comparator for its CPU twin on a CUDA-less box.
 
     `--dedup`, `--smooth_dedup` and `--scenechange` drive the same comparators
@@ -44,12 +62,14 @@ def _downgradeCudaDetector(method: str, flagName: str) -> str:
     the way through startup, downloaded the FlowNetS weights, and then died at
     model init with a raw "Torch not compiled with CUDA enabled" that never
     named the flag.
-    """
-    try:
-        from src.infra.isCudaInit import CudaChecker
 
-        cudaAvailable = CudaChecker().cudaAvailable
-    except Exception:
+    `cudaAvailable` is the shared startup probe (True/False), or None when the
+    probe itself failed. Omitted, it probes once here, so direct callers keep
+    working.
+    """
+    if cudaAvailable is _UNPROBED:
+        cudaAvailable = _probeCudaAvailability()
+    if cudaAvailable is None:
         # No torch at all (a bare CI venv): leave the pick alone rather than
         # rewriting it on the strength of a failed probe.
         return method
@@ -340,7 +360,7 @@ def _mapAutoclipSensitivity(method, sensitivity):
     return float(1.0 - (float(sensitivity) / 100.0))
 
 
-def _configureProcessingSettings(args):
+def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
     if args.slowmo:
         cs.AUDIO = False
         logging.info("Slow motion enabled, audio processing disabled")
@@ -389,8 +409,12 @@ def _configureProcessingSettings(args):
             0, int(getattr(args, "smooth_dedup_max_span", 6))
         )
 
+        # First CUDA guard in this function resolves the shared probe; every
+        # later guard below reuses it instead of constructing its own checker.
+        if cudaAvailable is _UNPROBED:
+            cudaAvailable = _probeCudaAvailability()
         args.smooth_dedup_method = _downgradeCudaDetector(
-            args.smooth_dedup_method, "smooth_dedup_method"
+            args.smooth_dedup_method, "smooth_dedup_method", cudaAvailable
         )
 
         # Duration is preserved, so audio stays in sync and is left enabled.
@@ -408,7 +432,11 @@ def _configureProcessingSettings(args):
 
         # Before the sensitivity mapping, which is grouped by metric and so
         # unaffected by the swap.
-        args.dedup_method = _downgradeCudaDetector(args.dedup_method, "dedup_method")
+        if cudaAvailable is _UNPROBED:
+            cudaAvailable = _probeCudaAvailability()
+        args.dedup_method = _downgradeCudaDetector(
+            args.dedup_method, "dedup_method", cudaAvailable
+        )
         args.dedup_sens_raw = args.dedup_sens
         args.dedup_sens = _mapDedupSensitivity(args.dedup_method, args.dedup_sens)
         logging.info(
@@ -421,13 +449,10 @@ def _configureProcessingSettings(args):
     ):
         # DUT initializes four torch models on torch.device("cuda") (HIP on
         # ROCm); same visible-downgrade contract as the CUDA frame comparators
-        # above.
-        try:
-            from src.infra.isCudaInit import CudaChecker
-
-            cudaAvailable = CudaChecker().cudaAvailable
-        except Exception:
-            cudaAvailable = False
+        # above. A failed probe (None, no torch at all) counts as unavailable
+        # and falls back, matching the old try/except here.
+        if cudaAvailable is _UNPROBED:
+            cudaAvailable = _probeCudaAvailability()
         if not cudaAvailable:
             logAndPrint(
                 f"stabilize_method {args.stabilize_method} requires CUDA/ROCm, "
@@ -462,10 +487,12 @@ def _configureProcessingSettings(args):
             # CPU/DML equivalent when CUDA is unavailable (CPU/MPS boxes) so
             # enabling --scenechange there does not crash at detector init. The
             # threshold formula is grouped by metric, so remapping here first is
-            # threshold-neutral.
-            from src.infra.isCudaInit import CudaChecker
-
-            if not CudaChecker().cudaAvailable:
+            # threshold-neutral. A failed probe (None, no torch at all) also
+            # downgrades instead of raising out of the checker construction,
+            # which the old unguarded probe did on a bare CI venv.
+            if cudaAvailable is _UNPROBED:
+                cudaAvailable = _probeCudaAvailability()
+            if not cudaAvailable:
                 downgrade = {
                     "ssim-cuda": "ssim",
                     "mse-cuda": "mse",
@@ -504,17 +531,37 @@ def _configureProcessingSettings(args):
         )
 
 
-def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
+def _adjustMethodsBasedOnCuda(
+    args, availableModels=None, methodChoices=None, parser=None, cudaChecker=_UNPROBED
+):
+    """Rewrite CUDA-only methods to sibling backends when CUDA is unavailable.
+
+    `parser` is the live startup parser: its choice lists decide whether a
+    non-CUDA sibling exists, so it is reused here instead of building a second
+    parser. `cudaChecker` is the shared startup probe (a CudaChecker, or None
+    when the probe failed); omitted, it probes once here, so direct callers
+    keep working.
+    """
     supportsCuda = getattr(args, "supportsCuda", None)
 
     preferRocm = False
     if supportsCuda is None:
-        from src.infra.isCudaInit import CudaChecker, detectGPUArchitecture
+        from src.infra.isCudaInit import detectGPUArchitecture
 
-        isCuda = CudaChecker()
+        if cudaChecker is _UNPROBED:
+            try:
+                from src.infra.isCudaInit import CudaChecker
+
+                cudaChecker = CudaChecker()
+            except Exception:
+                # No torch at all (a bare CI venv): without a usable
+                # torch.cuda there is no CUDA path, so fall back.
+                cudaChecker = None
+
+        isCuda = cudaChecker
 
         needsFallback = False
-        if isCuda.cudaAvailable:
+        if isCuda is not None and isCuda.cudaAvailable:
             if isCuda.rocmAvailable:
                 # ROCm/HIP torch on AMD: torch.cuda works, but NVML/nvidia-smi
                 # see no NVIDIA GPU, so detectGPUArchitecture would report
@@ -554,11 +601,17 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
             availableModels = modelsList()
 
         if methodChoices is None:
-            # The CLI choices, not the weight registry, decide whether a
-            # non-CUDA sibling exists (see fallbackMethod's docstring).
-            from src.cli.parser import _buildParser, capabilityMethods
+            if parser is not None:
+                # The CLI choices, not the weight registry, decide whether a
+                # non-CUDA sibling exists (see fallbackMethod's docstring).
+                from src.cli.parser import capabilityMethods
 
-            methodChoices = capabilityMethods(_buildParser("."))
+                methodChoices = capabilityMethods(parser)
+            else:
+                # Back-compat for direct calls without a parser (tests).
+                from src.cli.parser import _buildParser, capabilityMethods
+
+                methodChoices = capabilityMethods(_buildParser("."))
 
         applyBackendFallbacks(
             args,
@@ -718,9 +771,23 @@ def prepareRuntimeArgs(args, outputPath, parser):
 
     _normalizeMethodAliases(args)
 
-    _configureProcessingSettings(args)
+    # One CUDA probe for the whole startup: the dedup, smooth-dedup,
+    # stabilize and scenechange guards plus the backend fallback below used to
+    # construct one CudaChecker each. None means the probe itself failed -- no
+    # torch at all, e.g. a bare CI venv -- which the guards treat as "no CUDA"
+    # (the dedup guards leave CUDA picks alone rather than rewriting them on
+    # a failed probe).
+    try:
+        from src.infra.isCudaInit import CudaChecker
 
-    _adjustMethodsBasedOnCuda(args)
+        cudaChecker = CudaChecker()
+    except Exception:
+        cudaChecker = None
+    cudaAvailable = bool(cudaChecker.cudaAvailable) if cudaChecker is not None else None
+
+    _configureProcessingSettings(args, cudaAvailable=cudaAvailable)
+
+    _adjustMethodsBasedOnCuda(args, parser=parser, cudaChecker=cudaChecker)
 
     # After the CUDA fallback, so the quality/batch clamps see the backend that
     # will actually run rather than the one the user typed. Before this move, a

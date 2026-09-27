@@ -42,6 +42,10 @@ class SceneChangeScorer6ch:
         self.half = half
         self.H = self.W = size
         self.backend = "tensorrt" if method.endswith("-tensorrt") else "directml"
+        # Reused 6ch concat buffer for the DML path: hoists the per-pair
+        # np.concatenate allocation out of the scoring hot path. Reused only
+        # across synchronous session.run calls, so no aliasing risk.
+        self._concatBuf = None
         self._loadModel()
 
     # ---- model loading (lifted from AutoClipMaxxvit) -----------------------
@@ -161,6 +165,7 @@ class SceneChangeScorer6ch:
 
     # ---- preprocessing -----------------------------------------------------
 
+    @torch.inference_mode()
     def preprocessHWC(self, hwcTensor):
         """Prepass path: nelux HWC uint8 -> CHW [0,1] (numpy for DML, torch GPU
         for TRT)."""
@@ -177,6 +182,7 @@ class SceneChangeScorer6ch:
         arr = arr.astype(np.float16 if self.half else np.float32) / 255.0
         return np.ascontiguousarray(arr.transpose(2, 0, 1))
 
+    @torch.inference_mode()
     def preprocessCHW(self, frame):
         """Streaming path: a ``(1, 3, H, W)`` (or ``(3, H, W)``) float [0,1]
         tensor -> CHW [0,1] resized to the model input, matching the backend's
@@ -202,11 +208,20 @@ class SceneChangeScorer6ch:
 
     # ---- scoring (lifted from AutoClipMaxxvit) -----------------------------
 
+    @torch.inference_mode()
     def scoreDirectML(self, prev, curr):
-        inputs = np.concatenate((prev, curr), axis=0)
-        result = self.session.run(None, {"input": inputs})[0]
+        if (
+            self._concatBuf is None
+            or self._concatBuf.shape != (6, self.H, self.W)
+            or self._concatBuf.dtype != prev.dtype
+        ):
+            self._concatBuf = np.empty((6, self.H, self.W), dtype=prev.dtype)
+        self._concatBuf[:3] = prev
+        self._concatBuf[3:] = curr
+        result = self.session.run(None, {"input": self._concatBuf})[0]
         return float(result[0][0])
 
+    @torch.inference_mode()
     def scoreTensorRT(self, prev, curr):
         with torch.cuda.stream(self.stream):
             self.dummyInput.copy_(torch.cat((prev, curr), dim=0), non_blocking=True)
@@ -215,6 +230,7 @@ class SceneChangeScorer6ch:
         self.stream.synchronize()
         return score
 
+    @torch.inference_mode()
     def score(self, prev, curr):
         """Cut probability for a preprocessed pair (softmax ``[0][0]``)."""
         if self.backend == "tensorrt":

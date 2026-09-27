@@ -48,6 +48,34 @@ checker = CudaChecker()
 # Debugging flag
 neluxLog = False
 
+# I/O queue-depth tuning. 32 slots at or below 1080p; above that the depth
+# scales down with frame area (floor 8) so 4K+ frames do not pin 4x the VRAM
+# for ~0% throughput gain -- the writer is the backpressure past that point.
+_BASE_QUEUE_DEPTH = 32
+_MIN_QUEUE_DEPTH = 8
+_REFERENCE_PIXELS = 1920 * 1080
+
+
+def adaptiveQueueDepth(width=None, height=None) -> int:
+    """Queue slots for a frame of ``width``x``height``.
+
+    Returns ``_BASE_QUEUE_DEPTH`` at or below 1080p and scales down with
+    frame area above it, never below ``_MIN_QUEUE_DEPTH``. Unknown or
+    non-positive dims fall back to the base depth.
+    """
+    try:
+        w = int(width) if width is not None else 0
+        h = int(height) if height is not None else 0
+    except TypeError, ValueError:
+        return _BASE_QUEUE_DEPTH
+    if w <= 0 or h <= 0:
+        return _BASE_QUEUE_DEPTH
+    pixels = w * h
+    if pixels <= _REFERENCE_PIXELS:
+        return _BASE_QUEUE_DEPTH
+    return max(_MIN_QUEUE_DEPTH, round(_BASE_QUEUE_DEPTH * _REFERENCE_PIXELS / pixels))
+
+
 CachedReader = None
 CachedReaderMethod = None
 CachedReaderResize = None
@@ -179,7 +207,7 @@ def _probedMetadata() -> dict:
 def drainReader(readBuffer) -> None:
     """Consume decoded frames until the reader thread reaches its sentinel.
 
-    The reader blocks on ``put()`` into the 32-deep decode queue, so a consumer
+    The reader blocks on ``put()`` into the bounded decode queue, so a consumer
     that stops early (because it raised) pins it there and every join on it
     hangs. Draining lets it run out and set ``isFinished``.
     """
@@ -241,7 +269,7 @@ class BuildBuffer:
         """
         self.decodeMethod = decode_method
         self.half = half
-        self.decodeBuffer = Queue(maxsize=32)
+        self.decodeBuffer = Queue(maxsize=adaptiveQueueDepth(width, height))
         self.width = width
         self.height = height
         self.resize = resize
@@ -555,8 +583,11 @@ class BuildBuffer:
                 )
 
                 frame = frame.permute(2, 0, 1)
-                frame.mul_(norm)
-                frame.clamp_(0, 1)
+                # Out-of-place: permute() is a view and .to() above returns its
+                # input unchanged when dtype/device already match, so in-place
+                # math here would corrupt the caller's buffer. No perf claim --
+                # the copy is the safety.
+                frame = frame.mul(norm).clamp(0, 1)
 
                 if self.resize and not self._didDecoderResize:
                     frame = F.interpolate(
@@ -580,8 +611,8 @@ class BuildBuffer:
 
             frame = frame.permute(2, 0, 1)
 
-            frame.mul_(norm)
-            frame.clamp_(0, 1)
+            # Same out-of-place contract as the CUDA path above.
+            frame = frame.mul(norm).clamp(0, 1)
 
             if self.resize and not self._didDecoderResize:
                 frame = F.interpolate(
@@ -749,7 +780,7 @@ class WriteBuffer:
             self.previewSampler = PreviewSampler(previewSink)
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=32)
+        self.writeBuffer = Queue(maxsize=adaptiveQueueDepth(width, height))
         # True once __call__ consumed the producer's None sentinel. If the
         # encoder dies early this stays False and the finally-drain below keeps
         # emptying the queue so the producer's blocking put() can't deadlock
@@ -1287,6 +1318,10 @@ class WriteBuffer:
                         break
 
                     with torch.cuda.stream(transferStream):
+                        if frame.is_cuda:
+                            # Keep input storage alive through asynchronous reads,
+                            # including resize before frame is rebound below.
+                            frame.record_stream(transferStream)
                         if needsResize:
                             frame = F.interpolate(
                                 frame,
@@ -1490,11 +1525,11 @@ class NeluxWriteBuffer:
         self.outpoint = outpoint
         self.sourceFps = sourceFps if sourceFps else fps
         self.benchmark = benchmark
-        self.writeBuffer = Queue(maxsize=32)
+        self.writeBuffer = Queue(maxsize=adaptiveQueueDepth(width, height))
         self.writtenFrames = 0
         self.CudaStream = None
         # Cancel handshake, driven by finalizeLiveWriters: _stopNow asks the
-        # encode loop to stop now rather than drain 32 queued frames first, and
+        # encode loop to stop now rather than drain queued frames first, and
         # _finalized says the container trailer has been written. Both exist so
         # a Ctrl-C leaves a playable file instead of a headerless one.
         self._stopNow = threading.Event()
@@ -1804,7 +1839,7 @@ class NeluxWriteBuffer:
     def requestStop(self) -> None:
         """Ask the encode loop to stop and finalize the container now.
 
-        Cancellation only: the loop breaks without draining the 32 frames still
+        Cancellation only: the loop breaks without draining the frames still
         queued, because the caller is about to end the process.
         """
         self._stopNow.set()

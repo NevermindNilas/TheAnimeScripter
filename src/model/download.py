@@ -6,6 +6,7 @@ import os
 from src.infra.logAndPrint import logAndPrint
 
 from .registry import (
+    BIREFNET_URL,
     DEPTHV2URLSMALL,
     SUDOURL,
     TASURL,
@@ -374,6 +375,9 @@ def downloadModels(
 
     elif registryModel == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
+
+    elif registryModel == "birefnet":
+        fullUrl = f"{BIREFNET_URL}{filename}"
 
     else:
         fullUrl = f"{TASURL}{filename}"

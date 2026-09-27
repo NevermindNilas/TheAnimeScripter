@@ -19,8 +19,47 @@ import torch
 import torch.nn.functional as F
 
 
-class _SSIMBase:
+def _scoreToFloat(score) -> float:
+    return score.item() if hasattr(score, "item") else float(score)
+
+
+class _ReusableScoreConsumer:
+    supportsScoreReuse = True
+    scoreFamily = None
+    scoreScale = None
+    scoreResizeMode = None
+    scoreAlignCorners = None
+
+    def _canReuseScore(self, reusableScore) -> bool:
+        if reusableScore is None or self.prevFrame is None:
+            return False
+        currentFrame = getattr(reusableScore, "currentFrame", None)
+        if currentFrame is None:
+            return False
+        return (
+            getattr(reusableScore, "family", None) == self.scoreFamily
+            and getattr(reusableScore, "sampleSize", None) == self.sampleSize
+            and getattr(reusableScore, "dtype", None) == self.prevFrame.dtype
+            and getattr(reusableScore, "device", None) == self.prevFrame.device
+            and currentFrame.dtype == self.prevFrame.dtype
+            and currentFrame.device == self.prevFrame.device
+            and getattr(reusableScore, "resizeMode", None) == self.scoreResizeMode
+            and getattr(reusableScore, "alignCorners", None) == self.scoreAlignCorners
+            and getattr(reusableScore, "scale", None) == self.scoreScale
+        )
+
+    def _consumeReusableScore(self, reusableScore) -> float | None:
+        if not self._canReuseScore(reusableScore):
+            return None
+        self.prevFrame = reusableScore.currentFrame
+        return reusableScore.score
+
+
+class _SSIMBase(_ReusableScoreConsumer):
     """Shared SSIM cut logic; subclasses set device/dtype and resize mode."""
+
+    scoreFamily = "ssim"
+    scoreScale = 1.0
 
     def __init__(self, threshold, sampleSize, device, half, mode):
         from frame_analytics import ssim
@@ -30,24 +69,46 @@ class _SSIMBase:
         self.device = device
         self.half = half
         self.mode = mode
+        self.scoreResizeMode = mode
+        self.scoreAlignCorners = None
         self.prevFrame = None
         # Accumulation is fp32/fp64 regardless of the input dtype, so `half`
         # only picks the resize/compare dtype, not the score's precision.
         self.ssim = ssim
 
     def _prep(self, frame):
+        targetDtype = torch.float16 if self.half else torch.float32
+        if frame.dtype == targetDtype:
+            return F.interpolate(
+                frame, (self.sampleSize, self.sampleSize), mode=self.mode
+            ).to(self.device)
+        if self.mode == "nearest" and frame.dtype in (
+            torch.float16,
+            torch.float32,
+            torch.float64,
+        ):
+            # Nearest copies samples: cast only the small sampled frame.
+            resized = F.interpolate(
+                frame, (self.sampleSize, self.sampleSize), mode=self.mode
+            )
+            return (resized.half() if self.half else resized.float()).to(self.device)
         frame = frame.half() if self.half else frame.float()
         return F.interpolate(
             frame, (self.sampleSize, self.sampleSize), mode=self.mode
         ).to(self.device)
 
     @torch.inference_mode()
-    def __call__(self, frame):
+    def __call__(self, frame, reusableScore=None):
+        score = self._consumeReusableScore(reusableScore)
+        if score is not None:
+            # SSIM high == similar; a scene cut is a large drop in similarity.
+            return score < self.threshold
+
         cur = self._prep(frame)
         if self.prevFrame is None:
             self.prevFrame = cur
             return False
-        score = self.ssim(self.prevFrame, cur, data_range=1.0).item()
+        score = _scoreToFloat(self.ssim(self.prevFrame, cur, data_range=1.0))
         self.prevFrame = cur
         # SSIM high == similar; a scene cut is a large drop in similarity.
         return score < self.threshold
@@ -74,6 +135,7 @@ class SceneChangeSSIM(_SSIMBase):
             half=False,
             mode="bilinear",
         )
+        self.scoreAlignCorners = False
 
     def _prep(self, frame):
         return F.interpolate(
@@ -84,8 +146,11 @@ class SceneChangeSSIM(_SSIMBase):
         ).to(self.device)
 
 
-class _MSEBase:
+class _MSEBase(_ReusableScoreConsumer):
     """Shared MSE cut logic. MSE low == similar, so cut when mse > threshold."""
+
+    scoreFamily = "mse"
+    scoreScale = 255.0
 
     def __init__(self, threshold, sampleSize, half, cuda):
         from frame_analytics import mse
@@ -94,11 +159,27 @@ class _MSEBase:
         self.sampleSize = sampleSize
         self.half = half
         self.cuda = cuda
+        self.scoreResizeMode = "nearest" if cuda else "bilinear"
+        self.scoreAlignCorners = None if cuda else False
         self.prevFrame = None
         self.mse = mse
 
     def _prep(self, frame):
         if self.cuda:
+            targetDtype = torch.float16 if self.half else torch.float32
+            if frame.dtype == targetDtype:
+                return F.interpolate(
+                    frame, (self.sampleSize, self.sampleSize), mode="nearest"
+                ).mul(255.0)
+            if frame.dtype in (
+                torch.float16,
+                torch.float32,
+                torch.float64,
+            ):
+                resized = F.interpolate(
+                    frame, (self.sampleSize, self.sampleSize), mode="nearest"
+                )
+                return (resized.half() if self.half else resized.float()).mul(255.0)
             frame = frame.half() if self.half else frame.float()
             return F.interpolate(
                 frame, (self.sampleSize, self.sampleSize), mode="nearest"
@@ -111,12 +192,16 @@ class _MSEBase:
         ).mul(255.0)
 
     @torch.inference_mode()
-    def __call__(self, frame):
+    def __call__(self, frame, reusableScore=None):
+        score = self._consumeReusableScore(reusableScore)
+        if score is not None:
+            return score > self.threshold
+
         cur = self._prep(frame)
         if self.prevFrame is None:
             self.prevFrame = cur
             return False
-        score = self.mse(self.prevFrame, cur).item()
+        score = _scoreToFloat(self.mse(self.prevFrame, cur))
         self.prevFrame = cur
         return score > self.threshold
 

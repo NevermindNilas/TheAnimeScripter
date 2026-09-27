@@ -9,6 +9,72 @@ from src.model.registry import modelsMap
 checker = CudaChecker()
 
 
+class ReusableFrameScore:
+    """Score and preprocessed current frame from a proven pair comparison."""
+
+    __slots__ = (
+        "family",
+        "sampleSize",
+        "dtype",
+        "device",
+        "resizeMode",
+        "alignCorners",
+        "scale",
+        "score",
+        "currentFrame",
+    )
+
+    def __init__(
+        self,
+        *,
+        family: str,
+        sampleSize: int,
+        dtype,
+        device,
+        resizeMode: str,
+        alignCorners,
+        scale: float,
+        score: float,
+        currentFrame,
+    ) -> None:
+        self.family = family
+        self.sampleSize = sampleSize
+        self.dtype = dtype
+        self.device = device
+        self.resizeMode = resizeMode
+        self.alignCorners = alignCorners
+        self.scale = scale
+        self.score = score
+        self.currentFrame = currentFrame
+
+
+def _scoreToFloat(score) -> float:
+    return score.item() if hasattr(score, "item") else float(score)
+
+
+def _reusableScore(
+    *,
+    family: str,
+    sampleSize: int,
+    resizeMode: str,
+    alignCorners,
+    scale: float,
+    score,
+    currentFrame,
+) -> ReusableFrameScore:
+    return ReusableFrameScore(
+        family=family,
+        sampleSize=sampleSize,
+        dtype=currentFrame.dtype,
+        device=currentFrame.device,
+        resizeMode=resizeMode,
+        alignCorners=alignCorners,
+        scale=scale,
+        score=_scoreToFloat(score),
+        currentFrame=currentFrame,
+    )
+
+
 class DedupSSIMCuda:
     def __init__(
         self,
@@ -20,6 +86,7 @@ class DedupSSIMCuda:
         self.sampleSize = sampleSize
         self.half = half
         self.prevFrame = None
+        self.lastReusableScore = None
 
         from frame_analytics import ssim
 
@@ -32,6 +99,7 @@ class DedupSSIMCuda:
         """
         Returns True if the frames are duplicates
         """
+        self.lastReusableScore = None
         if self.prevFrame is None:
             self.prevFrame = self.processFrame(frame)
             return False
@@ -39,27 +107,35 @@ class DedupSSIMCuda:
         frame = self.processFrame(frame)
 
         score = self.ssim(self.prevFrame, frame, data_range=1.0)
+        self.lastReusableScore = _reusableScore(
+            family="ssim",
+            sampleSize=self.sampleSize,
+            resizeMode="nearest",
+            alignCorners=None,
+            scale=1.0,
+            score=score,
+            currentFrame=frame,
+        )
 
-        if score < self.ssimThreshold:
+        if self.lastReusableScore.score < self.ssimThreshold:
             self.prevFrame.copy_(frame, non_blocking=False)
             return False
         else:
+            self.lastReusableScore = None
             return True
 
     def processFrame(self, frame):
-        return (
-            F.interpolate(
-                frame.half(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            )
-            if self.half
-            else F.interpolate(
-                frame.float(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            )
+        # Nearest sampling only selects source pixels, so it commutes with the
+        # pointwise dtype cast: resize in the source dtype, then cast the small
+        # 224px result instead of casting the full-res frame first. Bilinear
+        # paths are excluded on purpose -- their interpolation arithmetic does
+        # NOT commute across dtypes, so the same reorder would shift scores.
+        resized = self.interpolate(
+            frame,
+            (self.sampleSize, self.sampleSize),
+            mode="nearest",
         )
+        return resized.half() if self.half else resized.float()
 
 
 class DedupSSIM:
@@ -77,24 +153,36 @@ class DedupSSIM:
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
+        self.lastReusableScore = None
         self.ssim = ssim
 
     def __call__(self, frame):
         """
         Returns True if the frames are duplicates
         """
+        self.lastReusableScore = None
         if self.prevFrame is None:
             self.prevFrame = self.processFrame(frame)
             return False
 
         frame = self.processFrame(frame)
 
-        score = self.ssim(self.prevFrame, frame, data_range=1.0).item()
+        score = self.ssim(self.prevFrame, frame, data_range=1.0)
+        self.lastReusableScore = _reusableScore(
+            family="ssim",
+            sampleSize=self.sampleSize,
+            resizeMode="bilinear",
+            alignCorners=False,
+            scale=1.0,
+            score=score,
+            currentFrame=frame,
+        )
 
-        if score < self.ssimThreshold:
+        if self.lastReusableScore.score < self.ssimThreshold:
             self.prevFrame = frame
             return False
         else:
+            self.lastReusableScore = None
             return True
 
     def processFrame(self, frame):
@@ -117,25 +205,37 @@ class DedupMSE:
         self.mseThreshold = mseThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
+        self.lastReusableScore = None
         self.mse = mse
 
     def __call__(self, frame):
         """
         Returns True if the frames are duplicates
         """
+        self.lastReusableScore = None
         if self.prevFrame is None:
             self.prevFrame = self.processFrame(frame)
             return False
 
         frame = self.processFrame(frame)
         score = self.mse(self.prevFrame, frame)
+        self.lastReusableScore = _reusableScore(
+            family="mse",
+            sampleSize=self.sampleSize,
+            resizeMode="bilinear",
+            alignCorners=False,
+            scale=255.0,
+            score=score,
+            currentFrame=frame,
+        )
 
         # Low MSE -> (near) identical to the previous kept frame -> duplicate.
         # NOTE: SSIM/VMAF treat a HIGH score as "similar"; MSE is the opposite
         # (0 == identical), so the comparison direction is inverted relative to
         # those backends. Keep the reference frame on a duplicate; advance it
         # only when we keep a distinct frame.
-        if score < self.mseThreshold:
+        if self.lastReusableScore.score < self.mseThreshold:
+            self.lastReusableScore = None
             return True
         else:
             self.prevFrame = frame
@@ -166,6 +266,7 @@ class DedupMSECuda:
         self.sampleSize = sampleSize
         self.half = half
         self.prevFrame = None
+        self.lastReusableScore = None
         self.interpolate = F.interpolate
         self.mse = mse
 
@@ -173,36 +274,43 @@ class DedupMSECuda:
         """
         Returns True if the frames are duplicates
         """
+        self.lastReusableScore = None
         if self.prevFrame is None:
             self.prevFrame = self.processFrame(frame)
             return False
 
         frame = self.processFrame(frame)
         score = self.mse(self.prevFrame, frame)
+        self.lastReusableScore = _reusableScore(
+            family="mse",
+            sampleSize=self.sampleSize,
+            resizeMode="nearest",
+            alignCorners=None,
+            scale=255.0,
+            score=score,
+            currentFrame=frame,
+        )
 
         # Low MSE -> (near) identical -> duplicate (see DedupMSE for why the
         # direction is inverted vs SSIM/VMAF). Advance the reference only on a
         # distinct frame.
-        if score < self.mseThreshold:
+        if self.lastReusableScore.score < self.mseThreshold:
+            self.lastReusableScore = None
             return True
         else:
             self.prevFrame.copy_(frame, non_blocking=False)
             return False
 
     def processFrame(self, frame):
-        return (
-            F.interpolate(
-                frame.half(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            ).mul(255.0)
-            if self.half
-            else F.interpolate(
-                frame.float(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            ).mul(255.0)
+        # Same downsample-first reorder as DedupSSIMCuda: nearest sampling
+        # commutes with the pointwise cast, so resize in the source dtype and
+        # cast the small 224px result; the x255 scale stays last as before.
+        resized = self.interpolate(
+            frame,
+            (self.sampleSize, self.sampleSize),
+            mode="nearest",
         )
+        return resized.half().mul(255.0) if self.half else resized.float().mul(255.0)
 
 
 class DedupFlownetS:

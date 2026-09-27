@@ -1126,6 +1126,8 @@ def _addSegmentationOptions(argParser):
             "anime-tensorrt",
             "anime-directml",
             "anime-rocm",
+            "birefnet",
+            "birefnet-rocm",
             "cartoon",
         ],
         help="Segmentation method",

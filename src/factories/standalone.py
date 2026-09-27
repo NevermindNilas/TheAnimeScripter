@@ -200,6 +200,22 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
         )
+    elif self.segmentMethod in ("birefnet", "birefnet-rocm"):
+        from src.segment.birefnetSegment import BiRefNetSegment
+
+        driver = BiRefNetSegment(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.benchmark,
+            self.totalFrames,
+            segment_batch=self.segmentBatch,
+        )
     elif self.segmentMethod == "cartoon":
         raise NotImplementedError("Cartoon segment is not implemented yet")
     else:
