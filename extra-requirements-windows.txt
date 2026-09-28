@@ -13,7 +13,7 @@ triton-windows==3.8.0.post28
 safetensors==0.8.0
 scenedetect[opencv]
 yt-dlp==2026.8.19
-onnx==1.22.0
+onnx==1.23.0
 openvino==2026.3.1
 onnxscript==0.7.2
 vmaf-torch==1.1.0
