@@ -8,4 +8,4 @@ python-socketio==5.17.0
 simple-websocket==1.1.0
 werkzeug==3.1.6
 nelux==0.19.0
-frame-analytics==0.6.1
+frame-analytics==0.7.0
