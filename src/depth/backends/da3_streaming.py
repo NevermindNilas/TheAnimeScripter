@@ -89,7 +89,7 @@ class LimboStreamingCuda(DA3StreamingCuda):
 
     @torch.inference_mode()
     def _inferChunk(self, frames):
-        # Decoder supplies RGB at Limbo's fixed resolution. Preserve the
+        # Decoder supplies RGB at Limbo's input resolution. Preserve the
         # image backend's ImageNet normalization without the DA3 PIL resize.
         images = torch.from_numpy(np.stack(frames)).to(self.model._get_model_device())
         images = images.permute(0, 3, 1, 2).float() / 255

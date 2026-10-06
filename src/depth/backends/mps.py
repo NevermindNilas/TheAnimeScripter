@@ -241,8 +241,8 @@ class DepthMPS(DepthRunOutcome):
 class LimboMPS(DepthMPS):
     """Limbo (anime-finetuned Depth Anything 3 small) on Apple Silicon.
 
-    Same tensor path as LimboCuda: the input resolution is baked into the model,
-    so the frames are decoded straight at it and ``--depth_quality`` is inert.
+    Same tensor path as LimboCuda: limboResolution fixes the input size before
+    the first frame, so the frames are decoded straight at it.
     """
 
     def handleModels(self):
@@ -277,7 +277,9 @@ class LimboMPS(DepthMPS):
 
         fold_layerscale_(self.model)
 
-        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+        self.newHeight, self.newWidth = limboResolution(
+            self.width, self.height, self.depthQuality
+        )
 
         # fp32 whatever --half says, matching OGDepthV3MPS: DA3's forward only
         # autocasts on CUDA, so a halved model would run the whole DINOv2 stack
@@ -577,16 +579,12 @@ class OGDepthV3MPS(OGDepthV2MPS):
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )
-        self.processResMethod = (
-            "lower_bound_resize"
-            if self.depthQuality == "high"
-            else "upper_bound_resize"
-        )
-
-        if self.processResMethod == "upper_bound_resize":
-            scale = self.processRes / max(self.width, self.height)
-        else:
-            scale = self.processRes / min(self.width, self.height)
+        # processRes is a longest-side target at every quality ("high" is the
+        # source's own longest side), so it must bound the longest side. A
+        # lower_bound_resize stretched the shortest side to that length -- 4K
+        # 16:9 decoded at 6832x3850, OOMing the DPT head even on 24 GB.
+        self.processResMethod = "upper_bound_resize"
+        scale = self.processRes / max(self.width, self.height)
         tgt_w = max(14, (max(1, round(self.width * scale)) // 14) * 14)
         tgt_h = max(14, (max(1, round(self.height * scale)) // 14) * 14)
         self._decodeWidth = tgt_w

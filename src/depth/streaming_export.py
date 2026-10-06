@@ -75,8 +75,9 @@ class MultiViewDepth(torch.nn.Module):
 
 def exportStreamingDepth(checkpoint, directory, height, width, half=True):
     """Atomically cache an export by weights, shape, precision and format version."""
-    if (height, width) not in ((280, 504), (378, 504)):
-        raise ValueError("Limbo streaming requires 504x280 or 504x378")
+    # The ViT patch is 14 px; RoPE positions are baked for exactly this grid.
+    if height < 14 or width < 14 or height % 14 or width % 14:
+        raise ValueError(f"Limbo export needs multiples of 14, got {width}x{height}")
     checkpoint = Path(checkpoint)
     with checkpoint.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()[:16]

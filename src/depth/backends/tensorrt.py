@@ -16,6 +16,7 @@ from src.depth.backends._shared import (
     DepthRunOutcome,
     calculateAspectRatio,
     limboDisparity,
+    limboOnnxPath,
     limboResolution,
 )
 from src.infra.isCudaInit import CudaChecker
@@ -310,10 +311,11 @@ class LimboTensorRT(DepthTensorRTV2):
     """Limbo (anime-finetuned Depth Anything 3 small) through TensorRT.
 
     Three departures from DepthTensorRTV2, all forced by the export: the graph
-    is fully static (Limbo ships one ONNX per baked resolution, so the engine is
-    built with forceStatic and the batch is pinned to 1), it has a second output
-    (``depth_conf``, which nothing downstream uses but still needs an address
-    bound), and ``depth`` comes out rank-3 as [B, H, W].
+    has one spatial size (the hosted ONNX is fully static, a local export only
+    leaves the view axis free), so the engine is built with forceStatic and the
+    batch is pinned to 1; the hosted export has a second output (``depth_conf``,
+    which nothing downstream uses but still needs an address bound); and
+    ``depth`` comes out rank-3 as [B, H, W].
     """
 
     def handleModels(self):
@@ -322,24 +324,11 @@ class LimboTensorRT(DepthTensorRTV2):
                 {"status": f"Loading TensorRT depth model: {self.depth_method}..."}
             )
 
-        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
-        # The two exports differ only in resolution, so the aspect the source
-        # resolved to is what picks the weight file. v2 (limbo_v2-tensorrt)
-        # mirrors v1 under its own weight names.
-        isV2 = self.depth_method.startswith("limbo_v2")
-        if (self.newHeight, self.newWidth) == (280, 504):
-            registryModel = "limbo_v2-tensorrt" if isV2 else "limbo-tensorrt"
-        else:
-            registryModel = "limbo_v2_43-tensorrt" if isV2 else "limbo_43-tensorrt"
-
-        self.filename = modelsMap(model=registryModel, modelType="onnx", half=self.half)
-        folderName = registryModel.replace("-tensorrt", "-onnx")
-        self.modelPath = resolveWeightPath(
-            folderName,
-            self.filename,
-            downloadModel=registryModel,
-            half=self.half,
-            modelType="onnx",
+        self.newHeight, self.newWidth = limboResolution(
+            self.width, self.height, self.depthQuality
+        )
+        self.modelPath = limboOnnxPath(
+            self.depth_method, self.newHeight, self.newWidth, self.half, "tensorrt"
         )
 
         # The ONNX bakes batch 1 into every dimension; a profile asking for more

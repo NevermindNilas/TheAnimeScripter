@@ -220,28 +220,18 @@ def _handleDepthSettings(args):
     # "openvino" belongs here too: it is not a separate backend, it is a
     # provider branch inside the same DepthDirectMLV2 class the "-directml"
     # methods use (src/factories/standalone.py), so it has the same constraint.
-    # The --depth_batch clamp below already listed it.
+    # The --depth_batch clamp below already listed it. Limbo is exempt: its
+    # ONNX backends export a graph at the quality's size themselves
+    # (_shared.limboOnnxPath).
     backend = args.depth_method.split("-")[-1]
-    if args.depth_quality not in ["low"] and backend in [
-        "tensorrt",
-        "directml",
-        "openvino",
-    ]:
+    if (
+        args.depth_quality not in ["low"]
+        and backend in ["tensorrt", "directml", "openvino"]
+        and not isLimbo
+    ):
         logAndPrint(
             f"{args.depth_quality.upper()} depth estimation quality is incompatible "
             f"with the {backend} backend, defaulting to low quality",
-            "yellow",
-        )
-        args.depth_quality = "low"
-
-    # Limbo (v1 and v2) ships one export per baked input resolution and its
-    # CUDA/MPS paths deliberately run at the same pair, so there is no quality
-    # axis to pick from on any backend -- not just the ONNX ones the clamp
-    # above covers.
-    if isLimbo and args.depth_quality != "low":
-        logAndPrint(
-            f"--depth_quality has no effect on {args.depth_method.split('-')[0]}, "
-            "whose input resolution is fixed by the model",
             "yellow",
         )
         args.depth_quality = "low"

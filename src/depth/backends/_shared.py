@@ -104,28 +104,92 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
     return newHeight, newWidth
 
 
-# (height, width) of the two resolutions Limbo is exported at. Both are baked
-# into the ONNX graphs, so unlike every other depth method this is not a
-# --depth_quality knob; the CUDA/MPS paths use the same pair so all four
-# backends predict at the resolution the model was trained on.
+def videoDepthInputSize(width, height, depthQuality="low"):
+    """Shortest-side target for VideoDepthAnything's ``input_size``.
+
+    VDA keeps the aspect ratio and resizes so the shortest side reaches this
+    (``lower_bound``, multiple of 14), so it is not a longest-side or square
+    size like the image models get. ``low`` is the 518 the model was trained
+    at, ``medium`` the 700 every other method uses, ``high`` the source's own
+    shortest side. VDA still shrinks it for sources wider than 16:9.
+    """
+    if depthQuality == "high":
+        size = ((min(width, height) + 13) // 14) * 14
+    else:
+        size = 700 if depthQuality == "medium" else 518
+    logging.info(f"Video depth input size (shortest side): {size}")
+    return size
+
+
+# (height, width) of the two resolutions Limbo is hosted at -- the ones the
+# model was trained at, and what --depth_quality low runs at on every backend.
 LIMBO_SHAPES = ((280, 504), (378, 504))
 
 
-def limboResolution(width, height):
-    """Pick the baked Limbo input size closest to the source aspect ratio.
+def limboResolution(width, height, depthQuality="low"):
+    """Limbo's input size as (height, width), matching calculateAspectRatio.
 
+    ``low`` picks the hosted export closest to the source aspect ratio.
     Compared in log space, so a 16:10 or 1.85:1 source lands on the widescreen
     export rather than on 4:3 by a rounding accident, and anything squarer than
     ~1.55:1 (portrait included, since neither export is taller than it is wide)
-    lands on 504x378. Returns (height, width) to match calculateAspectRatio.
+    lands on 504x378.
+
+    ``medium``/``high`` size it like the ``*_v3`` methods: source aspect, the
+    longest side at 700 or at the source's own, in multiples of 14. The ONNX
+    backends export a graph at that size themselves (limboOnnxPath).
     """
-    aspect = max(width, 1) / max(height, 1)
-    shape = min(
-        LIMBO_SHAPES,
-        key=lambda hw: abs(math.log(aspect) - math.log(hw[1] / hw[0])),
-    )
+    if depthQuality in ("medium", "high"):
+        longest = calculateAspectRatio(width, height, depthQuality, isV3=True)
+        scale = longest / max(width, height)
+        shape = (
+            max(14, (max(1, round(height * scale)) // 14) * 14),
+            max(14, (max(1, round(width * scale)) // 14) * 14),
+        )
+    else:
+        aspect = max(width, 1) / max(height, 1)
+        shape = min(
+            LIMBO_SHAPES,
+            key=lambda hw: abs(math.log(aspect) - math.log(hw[1] / hw[0])),
+        )
     logging.info(f"Limbo input resolution: {shape[1]}x{shape[0]}")
     return shape
+
+
+def limboOnnxPath(depthMethod, height, width, half, backend):
+    """The Limbo ONNX for one input size, as a local path.
+
+    The two LIMBO_SHAPES are hosted; any other size is exported once from the
+    checkpoint into the same cache ``video_limbo*-tensorrt`` uses. ``backend``
+    is the registry suffix, "tensorrt" or "directml" (the OpenVINO path).
+    """
+    from src.model.download import resolveWeightPath
+    from src.model.registry import modelsMap
+
+    base = "limbo_v2" if depthMethod.startswith("limbo_v2") else "limbo"
+    if (height, width) in LIMBO_SHAPES:
+        # The two exports differ only in resolution, so the shape is what
+        # picks the weight file.
+        aspect = "" if (height, width) == (280, 504) else "_43"
+        registryModel = f"{base}{aspect}-{backend}"
+        return resolveWeightPath(
+            registryModel.replace(f"-{backend}", "-onnx"),
+            modelsMap(model=registryModel, modelType="onnx", half=half),
+            downloadModel=registryModel,
+            half=half,
+            modelType="onnx",
+        )
+
+    from pathlib import Path
+
+    from src.depth.streaming_export import exportStreamingDepth
+
+    checkpoint = resolveWeightPath(
+        base, modelsMap(base, modelType="pth"), modelType="pth", half=half
+    )
+    return exportStreamingDepth(
+        checkpoint, Path(checkpoint).parent / "streaming", height, width, half
+    )
 
 
 def limboDisparity(depth):

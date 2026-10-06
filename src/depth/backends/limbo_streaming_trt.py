@@ -22,7 +22,9 @@ class LimboStreamingTensorRT(DA3StreamingCuda):
         checkpoint = resolveWeightPath(
             base, modelsMap(base, modelType="pth"), modelType="pth", half=self.half
         )
-        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+        self.newHeight, self.newWidth = limboResolution(
+            self.width, self.height, self.depthQuality
+        )
         modelPath = exportStreamingDepth(
             checkpoint,
             Path(checkpoint).parent / "streaming",

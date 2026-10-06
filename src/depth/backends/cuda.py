@@ -262,10 +262,10 @@ class LimboCuda(DepthCuda):
 
     Rides DepthCuda's tensor path (decode straight at the model resolution, one
     batched forward, write) rather than the numpy/PIL one the other ``*_v3``
-    methods use, because Limbo's input size is fixed: there is nothing for
+    methods use, because limboResolution fixes the input size from the source
+    and ``--depth_quality`` before the first frame: there is nothing for
     ``input_processor`` to negotiate, so the whole PIL round trip would be a
-    no-op resize. ``--depth_quality`` has no effect for the same reason -- the
-    two exported resolutions are the ones the model was trained at.
+    no-op resize.
     """
 
     def handleModels(self):
@@ -302,7 +302,9 @@ class LimboCuda(DepthCuda):
 
         # Left in fp32: DA3's own forward autocasts to bf16/fp16 on CUDA, which
         # is what the shipped *_v3 backends rely on too.
-        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
+        self.newHeight, self.newWidth = limboResolution(
+            self.width, self.height, self.depthQuality
+        )
 
         if self.compileMode != "default":
             try:
@@ -629,16 +631,12 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )
-        self.processResMethod = (
-            "lower_bound_resize"
-            if self.depthQuality == "high"
-            else "upper_bound_resize"
-        )
-
-        if self.processResMethod == "upper_bound_resize":
-            scale = self.processRes / max(self.width, self.height)
-        else:
-            scale = self.processRes / min(self.width, self.height)
+        # processRes is a longest-side target at every quality ("high" is the
+        # source's own longest side), so it must bound the longest side. A
+        # lower_bound_resize stretched the shortest side to that length -- 4K
+        # 16:9 decoded at 6832x3850, OOMing the DPT head even on 24 GB.
+        self.processResMethod = "upper_bound_resize"
+        scale = self.processRes / max(self.width, self.height)
         tgt_w = max(14, (max(1, round(self.width * scale)) // 14) * 14)
         tgt_h = max(14, (max(1, round(self.height * scale)) // 14) * 14)
         self._decodeWidth = tgt_w

@@ -10,7 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
+### Changed
+- Every Limbo method (`limbo*`, `video_limbo*`, all backends) now honors `--depth_quality` instead of forcing `low`: `medium`/`high` keep the source aspect with a 700 px or native longest side, and TensorRT/OpenVINO export their ONNX locally at that size on first use. `low` is unchanged (1080p `limbo_v2` CUDA on an RTX 3090: 46.9 / 44.2 / 8.4 fps at 504x280 / 700x392 / 1932x1078).
+
+### Removed
+- Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
+
 ### Fixed
+- `--depth_quality high` on the DA3 depth methods (`*_v3`, `video_small_v3`/`video_base_v3`; CUDA, ROCm, MPS) stretched the shortest side to the longest, running 16:9 sources at 3.16x their pixel count (4K → 6832x3850). That spilled VRAM into system memory, then OOMed even on 24 GB; 4K `og_large_v3` now runs at native resolution with a 12.3 GiB peak.
+- `--depth_quality` was ignored by `video_small_v2` and `og_video_small_v2` (and their `-rocm` variants), which always ran at 518 px; `medium` and `high` now set the shortest side to 700 px and the source's own (1080p `video_small_v2` on an RTX 3090: 16.0 / 11.2 / 4.8 fps).
 - Kept local development and agent artifacts out of the repository; portable builds and the manual Limbo exporter remain available from `src`.
 - Prevented CUDA depth and held-frame output corruption by ordering batch construction and finishing new output operations before writer handoff. The legacy CUDA writer now protects queued input storage until its asynchronous reads complete.
 - Limbo disparity normalization computes both quantiles in one sort; a one-thread CPU benchmark fell from 37.15ms to 18.99ms at 280x504.

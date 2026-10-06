@@ -16,6 +16,7 @@ from src.depth.backends._shared import (
     DepthRunOutcome,
     calculateAspectRatio,
     limboDisparity,
+    limboOnnxPath,
     limboResolution,
 )
 from src.infra.isCudaInit import CudaChecker
@@ -329,11 +330,11 @@ class DepthDirectMLV2(DepthRunOutcome):
 class LimboOpenVino(DepthDirectMLV2):
     """Limbo (anime-finetuned Depth Anything 3 small) on the OpenVINO provider.
 
-    Sits in the ORT class like every other OpenVINO depth path. Limbo's export
-    is fully static and has a second output (``depth_conf``), so the resolution
-    comes from the weight file rather than ``--depth_quality`` and both outputs
-    get bound -- ORT would otherwise allocate ``depth_conf`` itself on every
-    single frame.
+    Sits in the ORT class like every other OpenVINO depth path. Each Limbo
+    graph has one spatial size, so ``--depth_quality`` picks which graph
+    (limboOnnxPath) rather than a resize. The hosted export has a second output
+    (``depth_conf``) that gets bound too -- ORT would otherwise allocate it
+    itself on every single frame.
 
     It also normalizes the input itself. The depth_anything_v2 ONNX bakes the
     ImageNet transform into the graph, which is why DepthDirectMLV2 feeds it raw
@@ -348,28 +349,25 @@ class LimboOpenVino(DepthDirectMLV2):
                 {"status": f"Loading depth model: {self.depth_method}..."}
             )
 
-        self.newHeight, self.newWidth = limboResolution(self.width, self.height)
-        isV2 = self.depth_method.startswith("limbo_v2")
-        if (self.newHeight, self.newWidth) == (280, 504):
-            registryModel = "limbo_v2-directml" if isV2 else "limbo-directml"
-        else:
-            registryModel = "limbo_v2_43-directml" if isV2 else "limbo_43-directml"
-
-        self.filename = modelsMap(model=registryModel, modelType="onnx", half=self.half)
-        folderName = registryModel.replace("-directml", "-onnx")
-        modelPath = resolveWeightPath(
-            folderName,
-            self.filename,
-            downloadModel=registryModel,
-            half=self.half,
-            modelType="onnx",
+        self.newHeight, self.newWidth = limboResolution(
+            self.width, self.height, self.depthQuality
         )
+        modelPath = limboOnnxPath(
+            self.depth_method, self.newHeight, self.newWidth, self.half, "directml"
+        )
+
+        # A local export leaves the view axis free; pin it so the graph is as
+        # static as the hosted one. A no-op on the hosted exports.
+        self.sessionOptions = self.ort.SessionOptions()
+        self.sessionOptions.add_free_dimension_override_by_name("views", 1)
 
         providers = self.ort.get_available_providers()
         if "OpenVINOExecutionProvider" in providers:
             logging.info("Using OpenVINO model")
             self.model = self.ort.InferenceSession(
-                modelPath, providers=["OpenVINOExecutionProvider"]
+                modelPath,
+                sess_options=self.sessionOptions,
+                providers=["OpenVINOExecutionProvider"],
             )
             warnIfProviderMissing(
                 self.model, "OpenVINOExecutionProvider", "OpenVINO depth"
@@ -380,7 +378,9 @@ class LimboOpenVino(DepthDirectMLV2):
                 "significantly worse performance"
             )
             self.model = self.ort.InferenceSession(
-                modelPath, providers=["CPUExecutionProvider"]
+                modelPath,
+                sess_options=self.sessionOptions,
+                providers=["CPUExecutionProvider"],
             )
 
         self.deviceType = "cpu"
@@ -423,11 +423,14 @@ class LimboOpenVino(DepthDirectMLV2):
             device=self.deviceType,
             dtype=self.torchOutDType,
         ).contiguous()
-        self.dummyConf = torch.zeros(
-            (1, self.newHeight, self.newWidth),
-            device=self.deviceType,
-            dtype=onnxTypeToTorch(onnxOutputs["depth_conf"].type),
-        ).contiguous()
+        # Only the hosted exports carry depth_conf.
+        self.dummyConf = None
+        if "depth_conf" in onnxOutputs:
+            self.dummyConf = torch.zeros(
+                (1, self.newHeight, self.newWidth),
+                device=self.deviceType,
+                dtype=onnxTypeToTorch(onnxOutputs["depth_conf"].type),
+            ).contiguous()
 
         self._bindOutputs()
 
@@ -443,6 +446,8 @@ class LimboOpenVino(DepthDirectMLV2):
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
+        if self.dummyConf is None:
+            return
         self.IoBinding.bind_output(
             name="depth_conf",
             device_type=self.deviceType,
@@ -460,7 +465,9 @@ class LimboOpenVino(DepthDirectMLV2):
             "yellow",
         )
         self.model = self.ort.InferenceSession(
-            self.modelPath, providers=["CPUExecutionProvider"]
+            self.modelPath,
+            sess_options=self.sessionOptions,
+            providers=["CPUExecutionProvider"],
         )
         self.IoBinding = self.model.io_binding()
         self._bindOutputs()

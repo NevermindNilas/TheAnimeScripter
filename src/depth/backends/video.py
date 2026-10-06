@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
 
-from src.depth.backends._shared import DepthRunOutcome
+from src.depth.backends._shared import DepthRunOutcome, videoDepthInputSize
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -55,6 +55,7 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
+        self.inputSize = videoDepthInputSize(width, height, depthQuality)
 
         self.handleModels()
         try:
@@ -128,7 +129,9 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
 
     def processFrame(self, frame):
         try:
-            depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
+            depth = self.model.infer_video_depth_one(
+                frame, self.inputSize, self.device, True
+            )
             depth = torch.from_numpy(depth)
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             depth = depth.unsqueeze(0).unsqueeze(0)
@@ -190,6 +193,7 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
         self.depthQuality = depthQuality
         self.compileMode = compileMode
         self.depthWindow = depth_window
+        self.inputSize = videoDepthInputSize(width, height, depthQuality)
 
         self.handleModels()
         try:
@@ -290,7 +294,9 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
             if frame.dtype != np.uint8:
                 frame = (frame * 255).astype(np.uint8)
 
-            depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
+            depth = self.model.infer_video_depth_one(
+                frame, self.inputSize, self.device, True
+            )
             depth = torch.from_numpy(depth)
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             depth = depth.unsqueeze(0).unsqueeze(0)
