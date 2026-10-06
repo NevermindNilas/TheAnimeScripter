@@ -1128,7 +1128,6 @@ def _addSegmentationOptions(argParser):
             "anime-rocm",
             "birefnet",
             "birefnet-rocm",
-            "cartoon",
         ],
         help="Segmentation method",
     )
@@ -1266,7 +1265,7 @@ def _addDepthOptions(argParser):
         type=str,
         choices=["low", "medium", "high"],
         default="low",
-        help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
+        help="This will determine the quality of the depth map, low is significantly faster but lower quality. TensorRT/DirectML/OpenVINO depth methods fall back to low, except Limbo",
     )
     depthGroup.add_argument(
         "--depth_window",

@@ -216,8 +216,6 @@ def segment(self):
             self.totalFrames,
             segment_batch=self.segmentBatch,
         )
-    elif self.segmentMethod == "cartoon":
-        raise NotImplementedError("Cartoon segment is not implemented yet")
     else:
         raise ValueError(
             f"No segmentation backend is wired up for method '{self.segmentMethod}'."

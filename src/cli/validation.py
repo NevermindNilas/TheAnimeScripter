@@ -123,26 +123,6 @@ def normalizeUpscaleFactor(args):
     )
 
 
-def validateSegmentMethod(args):
-    """Fail fast on the unimplemented --segment_method cartoon choice.
-
-    The choice is still advertised in argparse (removing it would churn the
-    registry-drift frozen set and docs in the same change), but reaching the
-    standalone factory only to die with a bare NotImplementedError after
-    metadata probing and model init is a late, cryptic failure. Reject here,
-    alongside the other runtime validation, so --json/--preset paths get the
-    same early CliValidationError as CLI users.
-    """
-    if not getattr(args, "segment", False):
-        return None
-    if getattr(args, "segment_method", "anime") == "cartoon":
-        raise CliValidationError(
-            "--segment_method cartoon is not implemented yet. "
-            "Use anime, anime-tensorrt, or anime-directml."
-        )
-    return None
-
-
 def validatePreviewPort(args):
     """Reject a `--preview_port` outside the valid TCP range.
 
@@ -260,7 +240,6 @@ def applyRuntimeValidation(args):
     applyOutputScale(args)
     validateTrimRange(args)
     validatePreviewPort(args)
-    validateSegmentMethod(args)
     # Both normalizers can warn; join rather than let one shadow the other.
     warnings = [normalizeUpscaleFactor(args), validateInterpolateFactor(args)]
     return "\n".join(w for w in warnings if w) or None
