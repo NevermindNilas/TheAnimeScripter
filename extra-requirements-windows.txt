@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu132
 --extra-index-url https://pypi.nvidia.com
 torch==2.14.0+cu132
-torchvision==0.29.0+cu132
+torchvision==0.29.1+cu132
 # Keep the native video wheel on the same PyTorch ABI during profile installs.
 nelux==0.19.0
 tensorrt==11.3.0.99
