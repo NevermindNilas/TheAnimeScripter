@@ -1,379 +1,197 @@
 <div align="center">
 
-# 🎬 The Anime Scripter (TAS)
+# 🎬 The Anime Scripter
 
-#### _High-performance AI video enhancement toolkit for creators_
+**Free, open-source AI video enhancement for anime and beyond.**<br>
+Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Windows desktop app, or directly inside After Effects.
 
-[![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=flat-square&labelStyle=none)](https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F)
 [![Release](https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square&color=blue)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 [![Downloads](https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/NevermindNilas/TheAnimeScripter.svg?style=flat-square)](https://github.com/NevermindNilas/TheAnimeScripter/commits)
 [![Discord](https://img.shields.io/discord/1041502781808328704?style=flat-square&logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/hwGHXga8ck)
 [![License](https://img.shields.io/github/license/NevermindNilas/TheAnimeScripter?style=flat-square&color=orange)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/NevermindNilas/TheAnimeScripter?style=flat-square&color=yellow)](https://github.com/NevermindNilas/TheAnimeScripter/stargazers)
+[![Stars](https://img.shields.io/github/stars/NevermindNilas/TheAnimeScripter?style=flat-square&color=yellow)](https://github.com/NevermindNilas/TheAnimeScripter/stargazers)
 
-</div>
-
-<div align="center">
-
-**Free, open-source anime video toolkit: AI upscale, RIFE interpolation and restore in one pass.**
-
-[![Download Standalone](https://img.shields.io/badge/Download-TAS--Standalone-blue?style=for-the-badge)](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)
-[![Promo Video](https://img.shields.io/badge/Watch-Promo_Video-red?style=for-the-badge&logo=youtube)](https://youtu.be/V7ryKMezqeQ)
+[![Download](https://img.shields.io/badge/Download-Latest_Release-blue?style=for-the-badge)](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)
 [![Website](https://img.shields.io/badge/Website-tas.nevermindnilas.dev-green?style=for-the-badge)](https://tas.nevermindnilas.dev)
+[![Promo Video](https://img.shields.io/badge/Watch-Promo_Video-red?style=for-the-badge&logo=youtube)](https://youtu.be/V7ryKMezqeQ)
 
 <img src="https://tas.nevermindnilas.dev/assets/demo-adore-2x.webp" width="700" alt="TAS Adore 2x upscale demo">
 
-*720p master → Adore 2x. [More demos](https://tas.nevermindnilas.dev) · [Promo video](https://youtu.be/V7ryKMezqeQ)*
-
-| Why TAS vs Topaz / FlowFrames / chaiNNer | |
-|---|---|
-| **Anime-first + free** | CUGAN / Adore / SPAN / Fallin tuned for line art, CLI free (AGPL) vs $299/yr |
-| **One pass, fast** | Dedup → interpolate → upscale → restore in memory, with TensorRT / CUDA graphs |
-| **Where you edit** | Only free tool with native After Effects panel + Standalone + scriptable CLI |
+*720p master → Adore 2x. [More demos](https://tas.nevermindnilas.dev)*
 
 </div>
 
-## 📋 Overview
+## ✨ Why TAS
 
-TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
+- **Anime-first models.** Line-art-tuned upscalers (ShuffleCUGAN, Adore, Fallin, AniScale 2, Cyte), RIFE up to 4.26, anime depth (Limbo) and anime segmentation, plus general-purpose models for live action and games.
+- **One pass, in memory.** Decode → dedup → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
+- **Built for animation.** `--smooth_dedup` detects frames held on twos and threes and interpolates across them while keeping the original length and audio. `--scenechange` holds the frame at hard cuts so nothing morphs between shots. `--mask` keeps HUDs and hardsubs from warping.
+- **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux.
+- **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with presets, batch input and YouTube URLs.
 
-TAS ships in three editions:
+## 🧰 What it does
 
-| Edition | What it is | For |
-| ------- | ---------- | --- |
-| **TAS-Standalone** | Windows desktop app with its own bundled backend — no Python, no command line | Most users |
-| **TAS-AdobeEdition** | After Effects plugin, runs TAS without leaving AE | AE workflows |
-| **CLI** | `main.py` / `tas` — every parameter, scriptable | Power users, automation |
+| Feature | Flag | Models | Backends |
+|---|---|---|---|
+| **Upscale** | `--upscale` | ShuffleCUGAN, Adore, Fallin Soft/Strong, Cyte, SPAN, Open-Proteus, AniScale 2, RTMoSR, Saryn, Gauss, SmoSR, FigSR, AnimeSR, ArtCNN, NVIDIA Maxine VSR, your own Spandrel/ONNX model | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
+| **Interpolate** | `--interpolate` | RIFE 4.6 – 4.26 (lite / heavy), RIFE Elexor, DistilDRBA, GMFSS Fortuna, NVIDIA Maxine Frame Generation | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
+| **Restore** (chainable) | `--restore` | Anime1080Fixer, SCUNet, NAFNet, DPIR, DeJPEG, DeH264, GaterV3, HurrDeblur, DeHalo, deepDeband, FastLineDarken, LineThinner, AutoCAS, Maxine denoise/deblur | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
+| **Dedup** | `--dedup` / `--smooth_dedup` | SSIM, MSE, VMAF, FlowNetS | CPU · CUDA · ROCm |
+| **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
+| **Segmentation** | `--segment` | Anime Segmentation, BiRefNet (anime) | CUDA · TRT · DML · ROCm |
+| **Object detection** | `--obj_detect` | YOLOv9 (MIT) S / M / L | TRT · DML · OpenVINO |
+| **Scene detection** | `--autoclip` / `--scenechange` | PySceneDetect, TransNetV2, MaxxViT, SSIM/MSE | CPU · CUDA · TRT · DML · ROCm |
+| **Stabilize** | `--stabilize` | Classic (feature tracking), DUT (deep mesh warp) | CPU · CUDA · ROCm |
+| **Motion blur** | `--moblur` | RIFE-driven shutter simulation | CUDA · TRT · DML · MPS · ROCm |
 
-## 📖 Table of Contents
+Output goes through FFmpeg or TAS's in-process [Nelux](https://github.com/NevermindNilas/Nelux) encoders: x264/x265/AV1/VP9, NVENC, QSV, AMF, ProRes (with alpha), lossless, GIF and PNG/JPEG sequences.
 
-- [📋 Overview](#-overview)
-- [🚀 Key Features](#-key-features)
-- [🖥️ User Interfaces](#️-user-interfaces)
-- [🛠️ Getting Started](#️-getting-started)
-- [📚 Available Inputs](#-available-inputs)
-- [📁 Available Models](#-available-models)
-- [🙏 Project Contributors](#-project-contributors)
-- [🌟 Star History](#-star-history)
-- [👥 Code Contributors](#-code-contributors)
+**[PARAMETERS.MD](PARAMETERS.MD)** has every flag, every model with its backends, and recommendations by content type.
 
-## 🚀 Key Features
+## 📦 Get TAS
+
+| Edition | Platform | What it is |
+|---|---|---|
+| **[TAS-Standalone](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows | Desktop app with its own backend: no Python, no terminal. Toggle steps into a chain, watch the live preview and save presets. |
+| **[TAS-AdobeEdition](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS | After Effects 2022+ panel. Follow the [installation guide](https://nevermindnilas.github.io/zxp-installation/) or the [video tutorial](https://youtu.be/JAdZ3z-os_A). |
+| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS (Apple Silicon), Linux (source) | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
 
 <table>
 <tr>
-<td width="50%">
-
-### 🎞️ Video Enhancement
-- **Motion Interpolation:** Create buttery-smooth animation with advanced frame interpolation
-- **AI Upscaling:** Enhance resolution with AI-powered upscaling (2x)
-- **Motion Blur:** Simulate realistic camera motion blur via interpolation and weighted frame blending
-- **Smart Deduplication:** Optimize file size and interpolation by removing redundant frames
-
-</td>
-<td width="50%">
-
-### 🎭 Advanced Editing
-- **Background-Foreground Segmentation:** Precise automatic rotobrushing
-- **Depth Map Generation:** 3D-ready depth maps for creative effects
-- **Object Detection:** YOLOv9-based detection with bounding boxes, masks, and class labels
-- **Video Stabilization:** SuperPoint feature-matching stabilizer for shaky footage
-
-</td>
-</tr>
-<tr>
-<td>
-
-### 🔧 Workflow Optimization
-- **TAS-Standalone Desktop App:** One-installer Windows GUI with presets, live progress, and themes
-- **After Effects Integration:** Seamless plugin for AE workflow
-- **Model Chaining:** Combine multiple effects in a single processing pass
-- **In-Memory Processing:** Efficient frame handling without redundant disk operations
-
-</td>
-<td>
-
-### 🧠 AI Flexibility
-- **Multi-Backend Support:** CUDA, TensorRT, DirectML, and OpenVINO acceleration
-- **Custom Model Support:** Import your own trained models
-- **Restoration Options:** Denoise, dejpeg, sharpen, and line enhancement
-
-</td>
+<td align="center"><img src="docs/assets/standalone-gui.webp" width="480" alt="TAS-Standalone"><br><sub>TAS-Standalone</sub></td>
+<td align="center"><img src="https://tas.nevermindnilas.dev/assets/adobe-gui.webp" width="220" alt="TAS in After Effects"><br><sub>After Effects panel</sub></td>
 </tr>
 </table>
 
-## 🖥️ User Interfaces
+Models download on first use, so the first run with a new model takes longer.
 
-<div class="interface-container">
+### Which backend fits your GPU
 
-### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Integration
-> *Currently being enhanced with new features and optimizations*
+| Hardware | Use |
+|---|---|
+| NVIDIA RTX 20 – 50 / GTX 16 | CUDA (default) or `-tensorrt` for maximum speed |
+| NVIDIA GTX 10 and older | `-directml` |
+| AMD / Intel on Windows | `-directml`, or `-openvino` on Intel |
+| AMD on Linux | `-rocm` (experimental) |
+| Apple Silicon (M1+) | `-mps` |
+| Anything with Vulkan | `-ncnn` (RIFE, ShuffleCUGAN, SPAN) |
 
-Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
+NVIDIA Maxine methods need an RTX card (Frame Generation needs an RTX 40 or 50).
 
-<img src="https://tas.nevermindnilas.dev/assets/adobe-gui.webp" width="300" alt="Adobe GUI">
+## 🚀 Quick start
 
-### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Desktop App (TAS-Standalone)
-
-The native Windows desktop app. It ships with its own backend, so nothing else has to be installed — no Python, no CLI, no After Effects. Build a processing chain by toggling steps, watch the live preview and logs while it runs, and save the setup as a preset.
-
-<img src="docs/assets/standalone-gui.webp" width="700" alt="TAS-Standalone GUI">
-
-</div>
-
-## 🛠️ Getting Started
-
-<div class="setup-container">
-
-### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> TAS-Standalone
-
-**The easiest way to use TAS.** A single Windows installer that includes the full TAS backend — you do not need Python, the CLI, or After Effects.
-
-<div class="requirements-box">
-
-**System Requirements:**
-- Windows 10 / 11 (64-bit)
-- Compatible GPU recommended:
-  - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
-  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML backend
-  - **Intel dGPU / iGPU**: OpenVINO backend
-  - **AMD/Intel**: DirectML backend
-
-</div>
-
-#### Installation Steps:
-1. Download **`TAS-<version>-Standalone-Windows-Setup.exe`** from the [releases page](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)
-2. Run the installer
-3. Launch TAS-Standalone, pick an input video, choose your options, and hit run
-
-Models are downloaded on first use of each option, so the initial run of a given model takes longer.
-
-### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Plugin
-
-<div class="requirements-box">
-
-**System Requirements:**
-- After Effects 2022 or higher
-- Compatible GPU recommended:
-  - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
-  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML backend
-  - **Intel dGPU / iGPU**: OpenVINO backend
-  - **AMD/Intel**: DirectML backend
-
-</div>
-
-#### Installation Steps:
-1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from the releases page
-2. Extract the `.zip` file to a location of your choice
-3. Follow the [**installation tutorial**](https://nevermindnilas.github.io/zxp-installation/) to add TAS to After Effects
-
-<div class="help-box">
-
-> **Need help?** Watch the [video tutorial](https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn)
-
-</div>
-
-### <img src="https://img.icons8.com/color/24/000000/console.png" width="20"/> Command Line Interface
-
-Get the most powerful and flexible version of TAS with the command-line interface:
-
-<div class="download-options">
-
-- **[⬇️ Stable Release](https://github.com/NevermindNilas/TheAnimeScripter/releases)** — Recommended for production work
-- **[⬇️ Nightly Builds](https://github.com/NevermindNilas/TAS-Nightly/releases)** — Latest features (may contain bugs)
-
-</div>
-
-For local development, install the base requirements and the runtime profile you want with pip:
-
-```sh
-python -m pip install -r requirements.txt -r extra-requirements-windows-lite.txt
-python main.py -h
-```
-
-On Apple Silicon macOS, use the MPS profile:
-
-```sh
-python -m pip install -r requirements.txt -r extra-requirements-macos.txt
-python main.py -h
-```
-
-macOS needs a Homebrew FFmpeg. TAS does not ship FFmpeg — it is GPL, and bundling it would make every TAS release a redistributor — so on first run TAS installs it on your machine with `brew install ffmpeg` if it is not already present. [Homebrew](https://brew.sh) itself must be installed; TAS will not install it for you.
-
-Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux CUDA/lite profile or `extra-requirements-macos.txt` for Apple Silicon.
-
-#### Windows CLI Installer
-
-Use this one-liner:
+Windows CLI one-liner. It installs into a `TheAnimeScripter` folder in the current directory and asks whether to add that folder to PATH:
 
 ```powershell
 iwr -useb https://tas.nevermindnilas.dev/install.ps1 | iex
 ```
 
-It installs into a `TheAnimeScripter` folder inside the directory you launch it from and prompts whether that folder should be added to your user PATH.
+Then run it. Without the installer, use `python main.py` in place of `tas`:
 
-After installation, you can use `tas --help` or `theanimescripter --help`.
+```sh
+# 2x upscale + 2x interpolation, anime defaults
+tas --input episode.mp4 --upscale --interpolate
 
-</div>
+# Picking a method enables its step: TensorRT upscale + RIFE 4.25, scaled to 4K
+tas --input episode.mp4 --upscale_method shufflecugan-tensorrt --interpolate_method rife4.25-tensorrt --output_scale 3840x2160
 
-## 📚 Available Inputs
+# Anime on twos → smooth motion, same length, cuts left untouched
+tas --input episode.mp4 --smooth_dedup --scenechange
 
-All available parameters for interacting with the CLI or directly with `main.py` can be found in the [Parameters](PARAMETERS.MD) guide.
+# Chain restorers, encode 10-bit
+tas --input old_show.mkv --restore_method deh264_real anime1080fixer --encode_method x265_10bit
 
-## 📁 Available Models
-
-### 🆙 Upscaling Models
-
-| Model                 | CUDA  | TensorRT | DirectML | OpenVINO  |
-| --------------------- | :---: | :------: | :------: | :---: |
-| Cyte V1 (2×)          |   ✅   |    ✅     |    ✅    |   ✅   |
-| ShuffleCugan          |   ✅   |    ✅     |    ✅    |   ✅   |
-| Fallin Soft           |   ✅   |    ✅     |    ✅     |   ✅   |
-| Fallin Strong         |   ✅   |    ✅     |    ✅     |   ✅   |
-| Span                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| OpenProteus           |   ✅   |    ✅     |    ✅     |   ✅   |
-| AniScale 2            |   ✅   |    ✅     |    ✅     |   ✅   |
-| RTMOSR                |   ❌   |    ✅     |    ✅     |   ✅   |
-| Saryn ( RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ✅   |
-| Gauss ( DIS based )              |   ✅   |    ✅     |    ✅     |   ✅   |
-| Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
-| NVIDIA Maxine VSR     |   ✅   |    ✅     |    ❌     |   ❌   |
-
-### ⏱️ Interpolation Models (RIFE)
-
-| Version               | CUDA  | TensorRT | DirectML | OpenVINO  |
-| --------------------- | :---: | :------: | :------: | :---: |
-| 4.6                   |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.15                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.15-lite             |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.16-lite             |   ✅   |    ❌     |    ❌     |   ❌   |
-| 4.17                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.18                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.20                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.21                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.22                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.22-lite             |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.25                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| 4.25-heavy            |   ✅   |    ✅     |    ✅     |   ✅   |
-| Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ✅     |   ✅   |
-
-### 🔧 Restoration Models
-
-| Model               | CUDA  | TensorRT | DirectML | OpenVINO  |
-| ------------------- | :---: | :------: | :------: | :---: |
-| SCUNet (Denoise)    |   ✅   |    ✅     |    ❌     |   ❌   |
-| NAFNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
-| DPIR (Denoise)      |   ✅   |    ❌     |    ❌     |   ❌   |
-| DeJpeg ( Real-Plksr ) |   ✅   |    ❌     |    ❌     |   ❌   |
-| Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ✅   |
-| FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
-| GaterV3             |   ✅   |    ❌     |    ✅     |   ✅   |
-| DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ✅   |
-| deepDeband-f (Debanding) |   ✅   |    ❌     |    ❌     |   ❌   |
-| NVIDIA Maxine (Denoise/Deblur) |   ✅   |    ✅     |    ❌     |   ❌   |
-
-### 🌊 Depth Map Models
-
-| Model                                 | CUDA  | TensorRT | DirectML | OpenVINO  |
-| ------------------------------------- | :---: | :------: | :------: | :---: |
-| **"Faster" Depth-Anything v2 Models** |       |          |          |       |
-| Small v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
-| **Original Implementation Models**    |       |          |          |       |
-| OG Small v2                           |   ✅   |    ✅     |    ❌     |   ✅   |
-| **Limbo Models (anime)**              |       |          |          |       |
-| Limbo v1 (`--depth_method limbo`)     |   ✅   |    ✅     |    ❌     |   ✅   |
-| Limbo v2 (`--depth_method limbo_v2`)  |   ✅   |    ✅     |    ❌     |   ✅   |
-
-DA3 depth-video streaming is available on CUDA as `video_small_v3` and
-`video_base_v3`, reusing the Apache-2.0 Small/Base checkpoints. For example:
-
-```bash
-python main.py --input input.mp4 --output depth.mp4 --depth_method video_small_v3 --depth_window 8
+# Temporally stable depth map
+tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-Limbo V1 and V2 also support CUDA streaming as `video_limbo` and
-`video_limbo_v2`. They reuse the existing Limbo checkpoints and fixed input
-resolutions; `--depth_quality` is ignored for these modes.
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_presets` and `tas --list_methods` to explore, or `tas -h` for every option.
 
-Frames attend across overlapping chunks; `--depth_window` sets the chunk size
-(4/8/16/32, default 32), with 50% overlap. Smaller windows reduce memory and
-lookahead latency. This is a depth-only adaptation of DA3-Streaming, without
-camera reconstruction or loop closure. See [details and licenses](docs/DA3_STREAMING.md).
+<details>
+<summary><b>Run from source</b></summary>
 
-### 🎯 Object Detection Models (YOLOv9-MIT)
+TAS targets **Python 3.14**. Install the base requirements plus the profile for your platform:
 
-| Model         | CUDA  | TensorRT | DirectML | OpenVINO |
-| ------------- | :---: | :------: | :------: | :------: |
-| YOLOv9 Small  |   ✅   |    ✅     |    ✅     |    ✅     |
-| YOLOv9 Medium |   ✅   |    ✅     |    ✅     |    ✅     |
-| YOLOv9 Large  |   ✅   |    ✅     |    ✅     |    ✅     |
+```sh
+python -m pip install -r requirements.txt -r extra-requirements-windows.txt
+python main.py -h
+```
 
-### 🎥 Video Stabilization
+| Profile | For |
+|---|---|
+| `extra-requirements-windows.txt` / `-linux.txt` | NVIDIA: CUDA, TensorRT, Maxine, plus everything in lite |
+| `extra-requirements-windows-lite.txt` / `-linux-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
+| `extra-requirements-linux-rocm.txt` | AMD ROCm (experimental) |
+| `extra-requirements-macos.txt` | Apple Silicon (MPS) |
 
-| Method                       | CUDA  |
-| ---------------------------- | :---: |
-| SuperPoint feature matching  |   ✅   |
+Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use), or pass one by name, e.g. `--download_requirements linux-rocm`.
 
-## 🙏 Project Contributors
+On macOS TAS uses Homebrew's FFmpeg and runs `brew install ffmpeg` on first launch if it is missing. FFmpeg is GPL, so TAS does not ship it. [Homebrew](https://brew.sh) itself must already be installed.
 
-<div class="contributors-container">
+Portable builds: see [BUILD.md](BUILD.md).
 
-### 🧠 Model & Algorithm Contributors
-| Contributor                                       | Contribution                 | Repository                                                                             |
-| ------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
-| [SUDO](https://github.com/styler00dollar)         | ShuffleCugan & ONNX models   | [VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)       |
-| [renarchi](https://github.com/renarchi)           | Adore, Fallin Soft & Strong models | [Fallin-Upscale](https://github.com/renarchi/Re-SISR)               |
-| [HZWER](https://github.com/hzwer)                 | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
-| [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
-| [DepthAnything](https://github.com/DepthAnything) | Depth map generation         | [Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)                |
-| [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
-| [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
-| [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer; BiRefNet-Real_Anime | [BiRefNet-Real_Anime](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) |
-| [ZhengPeng7](https://github.com/ZhengPeng7)       | BiRefNet architecture        | [BiRefNet](https://github.com/ZhengPeng7/BiRefNet)                                     |
-| [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
-| [Phhofm](https://github.com/Phhofm/models)        | DeJpeg & DeH264 restoration  | [Phhofm/models](https://github.com/Phhofm/models)                                      |
-| [Kim2091](https://github.com/Kim2091)             | DIS Architecture (Gauss)  | [DIS](https://github.com/Kim2091/DIS)                                                  |
-| [Raymond Zhou et al.](https://github.com/RaymondLZhou) | deepDeband (ICIP 2022) debanding | [deepDeband](https://github.com/RaymondLZhou/deepDeband)                          |
+</details>
 
-### 🛠️ Framework & Tool Contributors
-| Contributor                                     | Contribution                           | Repository                                                     |
-| ----------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| [FFmpeg Group](https://github.com/FFmpeg)       | Video processing framework             | [FFmpeg](https://github.com/FFmpeg/FFmpeg)                     |
-| [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities            | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
-| [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms             | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
-| [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture (vendored fork) | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
-| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations & NCNN model fork | [rife-ncnn-vulkan](https://github.com/TNTwise/rife-ncnn-vulkan) |
-| [Media2x](https://github.com/media2x)           | RIFE NCNN Python (SWIG) wrapper        | [rife-ncnn-vulkan-python](https://github.com/media2x/rife-ncnn-vulkan-python) |
-| [nihui](https://github.com/nihui)               | RIFE NCNN Vulkan implementation        | [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan)  |
-| [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
-| [NVIDIA](https://github.com/NVIDIA)             | Maxine Video Effects SDK (RTX VSR) via `nvidia-vfx` | [NVIDIA Maxine](https://developer.nvidia.com/maxine)           |
+## 🙏 Credits
 
+TAS builds on the work of many model authors and open-source projects. Third-party license notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-### 🌟 TAS Collaborators
-| Contributor                                     | Contribution                                    |
-| ----------------------------------------------- | ----------------------------------------------- |
-| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition                               |
-| [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
+<details>
+<summary><b>Models & research</b></summary>
 
-<div class="contact-info">
+| Contributor | Contribution |
+|---|---|
+| [hzwer](https://github.com/hzwer) | [RIFE](https://github.com/hzwer/Practical-RIFE) interpolation |
+| [Elexor](https://github.com/elexor) | Modified RIFE (RIFE Elexor) |
+| [routineLife1](https://github.com/routineLife1) | [DistilDRBA](https://github.com/routineLife1/DistilDRBA) |
+| [98mxr](https://github.com/98mxr) / [HolyWu](https://github.com/HolyWu) | GMFSS Fortuna, [vs-gmfss_fortuna](https://github.com/HolyWu/vs-gmfss_fortuna), [vs-animesr](https://github.com/HolyWu/vs-animesr) |
+| [TencentARC](https://github.com/TencentARC) | [AnimeSR](https://github.com/TencentARC/AnimeSR) |
+| [styler00dollar (SUDO)](https://github.com/styler00dollar) | ShuffleCUGAN & ONNX models ([VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)) |
+| [renarchi](https://github.com/renarchi) | Adore, Fallin Soft & Strong |
+| [Sirosky](https://github.com/Sirosky) | Open-Proteus, AniScale 2 ([Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)) |
+| [umzi](https://github.com/umzi2) | RTMoSR, GaterV3 |
+| [Kim2091](https://github.com/Kim2091) | [DIS](https://github.com/Kim2091/DIS) architecture (Gauss) |
+| [Artoriuz](https://github.com/Artoriuz) | [ArtCNN](https://github.com/Artoriuz/ArtCNN) |
+| [Phhofm](https://github.com/Phhofm/models) | DeJPEG & DeH264 restoration |
+| [Zarxrax](https://github.com/Zarxrax) | Anime1080Fixer, [BiRefNet-Real_Anime](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) |
+| [ZhengPeng7](https://github.com/ZhengPeng7) | [BiRefNet](https://github.com/ZhengPeng7/BiRefNet) architecture |
+| [SkyTNT](https://github.com/SkyTNT) | [Anime segmentation](https://github.com/SkyTNT/anime-segmentation) |
+| [Raymond Zhou et al.](https://github.com/RaymondLZhou) | [deepDeband](https://github.com/RaymondLZhou/deepDeband) |
+| [DepthAnything](https://github.com/DepthAnything) / ByteDance | [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2), [Video Depth Anything](https://github.com/DepthAnything/Video-Depth-Anything), Depth Anything 3 |
+| [Annbless](https://github.com/Annbless) | [DUT](https://github.com/Annbless/DUTCode) video stabilization |
+| [soCzech](https://github.com/soCzech) | [TransNetV2](https://github.com/soCzech/TransNetV2) shot detection |
+| [MultimediaTechLab](https://github.com/MultimediaTechLab) / [ibaiGorordo](https://github.com/ibaiGorordo) | [YOLOv9 (MIT)](https://github.com/MultimediaTechLab/YOLO), [ONNX port](https://github.com/ibaiGorordo/ONNX-YOLOv9-MIT-Object-Detection) |
+| [AMD GPUOpen](https://github.com/GPUOpen-Effects) | [FidelityFX CAS](https://github.com/GPUOpen-Effects/FidelityFX-CAS) (AutoCAS) |
+| [NVIDIA](https://developer.nvidia.com/maxine) | Maxine Video Effects SDK (VSR, denoise/deblur, Frame Generation) via `nvidia-vfx` |
 
-> 📧 **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com) or open a Github Issue!
+</details>
 
-</div>
-</div>
+<details>
+<summary><b>Frameworks & tools</b></summary>
 
-## 🌟 Star History
+| Project | Used for |
+|---|---|
+| [FFmpeg](https://github.com/FFmpeg/FFmpeg) | Encoding, muxing, audio |
+| [spandrel](https://github.com/chaiNNer-org/spandrel) (chaiNNer-org; vendored [TNTwise](https://github.com/TNTwise) fork) | Model architectures, custom models |
+| [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan) (nihui), [TNTwise fork](https://github.com/TNTwise/rife-ncnn-vulkan), [Python wrapper](https://github.com/media2x/rife-ncnn-vulkan-python) (media2x) | NCNN/Vulkan RIFE |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | URL input |
+| [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) | Scene detection |
+| [bolt-cep](https://github.com/hyperbrew/bolt-cep) (Hyperbrew) | After Effects panel framework |
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.dera.page/#NevermindNilas/TheAnimeScripter&Date)
+</details>
 
-## 👥 Code Contributors
+**Collaborators:** [Trentonom0r3](https://github.com/Trentonom0r3) (TAS Adobe Edition) · [Adegerard](https://github.com/adegerard) (architecture & optimization suggestions)
 
-A huge thank you to everyone who has contributed code to TheAnimeScripter.
+> Missing someone? Email [nilascontact@gmail.com](mailto:nilascontact@gmail.com) or open an issue.
 
 <div align="center">
 
 <a href="https://github.com/NevermindNilas/TheAnimeScripter/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=NevermindNilas/TheAnimeScripter" alt="TheAnimeScripter contributors" />
+  <img src="https://contrib.rocks/image?repo=NevermindNilas/TheAnimeScripter" alt="Code contributors" />
 </a>
+
+[![Star History Chart](https://star-history.dera.page/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.dera.page/#NevermindNilas/TheAnimeScripter&Date)
+
+Licensed under [AGPL-3.0](LICENSE). Some model weights carry their own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 </div>
