@@ -101,8 +101,14 @@ class RifeTensorRT:
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
             "rife4.25-heavy-tensorrt",
+            "rife4.26-tensorrt",
         ]:
             channels = 4
+            mul = 64
+        elif self.interpolateMethod in [
+            "rife4.26-heavy-tensorrt",
+        ]:
+            channels = 16
             mul = 64
         elif self.interpolateMethod in [
             "rife4.22-lite-tensorrt",

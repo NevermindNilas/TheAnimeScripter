@@ -15,6 +15,9 @@ _RIFE_V1 = {
     "rife4.25": ("IFNet425", "IFNet_rife425"),
     "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
     "rife4.25-lite": ("IFNet425Lite", "IFNet_rife425lite"),
+    # 4.26 is 4.25's architecture with new weights; 4.26-heavy is not 4.25-heavy.
+    "rife4.26": ("IFNet426", "IFNet_rife425"),
+    "rife4.26-heavy": ("IFNet426Heavy", "IFNet_rife426heavy"),
     "rife4.22": ("IFNet422", "IFNet_rife422"),
     "rife4.22-lite": ("IFNet422Lite", "IFNet_rife422lite"),
     "rife4.21": ("IFNet421", "IFNet_rife421"),
@@ -54,8 +57,12 @@ def importRifeArch(interpolateMethod, version, half=True):
                     from src.rifearches.Rife425_lite_v3 import IFNet
 
                     Head = True
-                case "rife4.25-tensorrt":
+                case "rife4.25-tensorrt" | "rife4.26-tensorrt":
                     from src.rifearches.Rife425_v3 import IFNet
+
+                    Head = True
+                case "rife4.26-heavy-tensorrt":
+                    from src.rifearches.Rife426_heavy_v3 import IFNet
 
                     Head = True
                 case "rife-tensorrt" | "rife4.22-tensorrt":
@@ -124,8 +131,17 @@ def importRifeArch(interpolateMethod, version, half=True):
                     from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
 
                     Head = True
-                case "rife4.25-directml" | "rife4.25-openvino":
+                case (
+                    "rife4.25-directml"
+                    | "rife4.25-openvino"
+                    | "rife4.26-directml"
+                    | "rife4.26-openvino"
+                ):
                     from src.rifearches.Rife_directml import IFNet_425 as IFNet
+
+                    Head = True
+                case "rife4.26-heavy-directml" | "rife4.26-heavy-openvino":
+                    from src.rifearches.Rife_directml import IFNet_426_heavy as IFNet
 
                     Head = True
                 case "rife4.25-lite-directml" | "rife4.25-lite-openvino":

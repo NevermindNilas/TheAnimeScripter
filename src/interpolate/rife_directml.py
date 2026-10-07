@@ -137,6 +137,10 @@ class RifeDirectML:
             "rife4.25-heavy-directml",
             "rife4.25-openvino",
             "rife4.25-heavy-openvino",
+            "rife4.26-directml",
+            "rife4.26-heavy-directml",
+            "rife4.26-openvino",
+            "rife4.26-heavy-openvino",
         ]:
             mul = 64
         elif self.interpolateMethod in [

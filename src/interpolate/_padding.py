@@ -1,6 +1,8 @@
 # Arches whose coarsest IFBlock runs at scale_list[0] = 16 / scale. Everything
 # else in _RIFE_V1 starts at 8 / scale.
-_RIFE_SCALE16 = frozenset({"rife4.25", "rife4.25-heavy", "rife4.25-lite"})
+_RIFE_SCALE16 = frozenset(
+    {"rife4.25", "rife4.25-heavy", "rife4.25-lite", "rife4.26", "rife4.26-heavy"}
+)
 
 
 def _padMultiple(method, scale, dynamicScale):
@@ -9,7 +11,7 @@ def _padMultiple(method, scale, dynamicScale):
 
     The coarsest IFBlock downsamples its input by ``scale_list[0]`` and then by
     another 4x inside ``conv0``, so the padded size must divide ``4 * 16 / scale``
-    for the 4.25 family and ``4 * 8 / scale`` for the rest. ``dynamicScale``
+    for the 4.25/4.26 family and ``4 * 8 / scale`` for the rest. ``dynamicScale``
     re-picks ``scale`` per frame and can go as low as 0.5
     (``dynamic_scale.py`` minScale), so it has to budget for the coarsest scale
     it may choose rather than the one passed in.

@@ -24,14 +24,14 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
 
 
 class Head(nn.Module):
-    def __init__(self):
+    def __init__(self, outC=4):
         super().__init__()
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
-        # repacked ConvTranspose2d(16, 4, 4, 2, 1): Conv2d + PixelShuffle,
+        # repacked ConvTranspose2d(16, outC, 4, 2, 1): Conv2d + PixelShuffle,
         # weights rearranged at load (math identical)
-        self.cnn3 = nn.Conv2d(16, 16, 3, 1, 1)
+        self.cnn3 = nn.Conv2d(16, 4 * outC, 3, 1, 1)
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x, feat=False):
@@ -99,6 +99,9 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
+    # Feature channels per frame out of the encoder (4.26-heavy overrides it).
+    encodeChannels = 4
+
     def __init__(
         self,
         scale=1.0,
@@ -109,13 +112,14 @@ class IFNet(nn.Module):
         height=1080,
     ):
         super().__init__()
-        self.block0 = IFBlock(7 + 8, c=192)
-        self.block1 = IFBlock(8 + 4 + 8 + 8, c=128)
-        self.block2 = IFBlock(8 + 4 + 8 + 8, c=96)
-        self.block3 = IFBlock(8 + 4 + 8 + 8, c=64)
-        self.block4 = IFBlock(8 + 4 + 8 + 8, c=32)
+        e = self.encodeChannels
+        self.block0 = IFBlock(7 + 2 * e, c=192)
+        self.block1 = IFBlock(8 + 4 + 2 * e + 8, c=128)
+        self.block2 = IFBlock(8 + 4 + 2 * e + 8, c=96)
+        self.block3 = IFBlock(8 + 4 + 2 * e + 8, c=64)
+        self.block4 = IFBlock(8 + 4 + 2 * e + 8, c=32)
 
-        self.encode = Head()
+        self.encode = Head(e)
         self.device = device
         self.dtype = dtype
         self.scaleList = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
@@ -167,14 +171,15 @@ class IFNet(nn.Module):
         return super().load_state_dict(remapped, strict=strict, assign=assign)
 
     def forward(self, img0, img1, timeStep, f0):
+        e = self.encodeChannels
         warpedImg0, warpedImg1 = img0, img1
         imgs = torch.cat([img0, img1], dim=1)
         imgs2 = imgs.view(2, 3, self.ph, self.pw)
         f1 = self.encode(img1[:, :3])
         fs = torch.cat([f0, f1], dim=1)
-        fs2 = fs.view(2, 4, self.ph, self.pw)
+        fs2 = fs.view(2, e, self.ph, self.pw)
         if self.ensemble:
-            fs_rev = torch.cat(torch.split(fs, [4, 4], dim=1)[::-1], dim=1)
+            fs_rev = torch.cat(torch.split(fs, [e, e], dim=1)[::-1], dim=1)
             imgs_rev = torch.cat([img1, img0], dim=1)
 
         flows = None
@@ -275,15 +280,15 @@ class IFNet(nn.Module):
                     padding_mode="border",
                     align_corners=True,
                 )
-                wimg, wf = torch.split(warps, [3, 4], dim=1)
+                wimg, wf = torch.split(warps, [3, e], dim=1)
                 wimg = torch.reshape(wimg, (1, 6, self.ph, self.pw))
-                wf = torch.reshape(wf, (1, 8, self.ph, self.pw))
+                wf = torch.reshape(wf, (1, 2 * e, self.ph, self.pw))
                 if self.ensemble:
                     wimg_rev = torch.cat(  # noqa
                         torch.split(wimg, [3, 3], dim=1)[::-1], dim=1
                     )
                     wf_rev = torch.cat(  # noqa
-                        torch.split(wf, [4, 4], dim=1)[::-1], dim=1
+                        torch.split(wf, [e, e], dim=1)[::-1], dim=1
                     )
 
         mask = torch.sigmoid(mask)

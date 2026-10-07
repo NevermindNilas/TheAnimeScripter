@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Added
 - Added NVIDIA Maxine Video Frame Generation interpolation (`--interpolate_method maxine-low`, `maxine-medium`, `maxine-high`) from `nvidia-vfx` 0.2.0.0. Requires an RTX 40/50 (Ada/Blackwell) GPU; older GPUs now fail with that requirement named instead of `code -1999`.
+- Added RIFE 4.26 and 4.26-heavy interpolation (`rife4.26`, `rife4.26-heavy`, each also `-tensorrt`, `-directml`, `-openvino`, `-mps`). 4.26 reuses the 4.25 architecture; 4.26-heavy keeps 4.25's block widths and widens the feature encoder to 16 channels.
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 

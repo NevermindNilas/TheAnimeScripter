@@ -1,6 +1,7 @@
 """
 Fast CUDA path for all RIFE variants (4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20,
-4.21, 4.22, 4.22-lite, 4.25, 4.25-lite, 4.25-heavy). Math-equivalent to baselines
+4.21, 4.22, 4.22-lite, 4.25, 4.25-lite, 4.25-heavy, 4.26, 4.26-heavy).
+Math-equivalent to baselines
 modulo fp16 noise.
 
 Optimizations (all load-time, free):
@@ -13,7 +14,8 @@ Optimizations (all load-time, free):
 Keeps v1 API: cache(), cacheReset(frame), forward(img0, img1, timestep).
 
 Exports IFNet46, IFNet415Lite, IFNet416Lite, IFNet417, IFNet418, IFNet420,
-        IFNet421, IFNet422, IFNet422Lite, IFNet425, IFNet425Lite, IFNet425Heavy.
+        IFNet421, IFNet422, IFNet422Lite, IFNet425, IFNet425Lite, IFNet425Heavy,
+        IFNet426, IFNet426Heavy.
 """
 
 import torch
@@ -684,6 +686,28 @@ IFNet425Heavy = _make(
     hasHead=True,
     headMidC=16,
     headOutC=4,
+    scaleBase=[16, 8, 4, 2, 1],
+    maskMode="replace",
+)
+
+# rife4.26: same architecture as rife4.25, new weights
+IFNet426 = IFNet425
+
+# rife4.26-heavy: rife4.25 block widths, but a 16-channel Head (4.25-heavy
+# widened the blocks instead), so every block takes 2*12 more feature channels
+IFNet426Heavy = _make(
+    channels=[192, 128, 96, 64, 32],
+    inPlanesList=[
+        7 + 32,
+        8 + 4 + 32 + 8,
+        8 + 4 + 32 + 8,
+        8 + 4 + 32 + 8,
+        8 + 4 + 32 + 8,
+    ],
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=16,
+    headOutC=16,
     scaleBase=[16, 8, 4, 2, 1],
     maskMode="replace",
 )

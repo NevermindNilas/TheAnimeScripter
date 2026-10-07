@@ -129,6 +129,8 @@ def modelsList() -> list[str]:
         "rife4.25",
         "rife4.25-lite",
         "rife4.25-heavy",
+        "rife4.26",
+        "rife4.26-heavy",
         "rife_elexor",
         "distildrba",
         "distildrba-lite",
@@ -143,6 +145,8 @@ def modelsList() -> list[str]:
         "rife4.25-tensorrt",
         "rife4.25-lite-tensorrt",
         "rife4.25-heavy-tensorrt",
+        "rife4.26-tensorrt",
+        "rife4.26-heavy-tensorrt",
         "rife_elexor-tensorrt",
         "rife4.6-ncnn",
         "rife4.15-lite-ncnn",
@@ -190,6 +194,8 @@ def modelsList() -> list[str]:
         "rife4.25-mps",
         "rife4.25-lite-mps",
         "rife4.25-heavy-mps",
+        "rife4.26-mps",
+        "rife4.26-heavy-mps",
         "rife_elexor-mps",
         "scunet-mps",
         "nafnet-mps",
@@ -651,6 +657,22 @@ def modelsMap(
                 return "rife425_heavy.pth"
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")
+
+        case (
+            "rife4.26" | "rife4.26-tensorrt" | "rife4.26-directml" | "rife4.26-openvino"
+        ):
+            # TensorRT, DirectML and OpenVINO export their ONNX from this .pth.
+            if modelType in ("pth", "onnx"):
+                return "rife426.pth"
+
+        case (
+            "rife4.26-heavy"
+            | "rife4.26-heavy-tensorrt"
+            | "rife4.26-heavy-directml"
+            | "rife4.26-heavy-openvino"
+        ):
+            if modelType in ("pth", "onnx"):
+                return "rife426_heavy.pth"
 
         case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
             if modelType in ("pth", "onnx"):
