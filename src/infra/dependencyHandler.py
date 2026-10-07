@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 import sys
-import sysconfig
 from collections.abc import Iterable
 from importlib import invalidate_caches
 from importlib.metadata import PackageNotFoundError, version
@@ -200,79 +199,6 @@ def installDependencies(extension: str = "") -> tuple[bool, str]:
     )
 
     return success, message
-
-
-# TensorRT runtime libs bundled in the nvidia-vfx wheel that the Maxine
-# VideoSuperRes path never loads. VSR runs entirely on NGX (driver):
-# nvVFXVideoSuperRes -> nvngxruntime -> nvcuda; the only consumer of
-# nvinfer is nvinfer_plugin, which VSR does not use. Verified at runtime
-# (upscale + denoise + deblur all succeed with these removed). ~470MB.
-_MAXINE_UNUSED_LIBS = (
-    # Windows
-    "nvinfer_10.dll",
-    "nvinfer_plugin_10.dll",
-    "nvonnxparser_10.dll",
-    # Linux
-    "libnvinfer.so.10",
-    "libnvinfer_plugin.so.10",
-    "libnvonnxparser.so.10",
-)
-
-
-def _locateNvvfxLibsDir() -> Path | None:
-    """Find the bundled nvvfx/libs directory in the active environment."""
-    try:
-        invalidate_caches()  # nvidia-vfx may have just been installed
-        spec = find_spec("nvvfx")
-        if spec and spec.origin:
-            libsDir = Path(spec.origin).parent / "libs"
-            if libsDir.is_dir():
-                return libsDir
-    except Exception:
-        pass
-
-    for pathKey in ("platlib", "purelib"):
-        try:
-            candidate = Path(sysconfig.get_paths()[pathKey]) / "nvvfx" / "libs"
-            if candidate.is_dir():
-                return candidate
-        except Exception:
-            continue
-    return None
-
-
-def pruneMaxineUnusedLibs() -> tuple[int, int]:
-    """Delete the TensorRT runtime libs the Maxine VSR path never uses.
-
-    Trims files from the *locally installed* nvidia-vfx package only — no
-    modified artifact is produced or redistributed, so this stays within the
-    NVIDIA SLA (which forbids distributing a modified package, not trimming a
-    local install). Best-effort: returns (filesRemoved, bytesFreed); never
-    raises.
-    """
-    libsDir = _locateNvvfxLibsDir()
-    if libsDir is None:
-        return 0, 0
-
-    removed = 0
-    freed = 0
-    for name in _MAXINE_UNUSED_LIBS:
-        libPath = libsDir / name
-        try:
-            if libPath.exists():
-                size = libPath.stat().st_size
-                libPath.unlink()
-                removed += 1
-                freed += size
-        except Exception as e:
-            logging.warning(f"Could not prune {libPath}: {e}")
-
-    if removed:
-        logging.info(
-            f"Pruned {removed} unused NVIDIA VFX TensorRT libs "
-            f"({freed / 1024 / 1024:.0f}MB) from {libsDir}"
-        )
-    return removed, freed
 
 
 _HOMEBREW_FFMPEG_CELLAR_RE = re.compile(
@@ -491,20 +417,6 @@ class DependencyChecker:
         if not success:
             logAndPrint(message, "red")
             return False
-
-        # nvidia-vfx (Maxine) ships only with the CUDA profiles. Trim the
-        # ~470MB of TensorRT libs its VSR path never loads.
-        if profile.endswith("-cuda"):
-            try:
-                removed, freed = pruneMaxineUnusedLibs()
-                if removed:
-                    logAndPrint(
-                        f"Trimmed {removed} unused NVIDIA VFX TensorRT libs "
-                        f"({freed / 1024 / 1024:.0f} MB freed).",
-                        "green",
-                    )
-            except Exception as e:
-                logging.warning(f"Maxine lib prune skipped: {e}")
 
         if profile == "macos-mps":
             try:

@@ -7,11 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- Added NVIDIA Maxine Video Frame Generation interpolation (`--interpolate_method maxine-low`, `maxine-medium`, `maxine-high`) from `nvidia-vfx` 0.2.0.0. Requires an RTX 40/50 (Ada/Blackwell) GPU; older GPUs now fail with that requirement named instead of `code -1999`.
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
 ### Changed
 - Bumped `barflow` `0.5.1` → `0.6.0`: resizing the terminal mid-run no longer leaves stale progress-bar frames stacked above the live one or hides the bar. Ctrl+C now closes open bars before the force-exit, so the shell keeps its cursor (0.6.0 hides it while drawing) and the interrupt warning gets its own line instead of overwriting the bar.
+- Bumped `nvidia-vfx` to 0.2.0.0 (Windows and Linux CUDA profiles). The wheel no longer bundles TensorRT, so first install drops from ~793 MB to ~537 MB on Windows, and the post-install step that pruned ~470 MB of unused TensorRT libs is removed.
 - Every Limbo method (`limbo*`, `video_limbo*`, all backends) now honors `--depth_quality` instead of forcing `low`: `medium`/`high` keep the source aspect with a 700 px or native longest side, and TensorRT/OpenVINO export their ONNX locally at that size on first use. `low` is unchanged (1080p `limbo_v2` CUDA on an RTX 3090: 46.9 / 44.2 / 8.4 fps at 504x280 / 700x392 / 1932x1078).
 - Progress bar: speed and ETA track the last ~2 s instead of the whole-run average, so warm-up stops skewing the ETA and slowdowns show up (simulated throttle: 53 fps shown vs 50 true, was 76). With interpolation it shows output and source fps; the bar is titled with the input name and the encoded resolution/fps (e.g. `Input │ 2160p/60fps`, `--output_scale` included) instead of a random verb, and standalone tasks name themselves (`Depth`, `Stabilize: render (2/2)`); live dedup/scene-cut counts follow the bar; the bitrate waits 3 s for the encoder to catch up. The line is fitted to the terminal width, dropping the least useful fields first, instead of letting barflow hide the bar.
 - When stderr is not a terminal, the bar no longer writes ANSI redraws into logs (43 KB for a 30 s run); a plain status line is printed every 10 s and at the end.

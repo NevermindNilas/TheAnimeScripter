@@ -387,6 +387,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, ROCm, TRT |
 | **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, ROCm, TRT |
 | **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, ROCm |
+| **maxine-low / -medium / -high** | varies | varies | varies | NVIDIA Maxine Video Frame Generation (SDK-provided, no download). RTX 40/50 (Ada, Blackwell) only; fp32 internally; ignores `--ensemble`. Holds on shot changes it detects itself | CUDA (NVIDIA-only, no ROCm) |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews. On Apple Silicon use `rife4.6-mps` or `rife4.25-mps`.
 

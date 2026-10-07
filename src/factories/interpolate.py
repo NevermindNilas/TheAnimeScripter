@@ -252,6 +252,11 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 interpolateFactor=self.interpolateFactor,
             )
 
+        case "maxine-low" | "maxine-medium" | "maxine-high":
+            from src.interpolate.maxine import MaxineInterpolate
+
+            return MaxineInterpolate(self.interpolateMethod, interpWidth, interpHeight)
+
         case _:
             raise ValueError(
                 f"No interpolation backend is wired up for method "

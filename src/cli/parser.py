@@ -664,6 +664,9 @@ def _addInterpolationOptions(argParser):
         "rife4.25-lite-rocm",
         "rife4.25-heavy-rocm",
         "rife_elexor-rocm",
+        "maxine-low",
+        "maxine-medium",
+        "maxine-high",
     ]
 
     interpolationGroup.add_argument(
