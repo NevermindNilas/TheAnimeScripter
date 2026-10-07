@@ -118,10 +118,13 @@ class VideoStabilizeDUT:
         if ADOBE:
             progressState.update({"status": "Analyzing and stabilizing video..."})
 
-        with ProgressBarLogic(self.totalFrames * 2, title=self.input) as bar:
+        with ProgressBarLogic(
+            self.totalFrames * 2, title="Stabilize: analyze (1/2)"
+        ) as bar:
             self.analyzeMotion(progressBar=bar, advance=1)
             with torch.no_grad():
                 self.computeTrajectoryCorrection()
+            bar.setTitle("Stabilize: render (2/2)")
             self.renderStabilized(progressBar=bar, advance=1)
 
     def _clearReaderCache(self):

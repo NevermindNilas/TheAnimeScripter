@@ -235,7 +235,7 @@ class DepthCuda(DepthRunOutcome):
     def process(self):
         frameCount = 0
         batchSize = self.depthBatch
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             while True:
                 frames = []
                 for _ in range(batchSize):
@@ -568,7 +568,7 @@ class OGDepthV2CUDA(DepthRunOutcome):
     def process(self):
         frameCount = 0
         batchSize = self.depthBatch
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             while True:
                 frames = []
                 for _ in range(batchSize):

@@ -313,7 +313,7 @@ class ObjectDetectionDML:
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Object detection") as bar:
                 while (frame := self.readBuffer.read()) is not None:
                     self.processFrame(frame)
                     frameCount += 1
@@ -652,7 +652,7 @@ class ObjectDetectionTensorRT:
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Object detection") as bar:
                 while (frame := self.readBuffer.read()) is not None:
                     self.processFrame(frame)
                     frameCount += 1

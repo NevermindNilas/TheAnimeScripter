@@ -316,7 +316,7 @@ class DepthDirectMLV2(DepthRunOutcome):
     def process(self):
         frameCount = 0
 
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             while (frame := self.readBuffer.read()) is not None:
                 self.processFrame(frame)
                 frameCount += 1
@@ -767,7 +767,7 @@ class OGDepthV2DirectML(DepthRunOutcome):
     def process(self):
         frameCount = 0
 
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             # Read to the sentinel, not to the frame-count estimate: that count
             # is an estimate on VFR sources and on containers with no nb_frames
             # header, and using it as a hard bound silently truncated the tail.

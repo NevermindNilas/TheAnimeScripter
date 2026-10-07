@@ -286,7 +286,7 @@ class DepthTensorRTV2(DepthRunOutcome):
 
     def process(self):
         frameCount = 0
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             while True:
                 frames = []
                 for _ in range(self._batch):
@@ -783,7 +783,7 @@ class OGDepthV2TensorRT(DepthRunOutcome):
 
     def process(self):
         frameCount = 0
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             while True:
                 frames = []
                 for _ in range(self._batch):

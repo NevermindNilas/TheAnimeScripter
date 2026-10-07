@@ -228,7 +228,7 @@ class DepthMPS(DepthRunOutcome):
 
     def process(self):
         frameCount = 0
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             for frames in iterBatches(self.readBuffer.read, self.depthBatch):
                 self.processBatch(frames)
                 frameCount += len(frames)
@@ -522,7 +522,7 @@ class OGDepthV2MPS(DepthRunOutcome):
 
     def process(self):
         frameCount = 0
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             for frames in iterBatches(self.readBuffer.read, self.depthBatch):
                 self.processBatch(frames)
                 frameCount += len(frames)

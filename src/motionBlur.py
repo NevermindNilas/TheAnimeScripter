@@ -564,7 +564,7 @@ class MotionBlurPipeline:
         # non-deterministic run-to-run.
         prevSegs = None
 
-        with ProgressBarLogic(self.totalFrames, title=self.input) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Motion blur") as bar:
             try:
                 # Read to the sentinel, not to the frame-count estimate: that
                 # count is an estimate on VFR sources and on containers with no

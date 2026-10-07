@@ -237,7 +237,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
                 while True:
                     frames = _readBatch(self.readBuffer, self.segmentBatch)
                     if frames:
@@ -548,7 +548,7 @@ class AnimeSegmentTensorRT:
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
                 while True:
                     frames = _readBatch(self.readBuffer, self.segmentBatch)
                     if frames:
@@ -781,7 +781,7 @@ class AnimeSegmentDirectML:
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
                 while (frame := self.readBuffer.read()) is not None:
                     self.processFrame(frame)
                     frameCount += 1
@@ -1024,7 +1024,7 @@ class AnimeSegmentOpenVino:
         # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
         try:
-            with ProgressBarLogic(self.totalFrames) as bar:
+            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
                 # Read to the sentinel, not to the frame-count estimate; see
                 # the same change in the other standalone drivers.
                 while True:

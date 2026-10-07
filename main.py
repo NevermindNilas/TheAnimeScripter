@@ -950,12 +950,18 @@ class VideoProcessor:
 
             with self.ProgressBarLogic(
                 outputPosition(self.totalFrames),
+                title=os.path.splitext(os.path.basename(self.input))[0],
+                titleDetail=self._barTitleDetail(),
                 outputPath=self.output,
                 videoFps=self.outputFPS,
+                outputPerSource=increment,
             ) as bar:
                 emitted = 0
+                cuts = 0
+                shownStats = (0, 0)
                 while self.frameWindow.advance():
-                    self.processFrame(self.frameWindow.centre)
+                    centre = self.frameWindow.centre
+                    self.processFrame(centre)
                     # The bar tracks decoded frames, not kept ones, so dedup'd
                     # frames still advance it. Lookahead means the window may
                     # have consumed several by the time this centre is reached.
@@ -963,6 +969,22 @@ class VideoProcessor:
                     if position != emitted:
                         bar(position - emitted)
                         emitted = position
+                    cuts += centre.isCut
+                    stats = (self.frameWindow.dropped, cuts)
+                    if stats != shownStats:
+                        bar.setStats(*self._barStats(*stats))
+                        shownStats = stats
+
+                # Trailing duplicates are consumed by the final advance() that
+                # returns False, after the last centre -- the bar stopped short
+                # (598/600) unless they are counted here.
+                position = outputPosition(self.frameWindow.consumed)
+                if position != emitted:
+                    bar(position - emitted)
+                    emitted = position
+                stats = (self.frameWindow.dropped, cuts)
+                if stats != shownStats:
+                    bar.setStats(*self._barStats(*stats))
 
                 self._flushTrailingDuplicates()
 
@@ -1005,6 +1027,37 @@ class VideoProcessor:
                 logging.info(f"Interpolated across {self.dedupCount} duplicate frames")
             else:
                 logging.info(f"Deduplicated {self.dedupCount} frames")
+
+    def _barTitleDetail(self) -> str:
+        """The encoded output's resolution and frame rate, e.g. 2160p/60fps."""
+        from src.io.ffmpegSettings import _resolveOutputScale
+
+        width, height = self.new_width, self.new_height
+        # Same rule the writer applies: --output_scale replaces the pipeline's
+        # own output size, but only when both dimensions are set.
+        scaleWidth, scaleHeight = _resolveOutputScale(
+            self.outputScaleWidth, self.outputScaleHeight
+        )
+        if scaleWidth and scaleHeight:
+            width, height = scaleWidth, scaleHeight
+        fps = f"{self.outputFPS:.2f}".rstrip("0").rstrip(".")
+        # "p" names the shorter side, so ultrawide 2560x1080 and portrait
+        # 1080x1920 both read 1080p.
+        return f"{min(width, height)}p/{fps}fps"
+
+    def _barStats(self, dropped: int, cuts: int) -> tuple[str, str]:
+        """Bar counters, full and short (for narrow terminals)."""
+        full, short = [], []
+        if dropped:
+            # --smooth_dedup folds duplicates into wider gaps instead of
+            # removing them, so "removed" would contradict the frame count.
+            verb = "smoothed" if self.smoothDedup else "removed"
+            full.append(f"{dropped} dupes {verb}")
+            short.append(f"{dropped} dup")
+        if cuts:
+            full.append(f"{cuts} cut{'s' if cuts != 1 else ''}")
+            short.append(f"{cuts} cut")
+        return " · ".join(full), " · ".join(short)
 
     def start(self):
         """
@@ -1508,6 +1561,16 @@ def main():
             sys.exit(1)
 
     except KeyboardInterrupt:
+        # A worker thread may still have a bar open, and os._exit below skips
+        # its __exit__: end it first so barflow restores the cursor it hides
+        # while drawing, and the warning lands on its own line instead of
+        # over the bar. Looked up, not imported: no bar if it never loaded.
+        try:
+            bars = sys.modules.get("src.infra.progressBarLogic")
+            if bars is not None:
+                bars.closeLiveBars()
+        except BaseException:
+            pass
         logWarning("Process interrupted by user")
         _notifyAdobeOfFatalError(KeyboardInterrupt("Cancelled"))
         # A *_nelux encoder runs in this process and writes its container

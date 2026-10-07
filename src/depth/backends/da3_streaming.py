@@ -59,7 +59,7 @@ class DA3StreamingCuda(OGDepthV3Cuda):
                 yield frame
 
         count = 0
-        with ProgressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
             for depth in streamDepthChunks(
                 frames(), self._inferChunk, self.depthWindow
             ):

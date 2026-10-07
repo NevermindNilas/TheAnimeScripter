@@ -11,12 +11,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
 ### Changed
+- Bumped `barflow` `0.5.1` → `0.6.0`: resizing the terminal mid-run no longer leaves stale progress-bar frames stacked above the live one or hides the bar. Ctrl+C now closes open bars before the force-exit, so the shell keeps its cursor (0.6.0 hides it while drawing) and the interrupt warning gets its own line instead of overwriting the bar.
 - Every Limbo method (`limbo*`, `video_limbo*`, all backends) now honors `--depth_quality` instead of forcing `low`: `medium`/`high` keep the source aspect with a 700 px or native longest side, and TensorRT/OpenVINO export their ONNX locally at that size on first use. `low` is unchanged (1080p `limbo_v2` CUDA on an RTX 3090: 46.9 / 44.2 / 8.4 fps at 504x280 / 700x392 / 1932x1078).
+- Progress bar: speed and ETA track the last ~2 s instead of the whole-run average, so warm-up stops skewing the ETA and slowdowns show up (simulated throttle: 53 fps shown vs 50 true, was 76). With interpolation it shows output and source fps; the bar is titled with the input name and the encoded resolution/fps (e.g. `Input │ 2160p/60fps`, `--output_scale` included) instead of a random verb, and standalone tasks name themselves (`Depth`, `Stabilize: render (2/2)`); live dedup/scene-cut counts follow the bar; the bitrate waits 3 s for the encoder to catch up. The line is fitted to the terminal width, dropping the least useful fields first, instead of letting barflow hide the bar.
+- When stderr is not a terminal, the bar no longer writes ANSI redraws into logs (43 KB for a 30 s run); a plain status line is printed every 10 s and at the end.
 
 ### Removed
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- The progress bar stopped short (e.g. 598/600) when a video ended on duplicate frames under `--dedup`.
 - `--depth_quality high` on the DA3 depth methods (`*_v3`, `video_small_v3`/`video_base_v3`; CUDA, ROCm, MPS) stretched the shortest side to the longest, running 16:9 sources at 3.16x their pixel count (4K → 6832x3850). That spilled VRAM into system memory, then OOMed even on 24 GB; 4K `og_large_v3` now runs at native resolution with a 12.3 GiB peak.
 - `--depth_quality` was ignored by `video_small_v2` and `og_video_small_v2` (and their `-rocm` variants), which always ran at 518 px; `medium` and `high` now set the shortest side to 700 px and the source's own (1080p `video_small_v2` on an RTX 3090: 16.0 / 11.2 / 4.8 fps).
 - Kept local development and agent artifacts out of the repository; portable builds and the manual Limbo exporter remain available from `src`.
