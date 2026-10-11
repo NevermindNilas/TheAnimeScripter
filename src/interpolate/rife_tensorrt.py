@@ -130,7 +130,9 @@ class RifeTensorRT:
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
-        IFNet, _Head = importRifeArch(self.interpolateMethod, "v3")
+        IFNet, _Head = importRifeArch(
+            self.interpolateMethod, "v3", ensemble=self.ensemble
+        )
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -138,6 +140,7 @@ class RifeTensorRT:
             optInputShape=[1, 3, self.height, self.width],
             ensemble=self.ensemble,
             isRife=True,
+            archTag=getattr(IFNet, "archTag", ""),
         )
 
         self.model = IFNet(
@@ -162,8 +165,17 @@ class RifeTensorRT:
 
         if _Head is True:
             self.norm = self.model.encode
+            # f0 engine input width comes from the arch (16 for 4.26-heavy).
+            channels = getattr(self.model, "encodeChannels", channels)
         else:
             self.norm = None
+
+        # Unified arches run as two engines: a per-pair one and a per-timestep
+        # one (see _handleSplit). rife_elexor keeps the single engine below.
+        self.split = hasattr(self.model, "pairForward")
+        if self.split:
+            self._handleSplit(enginePath, channels)
+            return
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
@@ -355,6 +367,136 @@ class RifeTensorRT:
         self.cudaGraph = torch.cuda.CUDAGraph()
         self.initTorchCudaGraph()
 
+    def _buildOrLoad(self, enginePath, module, inputs, inputNames, outputNames):
+        """Load a cached engine or export ``module`` (static shapes) and build it."""
+        engine, context = self.tensorRTEngineLoader(enginePath)
+        if engine is not None and context is not None and os.path.exists(enginePath):
+            return engine, context
+        if ADOBE:
+            progressState.update(
+                {"status": f"Exporting {self.interpolateMethod} to TensorRT."}
+            )
+        onnxPath = enginePath.replace(".engine", ".onnx")
+        with torch.inference_mode():
+            torch.onnx.export(
+                module,
+                tuple(inputs),
+                onnxPath,
+                input_names=inputNames,
+                output_names=outputNames,
+                opset_version=22,
+                optimize=False,
+                dynamo=False,
+            )
+        shapes = [list(t.shape) for t in inputs]
+        logging.info("Loading engine failed, creating a new one")
+        engine, context = self.tensorRTEngineCreator(
+            modelPath=onnxPath,
+            enginePath=enginePath,
+            fp16=self.half,
+            inputsMin=shapes,
+            inputsOpt=shapes,
+            inputsMax=shapes,
+            inputName=inputNames,
+            isMultiInput=True,
+        )
+        try:
+            os.remove(onnxPath)
+        except Exception as e:
+            logging.error(f"Error removing onnx model: {e}")
+        return engine, context
+
+    @torch.inference_mode()
+    def _handleSplit(self, enginePath, channels):
+        """
+        Two engines instead of one. The pair engine (img0, img1[, f0] -> src2
+        [, f1]) encodes img1 and builds the batch-2 warp source; the step engine
+        (src2, timestep -> output) is the flow network. The pair engine runs once
+        per frame pair, the step engine once per inserted frame, so frames 2..n
+        of a pair (--interpolate_factor > 2, motion blur, wide --smooth_dedup
+        gaps) no longer re-run the encoder. f0 stays outside both engines and is
+        carried across pairs by copying f1 ("f0-copy"), as before.
+        """
+        model = self.model
+        head = self.norm is not None
+        dev, dt = checker.device, self.dtype
+        I0 = torch.zeros(1, 3, self.ph, self.pw, dtype=dt, device=dev)
+        I1 = torch.zeros_like(I0)
+        f0 = (
+            torch.zeros(1, channels, self.ph, self.pw, dtype=dt, device=dev)
+            if head
+            else None
+        )
+        src2 = model.pairForward(I0, I1, f0)[0] if head else model.pairForward(I0, I1)
+        ts = torch.full((1, 1, self.ph, self.pw), 0.5, dtype=dt, device=dev)
+
+        class _Pair(torch.nn.Module):
+            def __init__(self, m):
+                super().__init__()
+                self.m = m
+
+            def forward(self, *args):
+                return self.m.pairForward(*args)
+
+        class _Step(torch.nn.Module):
+            def __init__(self, m):
+                super().__init__()
+                self.m = m
+
+            def forward(self, src, timestep):
+                return self.m.stepForward(src, timestep)
+
+        pairNames = ["img0", "img1"] + (["f0"] if head else [])
+        pairOut = ["src2"] + (["f1"] if head else [])
+        pairInputs = [I0, I1] + ([f0] if head else [])
+        pairPath = enginePath.replace(".engine", "_pair.engine")
+        self.pairEngine, self.pairContext = self._buildOrLoad(
+            pairPath, _Pair(model), pairInputs, pairNames, pairOut
+        )
+        self.engine, self.context = self._buildOrLoad(
+            enginePath, _Step(model), [src2, ts], ["src2", "timestep"], ["output"]
+        )
+        del self.model, model
+        torch.cuda.empty_cache()
+
+        # Fixed buffers, bound by name.
+        self.I0, self.I1 = I0, I1
+        self.src2 = torch.zeros_like(src2)
+        self.dummyTimeStep = ts
+        self._cachedTimestepValue = 0.5
+        self.dummyOutput = torch.zeros(
+            1, 3, self.height, self.width, dtype=dt, device=dev
+        )
+        if head:
+            self.f0 = f0
+            self.f1 = torch.zeros_like(f0)
+        pairBind = {"img0": self.I0, "img1": self.I1, "src2": self.src2}
+        if head:
+            pairBind.update(f0=self.f0, f1=self.f1)
+        stepBind = {"src2": self.src2, "timestep": ts, "output": self.dummyOutput}
+        for context, engine, binds in (
+            (self.pairContext, self.pairEngine, pairBind),
+            (self.context, self.engine, stepBind),
+        ):
+            for name, tensor in binds.items():
+                context.set_tensor_address(name, tensor.data_ptr())
+                if engine.get_tensor_mode(name) == self.trt.TensorIOMode.INPUT:
+                    context.set_input_shape(name, tensor.shape)
+
+        self.firstRun = True
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+        self.pairGraph = torch.cuda.CUDAGraph()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        for graph, context in (
+            (self.pairGraph, self.pairContext),
+            (self.cudaGraph, self.context),
+        ):
+            with torch.cuda.graph(graph, stream=self.stream):
+                context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
+
     @torch.inference_mode()
     def initTorchCudaGraph(self):
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
@@ -429,6 +571,11 @@ class RifeTensorRT:
             return
 
         self.processFrame(frame, "I1")
+        if self.split:
+            # per-pair engine: encode img1, build the warp source
+            with torch.cuda.stream(self.stream):
+                self.pairGraph.replay()
+            self.stream.synchronize()
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 

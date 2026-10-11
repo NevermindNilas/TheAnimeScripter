@@ -88,7 +88,6 @@ class RifeCuda:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        IFNet = importRifeArch(self.interpolateMethod, "v1", half=self.half)
         if self.interpolateMethod in ["rife_elexor"] and self.staticStep:
             self.staticStep = False
             logAndPrint(
@@ -104,7 +103,16 @@ class RifeCuda:
                 "Static step is not supported for this interpolation model yet, automatically disabling it",
                 "yellow",
             )
-        if self.interpolateMethod in ["rife_elexor"]:
+        # --static_step needs the reference arch (bakedTimestep); every other
+        # run, fp16 or fp32, uses the unified fast arch.
+        IFNet = importRifeArch(
+            self.interpolateMethod,
+            "v1",
+            half=self.half,
+            staticStep=self.staticStep,
+            ensemble=self.ensemble,
+        )
+        if self.interpolateMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
             self.model = IFNet(
                 self.scale,
                 self.ensemble,
@@ -255,6 +263,7 @@ class RifeCuda:
         back to the eager path.
         """
         self.cudaGraph = None
+        self.pairGraph = None
         self._graphOut = None
         self._graphs = {}
         self._graphFeats = {}
@@ -285,8 +294,14 @@ class RifeCuda:
             return
 
         scales = DYNAMIC_SCALES if self.dynamicScale else (None,)
+        # Unified arches split the forward into prepare() (per pair: encoder
+        # refresh + staging the warp sources) and flow() (per timestep). The
+        # pair graph is replayed once per pair, the step graph once per frame,
+        # so frames 2..n of a pair no longer re-run the encoder.
+        split = hasattr(self.model, "prepare")
         try:
             pool = None
+            pairFeats = None
             for scale in scales:
                 if scale is not None:
                     # Arm the arch so capture bakes in THIS scale's resolutions.
@@ -304,21 +319,39 @@ class RifeCuda:
                 # Capture the branch that refreshes this pair's encoder features.
                 # Python counters do not advance when a graph is replayed.
                 self._armEncoderRefresh()
+                if split and self.pairGraph is None:
+                    pairGraph = torch.cuda.CUDAGraph()
+                    with torch.cuda.graph(pairGraph, stream=self.normStream):
+                        self.model.prepare(self.I0, self.I1)
+                    self.normStream.synchronize()
+                    pool = pairGraph.pool()
+                    self.pairGraph = pairGraph
+                    # The tensors the pair graph writes on replay, before the
+                    # eager self-check below reassigns the attributes.
+                    pairFeats = (
+                        getattr(self.model, "f0", None),
+                        getattr(self.model, "f1", None),
+                    )
+                step = self.model.flow if split else self.model
                 if pool is None:
                     with torch.cuda.graph(graph, stream=self.normStream):
-                        graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
+                        graphOut = step(self.I0, self.I1, self._timestep_buffer)
                     self.normStream.synchronize()
                     pool = graph.pool()
                 else:
                     with torch.cuda.graph(graph, pool=pool, stream=self.normStream):
-                        graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
+                        graphOut = step(self.I0, self.I1, self._timestep_buffer)
                     self.normStream.synchronize()
 
                 # The tensors the graph writes on replay, before the eager
                 # self-check below reassigns the attributes away from them.
                 feats = (
-                    getattr(self.model, "f0", None),
-                    getattr(self.model, "f1", None),
+                    pairFeats
+                    if split
+                    else (
+                        getattr(self.model, "f0", None),
+                        getattr(self.model, "f1", None),
+                    )
                 )
 
                 # Self-check: replay must match a fresh eager forward on the same
@@ -331,6 +364,8 @@ class RifeCuda:
                     eagerRef = self.model(
                         self.I0, self.I1, self._timestep_buffer
                     ).clone()
+                    if split:
+                        self.pairGraph.replay()
                     graph.replay()
                 self.normStream.synchronize()
                 if not torch.allclose(eagerRef, graphOut, rtol=1e-3, atol=1e-3):
@@ -360,6 +395,7 @@ class RifeCuda:
             if hasattr(self.model, "counter"):
                 self.model.counter = 1
             self.cudaGraph = None
+            self.pairGraph = None
             self._graphOut = None
             self._graphs = {}
             self._graphFeats = {}
@@ -484,6 +520,16 @@ class RifeCuda:
                     self.model.cache()
                 self.normStream.synchronize()
 
+            case "prepare":
+                # Per-pair half of the forward (encoder refresh + warp-source
+                # staging), once before the pair's timesteps.
+                with torch.cuda.stream(self.normStream):
+                    if self.pairGraph is not None:
+                        self.pairGraph.replay()
+                    else:
+                        self.model.prepare(self.I0, self.I1)
+                self.normStream.synchronize()
+
             case "infer":
                 with torch.cuda.stream(self.normStream):
                     if self.useGraph:
@@ -498,7 +544,12 @@ class RifeCuda:
                     elif self.staticStep:
                         output = self.model(self.I0, self.I1, frame).clone()
                     else:
-                        output = self.model(self.I0, self.I1, frame)[
+                        step = (
+                            self.model.flow
+                            if hasattr(self.model, "prepare")
+                            else self.model
+                        )
+                        output = step(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
                         ].clone()
                 self.normStream.synchronize()
@@ -565,6 +616,8 @@ class RifeCuda:
             return
         self.processFrame(frame, "I1")
         self._armEncoderRefresh()
+        if not self.staticStep and hasattr(self.model, "prepare"):
+            self.processFrame(None, "prepare")
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
@@ -637,8 +690,6 @@ class RifeMPS:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        IFNet = importRifeArch(self.baseMethod, "v1")
-
         if self.baseMethod in ["rife_elexor"] and self.staticStep:
             self.staticStep = False
             logAndPrint(
@@ -655,7 +706,12 @@ class RifeMPS:
                 "yellow",
             )
 
-        if self.baseMethod in ["rife_elexor"]:
+        # --static_step needs the reference arch (bakedTimestep); every other
+        # run, fp16 or fp32, uses the unified fast arch.
+        IFNet = importRifeArch(
+            self.baseMethod, "v1", staticStep=self.staticStep, ensemble=self.ensemble
+        )
+        if self.baseMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
             self.model = IFNet(
                 self.scale,
                 self.ensemble,
@@ -793,7 +849,13 @@ class RifeMPS:
                 if self.staticStep:
                     output = self.model(self.I0, self.I1, frame).clone()
                 else:
-                    output = self.model(self.I0, self.I1, frame)[
+                    # prepare() already ran for this pair in __call__
+                    step = (
+                        self.model.flow
+                        if hasattr(self.model, "prepare")
+                        else self.model
+                    )
+                    output = step(self.I0, self.I1, frame)[
                         :, :, : self.height, : self.width
                     ].clone()
                 # `output.cpu()` will wait for the pending MPS work to finish.
@@ -834,6 +896,9 @@ class RifeMPS:
             return
         self.processFrame(frame, "I1")
         self._armEncoderRefresh()
+        split = not self.staticStep and hasattr(self.model, "prepare")
+        if split:
+            self.model.prepare(self.I0, self.I1)
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
@@ -904,8 +969,6 @@ class RifeROCm:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        IFNet = importRifeArch(self.baseMethod, "v1", half=self.half)
-
         if self.baseMethod in ["rife_elexor"] and self.staticStep:
             self.staticStep = False
             logAndPrint(
@@ -922,7 +985,16 @@ class RifeROCm:
                 "yellow",
             )
 
-        if self.baseMethod in ["rife_elexor"]:
+        # --static_step needs the reference arch (bakedTimestep); every other
+        # run, fp16 or fp32, uses the unified fast arch.
+        IFNet = importRifeArch(
+            self.baseMethod,
+            "v1",
+            half=self.half,
+            staticStep=self.staticStep,
+            ensemble=self.ensemble,
+        )
+        if self.baseMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
             self.model = IFNet(
                 self.scale,
                 self.ensemble,
@@ -1051,7 +1123,13 @@ class RifeROCm:
                 if self.staticStep:
                     output = self.model(self.I0, self.I1, frame).clone()
                 else:
-                    output = self.model(self.I0, self.I1, frame)[
+                    # prepare() already ran for this pair in __call__
+                    step = (
+                        self.model.flow
+                        if hasattr(self.model, "prepare")
+                        else self.model
+                    )
+                    output = step(self.I0, self.I1, frame)[
                         :, :, : self.height, : self.width
                     ].clone()
                 if self.device.type == "cuda":
@@ -1081,6 +1159,9 @@ class RifeROCm:
             return
         self.processFrame(frame, "I1")
         self._armEncoderRefresh()
+        split = not self.staticStep and hasattr(self.model, "prepare")
+        if split:
+            self.model.prepare(self.I0, self.I1)
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)

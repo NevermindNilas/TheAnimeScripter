@@ -20,11 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Progress bar: speed and ETA track the last ~2 s instead of the whole-run average, so warm-up stops skewing the ETA and slowdowns show up (simulated throttle: 53 fps shown vs 50 true, was 76). With interpolation it shows output and source fps; the bar is titled with the input name and the encoded resolution/fps (e.g. `Input │ 2160p/60fps`, `--output_scale` included) instead of a random verb, and standalone tasks name themselves (`Depth`, `Stabilize: render (2/2)`); live dedup/scene-cut counts follow the bar; the bitrate waits 3 s for the encoder to catch up. The line is fitted to the terminal width, dropping the least useful fields first, instead of letting barflow hide the bar.
 - The terminal tab is titled `TAS: <video>` (`[n/total]` in batch runs) and the shell's own title is restored on exit, Ctrl+C included, instead of being left as `TAS`. On Windows it goes through `SetConsoleTitleW`, so it also works in consoles with VT processing off (~36 µs, no new imports).
 - When stderr is not a terminal, the bar no longer writes ANSI redraws into logs (43 KB for a 30 s run); a plain status line is printed every 10 s and at the end.
+- RIFE on CUDA (all variants, fp16 and fp32) and TensorRT now runs one shared implementation, `src/rifearches/rife_fast.py`. RTX 3090, `rife4.26` 720p fp16: CUDA 183 -> 232 fps (+27%), TensorRT 201 -> 332 fps (+65%); 1080p CUDA +27% (4.26) / +39% (4.26-heavy); fp32 ~1.5x. Output is unchanged (ATD-12K GT PSNR within ±0.002 dB). TensorRT engines are rebuilt once (new `_u3` cache name). DirectML/OpenVINO are unchanged.
+- `rife_elexor` (CUDA/MPS/ROCm and TensorRT) runs the shared implementation too: CUDA 720p fp16 ~+20%, and fp16 output lands closer to fp32 (+0.05 dB vs ground truth). `--ensemble` keeps the previous arch.
+- RIFE runs its feature encoder once per frame pair instead of once per inserted frame when a pair needs several frames (`--interpolate_factor` > 2, motion blur, wide `--smooth_dedup` gaps): `rife4.26` 720p at 4x is +8% on CUDA and +10% on TensorRT, 2x unchanged. TensorRT now builds a small per-pair engine (`*_pair.engine`) next to the main one.
 
 ### Removed
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- `rife4.6-tensorrt` built its warp grid in fp16 even in fp32 mode, and in fp16 computed it in half precision (now 5 dB closer to the fp32 reference, +0.05 dB vs ground truth).
+- `--static_step` was silently ignored by fp16 RIFE on CUDA/MPS/ROCm.
+- `--ensemble` on TensorRT fed the reversed pass a stale feature map; it now matches the CUDA path and the reference arches.
 - The progress bar stopped short (e.g. 598/600) when a video ended on duplicate frames under `--dedup`.
 - `--depth_quality high` on the DA3 depth methods (`*_v3`, `video_small_v3`/`video_base_v3`; CUDA, ROCm, MPS) stretched the shortest side to the longest, running 16:9 sources at 3.16x their pixel count (4K → 6832x3850). That spilled VRAM into system memory, then OOMed even on 24 GB; 4K `og_large_v3` now runs at native resolution with a 12.3 GiB peak.
 - `--depth_quality` was ignored by `video_small_v2` and `og_video_small_v2` (and their `-rocm` variants), which always ran at 518 px; `medium` and `high` now set the shortest side to 700 px and the source's own (1080p `video_small_v2` on an RTX 3090: 16.0 / 11.2 / 4.8 fps).

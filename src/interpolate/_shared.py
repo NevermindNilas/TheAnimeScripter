@@ -27,13 +27,17 @@ _RIFE_V1 = {
     "rife4.15-lite": ("IFNet415Lite", "IFNet_rife415lite"),
     "rife4.16-lite": ("IFNet416Lite", "IFNet_rife416lite"),
     "rife4.6": ("IFNet46", "IFNet_rife46"),
-    "rife_elexor": (None, "IFNet_elexor_cuda"),
+    # rife_elexor's --ensemble still runs the reference arch (see _loadV1)
+    "rife_elexor": ("IFNetElexor", "IFNet_elexor_cuda"),
 }
 
 
-def _loadV1(method, half):
+def _loadV1(method, half, staticStep=False, ensemble=False):
+    # `half` no longer selects the arch: the unified fast arch is exact in fp32
+    # too (and ~1.5x faster than the reference arch there). Only --static_step
+    # still needs the reference arch's bakedTimestep.
     fastName, baseMod = _RIFE_V1[method]
-    if half and fastName:
+    if fastName and not staticStep and not (ensemble and method == "rife_elexor"):
         from src.rifearches import rife_fast
 
         return getattr(rife_fast, fastName)
@@ -41,127 +45,124 @@ def _loadV1(method, half):
     return mod.IFNet
 
 
-def importRifeArch(interpolateMethod, version, half=True):
+# TensorRT methods run the SAME arch as the CUDA path -- rife_fast's variant
+# table and blocks -- lowered for ONNX by rife_fast.exportArch. 4.15 (full)
+# shares 4.17's architecture. DirectML/OpenVINO still use Rife_directml
+# (_DML_LEGACY) for now.
+_EXPORT_FAST = {
+    "rife": "IFNet422",
+    "rife4.6": "IFNet46",
+    "rife4.15": "IFNet417",
+    "rife4.17": "IFNet417",
+    "rife4.18": "IFNet418",
+    "rife4.20": "IFNet420",
+    "rife4.21": "IFNet421",
+    "rife4.22": "IFNet422",
+    "rife4.22-lite": "IFNet422Lite",
+    "rife4.25": "IFNet425",
+    "rife4.25-lite": "IFNet425Lite",
+    "rife4.25-heavy": "IFNet425Heavy",
+    "rife4.26": "IFNet426",
+    "rife4.26-heavy": "IFNet426Heavy",
+    "rife_elexor": "IFNetElexor",
+}
+# The wired set per backend (unchanged from the per-file arches this replaced).
+_EXPORT_WIRED = {
+    "-tensorrt": frozenset(_EXPORT_FAST),
+}
+# DirectML / OpenVINO arch class per base method (src/rifearches/Rife_directml.py).
+_DML_LEGACY = {
+    "rife4.6": "IFNet_46",
+    "rife4.15": "IFNet_415",
+    "rife4.17": "IFNet_415",
+    "rife4.18": "IFNet_415",
+    "rife4.20": "IFNet_420",
+    "rife4.21": "IFNet_420",
+    "rife4.22": "IFNet_422",
+    "rife4.22-lite": "IFNet_422_lite",
+    "rife4.25": "IFNet_425",
+    "rife4.26": "IFNet_425",
+    "rife4.26-heavy": "IFNet_426_heavy",
+    "rife4.25-lite": "IFNet_425_lite",
+    "rife4.25-heavy": "IFNet_425_heavy",
+}
+# TensorRT lowering on top of rife_fast._ExportIFNet's defaults (the CUDA path's
+# rewrites, low-res tail included). TensorRT keeps f0 outside the engine
+# (featureIO). A TensorRT 11.3 crash with the low-res tail was suspected but not
+# reproduced (4.22-lite@736: isolated build + 600 replays, no CUDA error).
+_EXPORT_PROFILE = {
+    "-tensorrt": {"featureIO": True},
+}
+
+
+def _tensorrtProfile():
+    """warpPad: TensorRT 10.16 miscompiled a 7-channel GridSample -> Resize in one
+    older graph shape; the current graph is valid unpadded on 10.16 and 11.3, and
+    padding costs ~13.5% on 11.3. TensorRT 10 keeps the padding as a conservative
+    default."""
+    profile = dict(_EXPORT_PROFILE["-tensorrt"])
+    try:
+        from src.utils.tensorrt_import import trt
+
+        major = int(str(trt.__version__).split(".")[0])
+    except Exception:
+        major = 0
+    profile["warpPad"] = 1 if major >= 11 else 8
+    return profile
+
+
+# Bumped whenever an exported graph changes, so cached engines / ONNX files
+# built from an older graph are not silently reused.
+EXPORT_ARCH_TAG = "u3"
+
+
+_EXPORT_CLASSES = {}
+
+
+def _loadExport(interpolateMethod, ensemble=False):
+    if interpolateMethod == "rife_elexor-tensorrt" and ensemble:
+        from src.rifearches.IFNet_elexor_tensorrt import IFNet
+
+        return IFNet, True
+    for suffix in ("-directml", "-openvino"):
+        if interpolateMethod.endswith(suffix):
+            base = interpolateMethod[: -len(suffix)]
+            if base in _DML_LEGACY:
+                from src.rifearches import Rife_directml
+
+                return getattr(Rife_directml, _DML_LEGACY[base]), base != "rife4.6"
+    for suffix, wired in _EXPORT_WIRED.items():
+        if interpolateMethod.endswith(suffix):
+            base = interpolateMethod[: -len(suffix)]
+            if base in wired:
+                from src.rifearches import rife_fast
+
+                fastCls = getattr(rife_fast, _EXPORT_FAST[base])
+                key = (_EXPORT_FAST[base], suffix)
+                cls = _EXPORT_CLASSES.get(key)
+                if cls is None:
+                    cls = rife_fast.exportArch(
+                        fastCls,
+                        name=f"Export{_EXPORT_FAST[base]}",
+                        **_tensorrtProfile(),
+                    )
+                    cls.archTag = EXPORT_ARCH_TAG
+                    _EXPORT_CLASSES[key] = cls
+                return cls, fastCls.cfg["hasHead"]
+    # Without this a new CLI choice that nobody added an arm for surfaces as
+    # an obscure failure deep in handleModel instead of naming the method.
+    raise ValueError(
+        f"No v3 RIFE architecture is wired up for interpolate "
+        f"method '{interpolateMethod}'."
+    )
+
+
+def importRifeArch(
+    interpolateMethod, version, half=True, staticStep=False, ensemble=False
+):
     match version:
         case "v1":
-            return _loadV1(interpolateMethod, half)
+            return _loadV1(interpolateMethod, half, staticStep, ensemble)
 
         case "v3":
-            match interpolateMethod:
-                case "rife4.25-heavy-tensorrt":
-                    from src.rifearches.Rife425_heavy_v3 import IFNet
-
-                    Head = True
-
-                case "rife4.25-lite-tensorrt":
-                    from src.rifearches.Rife425_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.25-tensorrt" | "rife4.26-tensorrt":
-                    from src.rifearches.Rife425_v3 import IFNet
-
-                    Head = True
-                case "rife4.26-heavy-tensorrt":
-                    from src.rifearches.Rife426_heavy_v3 import IFNet
-
-                    Head = True
-                case "rife-tensorrt" | "rife4.22-tensorrt":
-                    # "rife-tensorrt" is the bare alias; modelsMap("rife")
-                    # returns rife422.pth, so it shares 4.22's arch.
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v3 import IFNet
-
-                    Head = True
-                case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v3 import IFNet
-
-                    Head = False
-                case "rife4.6-directml" | "rife4.6-openvino":
-                    from src.rifearches.Rife_directml import IFNet_46 as IFNet
-
-                    Head = False
-                case "rife4.22-directml" | "rife4.22-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.15-directml"
-                    | "rife4.17-directml"
-                    | "rife4.18-directml"
-                    | "rife4.15-openvino"
-                    | "rife4.17-openvino"
-                    | "rife4.18-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_415 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.20-directml"
-                    | "rife4.21-directml"
-                    | "rife4.20-openvino"
-                    | "rife4.21-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_420 as IFNet
-
-                    Head = True
-                case "rife4.22-lite-directml" | "rife4.22-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
-
-                    Head = True
-                case (
-                    "rife4.25-directml"
-                    | "rife4.25-openvino"
-                    | "rife4.26-directml"
-                    | "rife4.26-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_425 as IFNet
-
-                    Head = True
-                case "rife4.26-heavy-directml" | "rife4.26-heavy-openvino":
-                    from src.rifearches.Rife_directml import IFNet_426_heavy as IFNet
-
-                    Head = True
-                case "rife4.25-lite-directml" | "rife4.25-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_lite as IFNet
-
-                    Head = True
-                case "rife4.25-heavy-directml" | "rife4.25-heavy-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_heavy as IFNet
-
-                    Head = True
-                case "rife_elexor-tensorrt":
-                    from src.rifearches.IFNet_elexor_tensorrt import IFNet
-
-                    Head = True
-                case _:
-                    # Without this a new CLI choice that nobody added an arm for
-                    # surfaces as `UnboundLocalError: IFNet` deep in handleModel
-                    # instead of naming the method that is unwired.
-                    raise ValueError(
-                        f"No v3 RIFE architecture is wired up for interpolate "
-                        f"method '{interpolateMethod}'."
-                    )
-            return IFNet, Head
+            return _loadExport(interpolateMethod, ensemble)

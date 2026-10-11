@@ -778,6 +778,7 @@ def tensorRTEngineNameHandler(
     optInputShape: list[int] = None,
     ensemble: bool = False,
     isRife: bool = False,
+    archTag: str = "",
 ) -> str:
     """
     Create a name for the TensorRT engine file with validation.
@@ -788,6 +789,9 @@ def tensorRTEngineNameHandler(
         optInputShape (List[int]): The shape for which TensorRT will optimize the engine.
         ensemble (bool): Whether this is an ensemble model.
         isRife (bool): Whether this is a RIFE model.
+        archTag (str): Revision of the exported graph. Changing it renames the
+            cache, so an engine built from an older graph is rebuilt instead of
+            silently reused. Empty keeps the historical name.
 
     Returns:
         str: The generated engine file path.
@@ -824,6 +828,9 @@ def tensorRTEngineNameHandler(
 
     if isRife and ensemble:
         nameParts.append("_ensemble")
+
+    if archTag:
+        nameParts.append(f"_{archTag}")
 
     engineName = "".join(nameParts) + ".engine"
     return str(modelPath.with_suffix("")) + engineName
