@@ -162,14 +162,58 @@ def _canReuseHeldUpscale(upscaleProcess, upscaleMethod: str, customModel: str) -
     return allowedMethods is not None and upscaleMethod in allowedMethods
 
 
+# The shell's own title, saved by the first _setTerminalTitle so it can be put
+# back on exit instead of leaving the tab named after the last video.
+_savedTerminalTitle = None
+
+
 def _setTerminalTitle(title: str) -> None:
-    if cs.ADOBE or not sys.stdout.isatty():
+    """Name the terminal tab/window. Costs one syscall or one write: ctypes is
+    already imported by the time the batch loop runs.
+
+    Windows goes through SetConsoleTitleW rather than an OSC sequence, which
+    conhost prints literally when the console has VT processing off; ConPTY
+    forwards it to Windows Terminal. Elsewhere it is OSC 0, after pushing the
+    shell's title onto the xterm title stack (ignored where unsupported)."""
+    global _savedTerminalTitle
+    if cs.ADOBE:
         return
     try:
-        sys.stdout.write(f"\033]0;{title}\007")
-        sys.stdout.flush()
+        if sys.platform == "win32":
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            if _savedTerminalTitle is None:
+                buf = ctypes.create_unicode_buffer(1024)
+                if not kernel32.GetConsoleTitleW(buf, len(buf)):
+                    return  # no console attached
+                _savedTerminalTitle = buf.value
+            kernel32.SetConsoleTitleW(title)
+        elif sys.stdout.isatty():
+            if _savedTerminalTitle is None:
+                sys.stdout.write("\033[22;0t")
+                _savedTerminalTitle = ""
+            sys.stdout.write(f"\033]0;{title}\007")
+            sys.stdout.flush()
     except Exception:
         pass
+
+
+def _restoreTerminalTitle() -> None:
+    global _savedTerminalTitle
+    if _savedTerminalTitle is None:
+        return
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleTitleW(_savedTerminalTitle)
+        else:
+            sys.stdout.write("\033[23;0t")
+            sys.stdout.flush()
+    except Exception:
+        pass
+    _savedTerminalTitle = None
 
 
 def _notifyAdobeOfFatalError(error: Exception) -> None:
@@ -1467,15 +1511,13 @@ def main():
         for idx, entry in enumerate(results, 1):
             processor = None
             try:
-                _videoName = os.path.basename(entry["videoPath"])
+                _videoName = os.path.splitext(os.path.basename(entry["videoPath"]))[0]
                 if len(_videoName) > 60:
                     _videoName = _videoName[:57] + "..."
                 if totalVideos > 1:
-                    _setTerminalTitle(
-                        f"\u2605 Processing - {_videoName} [{idx}/{totalVideos}]"
-                    )
+                    _setTerminalTitle(f"TAS: {_videoName} [{idx}/{totalVideos}]")
                 else:
-                    _setTerminalTitle(f"\u2605 Processing - {_videoName}")
+                    _setTerminalTitle(f"TAS: {_videoName}")
                 if totalVideos > 1:
                     printSubsectionHeader(f"Video {idx} of {totalVideos}")
                 logInfo(f"Input: {entry['videoPath']}")
@@ -1544,7 +1586,7 @@ def main():
                     processor = None
                     gc.collect()
 
-        _setTerminalTitle("TAS")
+        _restoreTerminalTitle()
 
         if totalVideos > 1 and folderTimer is not None:
             totalTime = time() - folderTimer
@@ -1589,6 +1631,7 @@ def main():
         except BaseException:
             # Must not preempt the force-exit below.
             pass
+        _restoreTerminalTitle()
         # Force-exit: bypass blocked thread joins (TRT inference, ffmpeg subprocess
         # wait, nelux decoder) which sys.exit() would hang on.
         os._exit(130)
@@ -1607,6 +1650,8 @@ def main():
         logging.exception("Fatal error in main execution")
         _notifyAdobeOfFatalError(e)
         sys.exit(1)
+    finally:
+        _restoreTerminalTitle()
 
 
 if __name__ == "__main__":
