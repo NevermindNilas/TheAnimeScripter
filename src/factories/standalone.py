@@ -228,6 +228,13 @@ def segment(self):
 
 
 def depth(self):
+    from src.depth.backends._shared import expandableSegments
+
+    with expandableSegments():
+        _depth(self)
+
+
+def _depth(self):
     match self.depthMethod:
         case "small_v2":
             from src.depth.backends.cuda import DepthCuda

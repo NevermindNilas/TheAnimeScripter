@@ -119,6 +119,10 @@ class VideoDepthAnythingCUDA(DepthRunOutcome):
 
         self.model = self.model.to(checker.device).eval()
         # self.model.half() if self.half else self.model.float()
+
+        from ..video_depth_anything.optimizations import apply_memory_optimizations
+
+        apply_memory_optimizations(self.model)
         self.device = "cuda" if checker.cudaAvailable else "cpu"
 
     def _resetVideoDepthState(self):

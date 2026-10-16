@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from .blocks_v2 import FeatureFusionBlock, _make_scratch
 from .dinov2 import DINOv2
+from .leanHead import mainFusion, stripedUpsampleConv
 
 
 def _make_fusion_block(features, use_bn, size=None):
@@ -129,26 +130,12 @@ class DPTHead(nn.Module):
 
             out.append(x)
 
-        layer_1, layer_2, layer_3, layer_4 = out
-
-        layer_1_rn = self.scratch.layer1_rn(layer_1)
-        layer_2_rn = self.scratch.layer2_rn(layer_2)
-        layer_3_rn = self.scratch.layer3_rn(layer_3)
-        layer_4_rn = self.scratch.layer4_rn(layer_4)
-
-        path_4 = self.scratch.refinenet4(layer_4_rn, size=layer_3_rn.shape[2:])
-        path_3 = self.scratch.refinenet3(path_4, layer_3_rn, size=layer_2_rn.shape[2:])
-        path_2 = self.scratch.refinenet2(path_3, layer_2_rn, size=layer_1_rn.shape[2:])
-        path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
-
-        out = self.scratch.output_conv1(path_1)
-        out = F.interpolate(
-            out,
-            (int(patch_h * 14), int(patch_w * 14)),
-            mode="bilinear",
-            align_corners=True,
+        # The full-resolution stages run in row bands once they outgrow the
+        # stripe budget (--depth_quality high); see src/depth/leanHead.py.
+        held = [mainFusion(self.scratch, out)]
+        (out,) = stripedUpsampleConv(
+            held, (int(patch_h * 14), int(patch_w * 14)), [self.scratch.output_conv2]
         )
-        out = self.scratch.output_conv2(out)
 
         return out
 

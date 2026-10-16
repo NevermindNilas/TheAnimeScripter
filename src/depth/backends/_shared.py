@@ -1,3 +1,4 @@
+import contextlib
 import math
 import os
 
@@ -10,6 +11,33 @@ import torch
 from src.infra.isCudaInit import CudaChecker
 
 checker = CudaChecker()
+
+
+@contextlib.contextmanager
+def expandableSegments():
+    """Back new CUDA allocations with expandable segments for one depth run.
+
+    The depth heads allocate a few large, differently sized maps per frame;
+    with fixed segments the caching allocator reserves far past the live peak
+    (large_v3 at 1080p high: 6.2 GB reserved for a 3.7 GB peak, 3.9 GB with
+    this). Output is unaffected. Restored afterwards so the next video in a
+    batch -- possibly a CUDA-graph interpolation run -- gets the default.
+    CUDA only; a user's own PYTORCH_CUDA_ALLOC_CONF choice wins.
+    """
+    setSettings = getattr(torch._C, "_accelerator_setAllocatorSettings", None)
+    if (
+        setSettings is None
+        or not torch.cuda.is_available()
+        or torch.version.cuda is None
+        or "expandable_segments" in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "")
+    ):
+        yield
+        return
+    setSettings("expandable_segments:True")
+    try:
+        yield
+    finally:
+        setSettings("expandable_segments:False")
 
 
 class DepthRunOutcome:

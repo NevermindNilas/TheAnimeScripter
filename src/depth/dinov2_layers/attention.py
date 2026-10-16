@@ -27,6 +27,17 @@ except ImportError:
     XFORMERS_AVAILABLE = False
 
 
+# fp32 keeps the bit-exact manual attention while its score matrix is
+# affordable. Past this the manual path materializes N x N per head (5.4 GB
+# for small_v2 at 1080p --depth_quality high), so SDPA's memory-efficient
+# kernel takes over, matching within fp32 rounding.
+FP32_SCORES_BUDGET = 256 * 2**20
+
+
+def fp32ScoresTooLarge(batch, heads, tokens):
+    return batch * heads * tokens * tokens * 4 > FP32_SCORES_BUDGET
+
+
 class Attention(nn.Module):
     def __init__(
         self,
@@ -52,7 +63,9 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
 
-        if x.dtype in (torch.float16, torch.bfloat16):
+        if x.dtype in (torch.float16, torch.bfloat16) or fp32ScoresTooLarge(
+            B, self.num_heads, N
+        ):
             q, k, v = qkv.unbind(0)
             x = F.scaled_dot_product_attention(
                 q, k, v,

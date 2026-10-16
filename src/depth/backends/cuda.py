@@ -297,8 +297,10 @@ class LimboCuda(DepthCuda):
         ).to(checker.device)
 
         from ..fold_layerscale import fold_layerscale_
+        from ..leanHead import installLeanHead
 
         fold_layerscale_(self.model)
+        installLeanHead(self.model)
 
         # Left in fp32: DA3's own forward autocasts to bf16/fp16 on CUDA, which
         # is what the shipped *_v3 backends rely on too.
@@ -622,8 +624,10 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         ).to(checker.device)
 
         from ..fold_layerscale import fold_layerscale_
+        from ..leanHead import installLeanHead
 
         fold_layerscale_(self.model)
+        installLeanHead(self.model)
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality

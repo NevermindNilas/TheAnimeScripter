@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from torch import nn
 from torchvision.transforms import Compose
 
+from ..dinov2_layers.attention import fp32ScoresTooLarge
 from .blocks import FeatureFusionBlock, ResidualConvUnit
 from .dinov2_layers.attention import Attention
 from .dinov2_layers.layer_scale import LayerScale
@@ -36,7 +37,7 @@ from .transform import NormalizeImage, PrepareForNet, Resize
 INFER_LEN = 32
 
 
-# ---- DINOv2 ViT attention: SDPA (fp16/bf16) with fp32 manual fallback ----
+# ---- DINOv2 ViT attention: SDPA (fp16/bf16, or fp32 past the score budget) ----
 def _sdpa_attn_forward(self, x, attn_bias=None):
     B, N, C = x.shape
     qkv = (
@@ -44,7 +45,9 @@ def _sdpa_attn_forward(self, x, attn_bias=None):
         .reshape(B, N, 3, self.num_heads, C // self.num_heads)
         .permute(2, 0, 3, 1, 4)
     )
-    if x.dtype in (torch.float16, torch.bfloat16):
+    if x.dtype in (torch.float16, torch.bfloat16) or fp32ScoresTooLarge(
+        B, self.num_heads, N
+    ):
         q, k, v = qkv.unbind(0)
         x = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
         x = x.transpose(1, 2).reshape(B, N, C)
@@ -144,6 +147,35 @@ def keep_fp32_islands(model):
     model.head.scratch.output_conv2.float()
 
 
+class _LazyFrameCache:
+    """The attended frames' hidden states, concatenated along time one cache
+    level at a time, when a motion-module block reads it.
+
+    Concatenating all 8 levels before the head ran held them together for the
+    whole forward (~0.8 GB at --depth_quality high on a 1080p source); each
+    level now lives only for the block that reads it. Same values, same order.
+    """
+
+    def __init__(self, frames, start=0, stop=None):
+        self.frames = frames
+        self.start = start
+        self.stop = len(frames[0]) if stop is None else stop
+
+    def __len__(self):
+        return self.stop - self.start
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            begin, end, step = key.indices(len(self))
+            assert step == 1
+            return _LazyFrameCache(self.frames, self.start + begin, self.start + end)
+        if key < 0:
+            key += len(self)
+        if not 0 <= key < len(self):
+            raise IndexError(key)
+        return torch.cat([h[self.start + key] for h in self.frames], dim=1)
+
+
 # ---- windowed + dtype-aware streaming inference ----
 def _optimized_infer_one(self, frame, input_size=518, device="cuda", fp32=False):
     """Faithful port of VideoDepthAnything.infer_video_depth_one with two changes:
@@ -214,10 +246,7 @@ def _optimized_infer_one(self, frame, input_size=518, device="cuda", fp32=False)
             cur_feature = self.forward_features(cur_input)
             cache_list = self.frame_cache_list
             cur_list = cache_list[0:2] + cache_list[-n_recent:]
-            cur_cache = [
-                torch.cat([h[i] for h in cur_list], dim=1)
-                for i in range(len(cur_list[0]))
-            ]
+            cur_cache = _LazyFrameCache(cur_list)
             depth, new_cache = self.forward_depth(
                 cur_feature, cur_input.shape, cached_hidden_state_list=cur_cache
             )
@@ -236,6 +265,122 @@ def _optimized_infer_one(self, frame, input_size=518, device="cuda", fp32=False)
         del self.frame_id_list[1]
         del self.frame_cache_list[1]
     return new_depth
+
+
+def _temporal_tail(self, path_3, layer_2_rn, layer_1_rn, patch_h, patch_w):
+    """refinenet2 -> refinenet1 -> output_conv1 -> upsample -> fp32
+    output_conv2, with the full-resolution stages striped
+    (src/depth/leanHead.py). Same ops as DPTHeadTemporal's tail."""
+    from ..leanHead import refineOutput, stripedUpsampleConv
+
+    s = self.scratch
+    out = s.refinenet2(path_3, layer_2_rn, size=layer_1_rn.shape[2:])
+    held = [s.refinenet1.resConfUnit2(out + s.refinenet1.resConfUnit1(layer_1_rn))]
+    del out
+    held = [refineOutput(s, held)]
+    ori_type = held[0].dtype
+
+    def head(band):
+        # dpt_temporal's fp32 island
+        with torch.autocast(device_type="cuda", enabled=False):
+            return s.output_conv2(band.float())
+
+    (out,) = stripedUpsampleConv(held, (int(patch_h * 14), int(patch_w * 14)), [head])
+    return out.to(ori_type)
+
+
+def _temporal_head_forward(
+    self,
+    out_features,
+    patch_h,
+    patch_w,
+    frame_length,
+    micro_batch_size=4,
+    cached_hidden_state_list=None,
+):
+    """DPTHeadTemporal.forward with its shared tail swapped for _temporal_tail."""
+    out = []
+    for i, x in enumerate(out_features):
+        if self.use_clstoken:
+            x, cls_token = x[0], x[1]
+            readout = cls_token.unsqueeze(1).expand_as(x)
+            x = self.readout_projects[i](torch.cat((x, readout), -1))
+        else:
+            x = x[0]
+        x = (
+            x.permute(0, 2, 1)
+            .reshape((x.shape[0], x.shape[-1], patch_h, patch_w))
+            .contiguous()
+        )
+        x = self.projects[i](x)
+        x = self.resize_layers[i](x)
+        out.append(x)
+
+    layer_1, layer_2, layer_3, layer_4 = out
+    del out
+    B, T = layer_1.shape[0] // frame_length, frame_length
+    if cached_hidden_state_list is not None:
+        N = len(cached_hidden_state_list) // len(self.motion_modules)
+    else:
+        N = 0
+
+    def motion(i, x, cache):
+        x, h = self.motion_modules[i](
+            x.unflatten(0, (B, T)).permute(0, 2, 1, 3, 4), None, None, cache
+        )
+        return x.permute(0, 2, 1, 3, 4).flatten(0, 1), h
+
+    layer_3, h0 = motion(0, layer_3, cached_hidden_state_list[0:N] if N else None)
+    layer_4, h1 = motion(1, layer_4, cached_hidden_state_list[N : 2 * N] if N else None)
+
+    layer_1_rn = self.scratch.layer1_rn(layer_1)
+    layer_2_rn = self.scratch.layer2_rn(layer_2)
+    layer_3_rn = self.scratch.layer3_rn(layer_3)
+    layer_4_rn = self.scratch.layer4_rn(layer_4)
+    del layer_1, layer_2, layer_3, layer_4
+
+    path_4 = self.scratch.refinenet4(layer_4_rn, size=layer_3_rn.shape[2:])
+    path_4, h2 = motion(
+        2, path_4, cached_hidden_state_list[2 * N : 3 * N] if N else None
+    )
+    path_3 = self.scratch.refinenet3(path_4, layer_3_rn, size=layer_2_rn.shape[2:])
+    path_3, h3 = motion(3, path_3, cached_hidden_state_list[3 * N :] if N else None)
+    del path_4, layer_3_rn, layer_4_rn
+
+    batch_size = layer_1_rn.shape[0]
+    if batch_size <= micro_batch_size or batch_size % micro_batch_size != 0:
+        output = _temporal_tail(self, path_3, layer_2_rn, layer_1_rn, patch_h, patch_w)
+    else:
+        output = torch.cat(
+            [
+                _temporal_tail(
+                    self,
+                    path_3[i : i + micro_batch_size],
+                    layer_2_rn[i : i + micro_batch_size],
+                    layer_1_rn[i : i + micro_batch_size],
+                    patch_h,
+                    patch_w,
+                )
+                for i in range(0, batch_size, micro_batch_size)
+            ],
+            dim=0,
+        )
+    return output, h0 + h1 + h2 + h3
+
+
+def apply_memory_optimizations(model):
+    """The memory-only subset for the og (fp32 reference) path: gated SDPA
+    attention (manual, bit-exact attention below the fp32 score budget), the
+    striped head tail (single-pass below the stripe budget) and the lazily
+    concatenated frame cache. The faithful-port streaming loop at the full
+    32-frame window matches infer_video_depth_one exactly."""
+    for m in model.modules():
+        if isinstance(m, Attention):
+            m.forward = types.MethodType(_sdpa_attn_forward, m)
+    model.head.forward = types.MethodType(_temporal_head_forward, model.head)
+    model._n_recent = INFER_LEN - 3
+    model.infer_video_depth_one = types.MethodType(_optimized_infer_one, model)
+    return model
 
 
 def apply_optimizations(model, window=32):
@@ -257,6 +402,7 @@ def apply_optimizations(model, window=32):
             m.forward = types.MethodType(_ffb_forward, m)
             counts["fast_add"] += 1
     counts["ls_fold"] = _fold_layerscale(model)
+    model.head.forward = types.MethodType(_temporal_head_forward, model.head)
     _install_pos_cache(model)
     model._n_recent = window - 3
     model.infer_video_depth_one = types.MethodType(_optimized_infer_one, model)
