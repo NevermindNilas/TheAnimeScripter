@@ -97,87 +97,23 @@ def _downgradeCudaDetector(method: str, flagName: str, cudaAvailable=_UNPROBED) 
     return method
 
 
-def _neluxVersionAtLeast(major: int, minor: int) -> bool:
-    """True when the installed nelux is at least `major.minor`.
-
-    Read the version from package metadata rather than importing
-    nelux, which is heavy and demands torch be imported first. When nelux is
-    not installed (a bare CI venv) the run dies at `import nelux` long before
-    the writer matters, so report support rather than downgrading the method.
-    An unparseable version reports no support: the loud FFmpeg-twin downgrade
-    beats a raw error from the encoder mid-run.
-    """
-    from importlib.metadata import PackageNotFoundError, version
-
-    try:
-        installed = version("nelux")
-    except PackageNotFoundError:
-        return True
-    try:
-        haveMajor, haveMinor = installed.split(".")[:2]
-        return (int(haveMajor), int(haveMinor)) >= (major, minor)
-    except ValueError:
-        return False
-
-
-def _neluxSupportsEncoderResize() -> bool:
-    """True when the installed nelux can honor `--output_scale` itself.
-
-    Encoder-side resize (`VideoEncoder(resize=True)`) exists since nelux
-    0.18.0.
-    """
-    return _neluxVersionAtLeast(0, 18)
-
-
-def _neluxSupportsDeepEncode() -> bool:
-    """True when the installed nelux keeps 16-bit frames at full precision.
-
-    Deep-colour encode input (a uint16 tensor carried through at full
-    precision into any >8-bit destination instead of being narrowed to 8
-    bits first) exists since nelux 0.17.0, so `--bit_depth 16bit` rides the
-    in-process encoder on anything newer. Older builds silently quantise it
-    down to 8-bit, so those still take the loud FFmpeg-twin downgrade.
-    """
-    return _neluxVersionAtLeast(0, 17)
-
-
 def _resolveNeluxEncoder(args):
-    """Swap a `*_nelux` encoder for its FFmpeg twin when it cannot be used.
+    """Swap a `*_nelux` encoder for its FFmpeg twin under `--depth`.
 
-    `NeluxWriteBuffer` takes most of `WriteBuffer`'s keyword arguments through
-    `**kwargs` and then never reads them, and `--depth` does not go through the
-    Nelux writer at all. Both used to fail silently: `--output_scale 320x180`
-    wrote a full-resolution file and `--bit_depth 16bit` wrote 8-bit. Resolve it
-    once here, like every other incompatible-option downgrade, rather than per
-    input file in the writer.
-
-    `--output_scale` is honored natively since nelux 0.18.0 (encoder-side
-    resize) and `--bit_depth 16bit` since nelux 0.17.0 (deep-colour encode
-    input); each only downgrades when the installed nelux predates it.
+    `--depth` does not go through the Nelux writer at all, so the method used
+    to be dropped in silence. Resolve it once here, like every other
+    incompatible-option downgrade, rather than per input file in the writer.
+    `--bit_depth 16bit` and `--output_scale` both ride the pinned nelux
+    natively (deep-colour encode input, encoder-side resize).
     """
     method = getattr(args, "encode_method", "") or ""
-    if not method.endswith("_nelux"):
-        return
-
-    dropped = []
-    if getattr(args, "bit_depth", "8bit") != "8bit" and not _neluxSupportsDeepEncode():
-        dropped.append("--bit_depth (nelux < 0.17.0)")
-    if (
-        args.output_scale_width or args.output_scale_height
-    ) and not _neluxSupportsEncoderResize():
-        dropped.append("--output_scale (nelux < 0.18.0)")
-
-    if dropped:
-        reason = f"cannot apply {', '.join(dropped)}"
-    elif args.depth:
-        reason = "is not available for --depth"
-    else:
+    if not method.endswith("_nelux") or not args.depth:
         return
 
     args.encode_method = method[: -len("_nelux")]
     logWarning(
-        f"{method} {reason}. Encoding with the equivalent {args.encode_method} "
-        "instead, so the output matches what you asked for."
+        f"{method} is not available for --depth. Encoding with the equivalent "
+        f"{args.encode_method} instead, so the output matches what you asked for."
     )
 
 
