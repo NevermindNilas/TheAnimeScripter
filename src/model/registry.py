@@ -1086,12 +1086,15 @@ def modelsMap(
             if modelType == "pth":
                 return "depth_anything_v3_vitb.safetensors"
 
-        # `depth_anything_v3_vitl.safetensors` is the DA3MONO-LARGE checkpoint
-        # (byte-verified against depth-anything/DA3MONO-LARGE), so it belongs to
-        # `large_v3`. `og_large_v3` is the separate DA3METRIC-LARGE checkpoint.
+        # DA3MONO-LARGE, sha256 7a799a7f... (identical to the upstream
+        # depth-anything/DA3MONO-LARGE model.safetensors). The asset was
+        # renamed from `depth_anything_v3_vitl.safetensors`, which until
+        # 2026-10-16 held a copy with 50 of 64 head tensors zeroed (a flat
+        # depth map); the new name makes cached copies of it miss and
+        # re-download. `og_large_v3` is the separate DA3METRIC-LARGE checkpoint.
         case "large_v3":
             if modelType == "pth":
-                return "depth_anything_v3_vitl.safetensors"
+                return "depth_anything_v3_vitl_mono.safetensors"
 
         case "og_large_v3":
             if modelType == "pth":
