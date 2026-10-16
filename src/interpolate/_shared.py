@@ -77,7 +77,7 @@ _DML_LEGACY = {
     "rife4.17": "IFNet_415",
     "rife4.18": "IFNet_415",
     "rife4.20": "IFNet_420",
-    "rife4.21": "IFNet_420",
+    "rife4.21": "IFNet_422",  # 4.21 is the 4.22 network, not 4.20
     "rife4.22": "IFNet_422",
     "rife4.22-lite": "IFNet_422_lite",
     "rife4.25": "IFNet_425",
