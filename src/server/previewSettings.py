@@ -399,12 +399,18 @@ class Preview:
         # and would rather hear that it is busy than get a different one.
         self.allowPortFallback = allowPortFallback
 
-        PreviewHTTPHandler.sink = previewSink
+        # One handler class per server: a batch builds a Preview per video, and
+        # a class-wide sink would re-point the previous video's still-open
+        # /stream handler at this fresh sink, where its lastSeq is ahead of
+        # seq 0 and waitNext never parks -- one core spinning for the batch.
+        self._handler = type(
+            "PreviewHTTPHandler", (PreviewHTTPHandler,), {"sink": previewSink}
+        )
 
     def _bind(self, port: int):
         # ThreadingHTTPServer: a long-lived /stream connection must not block
         # /image or a second client.
-        server = _PreviewHTTPServer((self.localHost, port), PreviewHTTPHandler)
+        server = _PreviewHTTPServer((self.localHost, port), self._handler)
         server.daemon_threads = True
         return server
 

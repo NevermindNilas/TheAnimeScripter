@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- `--preview` in a batch: from the second video on, a preview tab left open from the previous video spun one CPU core at 100% (holding the GIL) for the rest of the batch while showing nothing. Each video's preview server now keeps its own frame source.
 - `large_v3` (CUDA, ROCm, MPS) wrote a flat, constant depth map on clean installs: the hosted checkpoint had 50 of its 64 head tensors zeroed. It now downloads `depth_anything_v3_vitl_mono.safetensors`, identical to upstream DA3MONO-LARGE, so cached copies of the bad file are replaced on the next run.
 - `rife4.6-tensorrt` built its warp grid in fp16 even in fp32 mode, and in fp16 computed it in half precision (now 5 dB closer to the fp32 reference, +0.05 dB vs ground truth).
 - `--static_step` was silently ignored by fp16 RIFE on CUDA/MPS/ROCm.
