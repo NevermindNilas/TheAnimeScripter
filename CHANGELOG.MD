@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- `*_nelux` encodes on macOS with an MPS restore model (`--restore` with a `-mps` method) handed the model's MPS tensor straight to Nelux, which read the device buffer as host memory (garbage frames or a crash). The Nelux writer now copies any frame that is not on the CPU or CUDA to the CPU first, as the FFmpeg writer always has.
 - `*_nelux` encodes fed from a CUDA pipeline could contain a partly or fully stale frame every few hundred frames (1080p NVENC: a frame at 13-32 dB among 49 dB ones; QSV: a stale first frame). The Nelux writer released each input before its own CUDA stream had read it.
 - `rife4.21-directml` and `rife4.21-openvino` crashed at model load (`size mismatch for block0.conv0.0.0.weight`): they were built on the 4.20 network, but 4.21 is the 4.22 network.
 - `--preview` in a batch: from the second video on, a preview tab left open from the previous video spun one CPU core at 100% (holding the GIL) for the rest of the batch while showing nothing. Each video's preview server now keeps its own frame source.

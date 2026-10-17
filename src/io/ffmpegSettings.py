@@ -1779,6 +1779,17 @@ class NeluxWriteBuffer:
                     self._sawSentinel = True
                     break
 
+                # nelux reads CPU and CUDA tensors only: any other device (the
+                # MPS restore backend hands its output over as-is) reached
+                # encode_frame as a device buffer nelux memcpy'd from as if it
+                # were host memory. WriteBuffer .cpu()s every frame; so does
+                # this, for everything that is not already CPU or CUDA.
+                if isinstance(frame, torch.Tensor) and frame.device.type not in (
+                    "cpu",
+                    "cuda",
+                ):
+                    frame = frame.cpu()
+
                 # Fast path: a frame already in HWC integer form skips the
                 # float-pipeline conversion below. Both dtypes ride straight
                 # through: nelux carries uint16 at full precision into a

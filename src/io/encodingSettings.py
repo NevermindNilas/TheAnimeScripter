@@ -359,10 +359,11 @@ def matchNeluxEncoder(
     GOP length and B-frames at each codec's defaults like the ffmpeg CLI
     (0.19.0 forced g=60/bf=2: -2.6 dB on x264). Measured against the FFmpeg
     twins through both writers (1080p, 600 frames, Y-PSNR vs the prores
-    twin): within 0.2 dB and up to 18% smaller (x264/x265/av1/nvenc/qsv),
-    prores within 0.03% in size. vp9 is the deliberate exception (-1.0 dB at
-    17% smaller): its arm runs true CRF (b=0), where the twin's missing
-    `-b:v 0` leaves libvpx in constrained-quality mode.
+    twin): within 0.2 dB and up to 18% smaller (x264/x265/vp9/av1/nvenc/qsv),
+    prores within 0.03% in size. Scored against the input frames instead,
+    nelux is level or ahead (vp9 +0.13 dB, lossless +0.3 dB): the twin's
+    16-bit swscale pass dithers on the way down to 8 bits, and the prores
+    reference carries that same dither.
 
     pixel_format mirrors getPixFMT's arm for the twin: at 8-bit input it is
     the 8-bit format (uint8 input into a 10-bit format is upconverted by
@@ -526,8 +527,10 @@ def matchNeluxEncoder(
         case "vp9_nelux":
             # ffmpeg `vp9`: libvpx-vp9 -crf 15 (-preset is not a libvpx option
             # -- the twin's veryfast is a no-op). nelux's cq/preset do not map
-            # to libvpx, so quality goes through AVOptions; b=0 selects
-            # CRF-only mode like the FFmpeg wrapper does when no bitrate is set.
+            # to libvpx, so quality goes through AVOptions. b=0 keeps libvpx in
+            # true CRF (rc_end_usage VPX_Q), as the twin runs: libvpx-vp9's
+            # defaults table has b=0, but nelux would set its 4M default and
+            # turn -crf into constrained quality capped at 4 Mb/s.
             mapping = dict(
                 codec="libvpx-vp9",
                 pixel_format="yuv420p",
