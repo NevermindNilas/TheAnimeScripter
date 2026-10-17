@@ -543,7 +543,7 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | AMD/Intel GPUs | DirectML |
 | **birefnet** / **birefnet-rocm** | — | — | — | Screenshots from anime video; BiRefNet Lite trained at 1024×1024 | CUDA / ROCm (PyTorch) |
 
-`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
+`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`, or `prores_segment_nelux` when an in-process `*_nelux` encoder is requested) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
 
 > **Note:** There is no MPS segmentation path.
 
@@ -909,6 +909,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **slow_av1_nelux** | slow_av1 | - |
 | **vp9_nelux** | vp9 | - |
 | **prores_nelux** | prores | - |
+| **prores_segment_nelux** | prores_segment | - |
 | **gif_nelux** | gif | - |
 | **lossless_nelux** | lossless | - |
 | **nvenc_h264_nelux** | nvenc_h264 | NVIDIA GPU |
@@ -919,8 +920,14 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **nvenc_av1_nelux** | nvenc_av1 | NVIDIA RTX 40+ |
 | **slow_nvenc_av1_nelux** | slow_nvenc_av1 | NVIDIA RTX 40+ |
 | **lossless_nvenc_nelux** | lossless_nvenc | NVIDIA GPU |
+| **qsv_h264_nelux** | qsv_h264 | Intel CPU |
+| **qsv_h265_nelux** | qsv_h265 | Intel CPU |
+| **qsv_h265_10bit_nelux** | qsv_h265_10bit | Intel CPU |
+| **qsv_vp9_nelux** | qsv_vp9 | Intel CPU |
+| **png_nelux** | png | - |
+| **jpeg_nelux** | jpeg | - |
 
-> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path), but `--depth` does not use it at all. Ask for `--depth` with an in-process encoder and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter). `png`/`jpeg` (image sequences) and the QSV/AMF hardware families remain FFmpeg-only.
+> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path). `--depth` and `--segment` use it too: depth maps are encoded from grayscale frames into the same pixel format as the plain encoder (`yuv420p`, or `yuv444p10le`/`p010le` at `--bit_depth 16bit`), and segmentation turns any in-process encoder into `prores_segment_nelux` (ProRes 4444 with alpha), as it turns plain encoders into `prores_segment`. Like the plain encoders, neither applies the BT.709 conversion (segment output decodes byte-identical to `prores_segment`); the in-process file is tagged bt470bg where the plain one is left untagged. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter). `png_nelux`/`jpeg_nelux` write the same numbered sequence as `png`/`jpeg` (one file for a single-image input) and carry no audio. The AMF family remains FFmpeg-only.
 
 #### High-Quality Presets
 

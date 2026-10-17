@@ -1358,9 +1358,16 @@ def _addEncodingOptions(argParser):
         "slow_av1_nelux",
         "vp9_nelux",
         "prores_nelux",
+        "prores_segment_nelux",
+        "qsv_h264_nelux",
+        "qsv_h265_nelux",
+        "qsv_h265_10bit_nelux",
+        "qsv_vp9_nelux",
         "gif_nelux",
         "lossless_nelux",
         "lossless_nvenc_nelux",
+        "png_nelux",
+        "jpeg_nelux",
     ]
 
     encodingGroup.add_argument(

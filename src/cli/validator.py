@@ -6,7 +6,7 @@ import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.cli.validation import CliValidationError, applyRuntimeValidation
-from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.logAndPrint import logAndPrint
 from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
 from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
 
@@ -95,26 +95,6 @@ def _downgradeCudaDetector(method: str, flagName: str, cudaAvailable=_UNPROBED) 
         )
         return "ssim"
     return method
-
-
-def _resolveNeluxEncoder(args):
-    """Swap a `*_nelux` encoder for its FFmpeg twin under `--depth`.
-
-    `--depth` does not go through the Nelux writer at all, so the method used
-    to be dropped in silence. Resolve it once here, like every other
-    incompatible-option downgrade, rather than per input file in the writer.
-    `--bit_depth 16bit` and `--output_scale` both ride the pinned nelux
-    natively (deep-colour encode input, encoder-side resize).
-    """
-    method = getattr(args, "encode_method", "") or ""
-    if not method.endswith("_nelux") or not args.depth:
-        return
-
-    args.encode_method = method[: -len("_nelux")]
-    logWarning(
-        f"{method} is not available for --depth. Encoding with the equivalent "
-        f"{args.encode_method} instead, so the output matches what you asked for."
-    )
 
 
 # The bare rife aliases are just names for 4.22 -- that is what modelsMap()
@@ -775,8 +755,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
         logging.info(
             f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
         )
-
-    _resolveNeluxEncoder(args)
 
     if warning:
         logAndPrint(warning, "yellow")

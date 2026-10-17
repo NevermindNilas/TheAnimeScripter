@@ -28,7 +28,7 @@ from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
     BuildBuffer,
-    WriteBuffer,
+    createWriteBuffer,
 )
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -89,13 +89,13 @@ class DepthCuda(DepthRunOutcome):
                 height=self.newHeight,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
@@ -445,13 +445,13 @@ class OGDepthV2CUDA(DepthRunOutcome):
             # --encode_method said, ignored --bit_depth,
             # and dropped the source audio. WriteBuffer is what every other
             # depth backend uses, OGDepthV2TensorRT included.
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,

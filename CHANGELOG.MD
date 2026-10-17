@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added RIFE 4.26 and 4.26-heavy interpolation (`rife4.26`, `rife4.26-heavy`, each also `-tensorrt`, `-directml`, `-openvino`, `-mps`). 4.26 reuses the 4.25 architecture; 4.26-heavy keeps 4.25's block widths and widens the feature encoder to 16 channels.
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
+- Added `--encode_method prores_segment_nelux`, the in-process twin of `prores_segment` (ProRes 4444 with alpha).
+- Added in-process twins `qsv_h264_nelux`, `qsv_h265_nelux`, `qsv_h265_10bit_nelux` and `qsv_vp9_nelux` (Intel Quick Sync), with the same codec, quality and pixel format as their FFmpeg twins.
+- Added `png_nelux` and `jpeg_nelux`, in-process image-sequence twins of `png`/`jpeg` that write the same numbered files (one file for a single-image input).
 
 ### Changed
 - `--depth_quality high` needs far less VRAM on the CUDA/ROCm depth methods: the depth heads build their full-resolution stages in row bands, DualDPT (`small_v3`, `base_v3`, `limbo*`) skips its unused ray branch, the VDA frame cache is concatenated per level, and depth runs use expandable allocator segments. 1080p on an RTX 3090 (nvidia-smi): `small_v2` 1.5 → 0.84 GB, `large_v3` 6.6 → 3.0 GB, `video_small_v2` 3.4 → 1.7 GB, `video_small_v3` 18.5 → 5.3 GB; output stays within the rounding the models already run at, and `low` is bit-identical.
@@ -25,11 +28,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - RIFE on CUDA (all variants, fp16 and fp32) and TensorRT now runs one shared implementation, `src/rifearches/rife_fast.py`. RTX 3090, `rife4.26` 720p fp16: CUDA 183 -> 232 fps (+27%), TensorRT 201 -> 332 fps (+65%); 1080p CUDA +27% (4.26) / +39% (4.26-heavy); fp32 ~1.5x. Output is unchanged (ATD-12K GT PSNR within ±0.002 dB). TensorRT engines are rebuilt once (new `_u3` cache name). DirectML/OpenVINO are unchanged.
 - `rife_elexor` (CUDA/MPS/ROCm and TensorRT) runs the shared implementation too: CUDA 720p fp16 ~+20%, and fp16 output lands closer to fp32 (+0.05 dB vs ground truth). `--ensemble` keeps the previous arch.
 - RIFE runs its feature encoder once per frame pair instead of once per inserted frame when a pair needs several frames (`--interpolate_factor` > 2, motion blur, wide `--smooth_dedup` gaps): `rife4.26` 720p at 4x is +8% on CUDA and +10% on TensorRT, 2x unchanged. TensorRT now builds a small per-pair engine (`*_pair.engine`) next to the main one.
+- `--depth` and `--segment` now honor `*_nelux` encode methods: depth used to swap them for the FFmpeg twin with a warning, and segment silently encoded through FFmpeg. Depth maps keep the plain encoder's pixel format and segment output is `prores_segment_nelux`.
+- Bumped `nelux` `0.19.0` → `0.20.0`. `*_nelux` encoders keep each codec's own GOP length and B-frames, as their FFmpeg twins do: `x264_nelux` was 2.6 dB below `x264` at 1080p and is now within 0.2 dB at an 18% smaller file. Opus/Vorbis audio into a `.mov` now stays on the Nelux writer (transcoded to AAC) instead of falling back to FFmpeg.
+- `nvenc_*_nelux` use the same rate control as their twins (`-cq` is VBR with a target quality, not constant QP): they wrote half the twin's size at 1.0-1.4 dB lower quality and are now within 0.3 dB.
 
 ### Removed
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- `*_nelux` encodes fed from a CUDA pipeline could contain a partly or fully stale frame every few hundred frames (1080p NVENC: a frame at 13-32 dB among 49 dB ones; QSV: a stale first frame). The Nelux writer released each input before its own CUDA stream had read it.
 - `rife4.21-directml` and `rife4.21-openvino` crashed at model load (`size mismatch for block0.conv0.0.0.weight`): they were built on the 4.20 network, but 4.21 is the 4.22 network.
 - `--preview` in a batch: from the second video on, a preview tab left open from the previous video spun one CPU core at 100% (holding the GIL) for the rest of the batch while showing nothing. Each video's preview server now keeps its own frame source.
 - `small_v3`, `base_v3`, `large_v3` and `og_large_v3` depth on CUDA/MPS is bit-identical to its pre-optimization output again; reading both percentile bounds in one call had moved the upper bound by ~1e-6.

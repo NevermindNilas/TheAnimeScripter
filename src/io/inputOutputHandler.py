@@ -70,8 +70,14 @@ _SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
 # single source for every sequence special case: extension resolution and
 # folder containment here, the writer's pattern rewrite in
 # src/io/ffmpegSettings.py, the audio-off rule in src/cli/validator.py, and
-# the single-image guard in src/io/inputNormalization.py.
-SEQUENCE_EXTENSIONS = {"png": ".png", "jpeg": ".jpg"}
+# the single-image guard in src/io/inputNormalization.py. The *_nelux twins are
+# listed too: both writers take the same numbered output.
+SEQUENCE_EXTENSIONS = {
+    "png": ".png",
+    "jpeg": ".jpg",
+    "png_nelux": ".png",
+    "jpeg_nelux": ".jpg",
+}
 
 
 def _isURL(value):
@@ -329,6 +335,7 @@ WEBM_COMPATIBLE_ENCODERS = (
     "nvenc_av1",
     "slow_nvenc_av1",
     "vp9_nelux",
+    "qsv_vp9_nelux",
     "av1_nelux",
     "slow_av1_nelux",
     "nvenc_av1_nelux",

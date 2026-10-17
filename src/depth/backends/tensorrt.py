@@ -23,7 +23,7 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
     BuildBuffer,
-    WriteBuffer,
+    createWriteBuffer,
 )
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -113,13 +113,13 @@ class DepthTensorRTV2(DepthRunOutcome):
                 height=decodeH,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
@@ -499,13 +499,13 @@ class OGDepthV2TensorRT(DepthRunOutcome):
                 toTorch=False,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,

@@ -13,8 +13,8 @@ from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.providerCheck import warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
-    WriteBuffer,
     closeWriterAndDrainReader,
+    createWriteBuffer,
 )
 from src.io.runOutcome import truncatedDecodeError
 from src.model.download import resolveWeightPath
@@ -80,10 +80,10 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 outpoint=self.outpoint,
             )
 
-            self.writeBuffer = WriteBuffer(
+            self.writeBuffer = createWriteBuffer(
+                self.encode_method,
                 input=self.input,
                 output=self.output,
-                encode_method=self.encode_method,
                 grayscale=False,
                 width=self.width,
                 height=self.height,
@@ -386,10 +386,10 @@ class AnimeSegmentTensorRT:
                 outpoint=self.outpoint,
             )
 
-            self.writeBuffer = WriteBuffer(
+            self.writeBuffer = createWriteBuffer(
+                self.encode_method,
                 input=self.input,
                 output=self.output,
-                encode_method=self.encode_method,
                 grayscale=False,
                 width=self.width,
                 height=self.height,
@@ -613,13 +613,13 @@ class AnimeSegmentDirectML:
                 outpoint=self.outpoint,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=False,
                 transparent=True,
                 benchmark=self.benchmark,
@@ -855,13 +855,13 @@ class AnimeSegmentOpenVino:
                 outpoint=self.outpoint,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=False,
                 transparent=True,
                 benchmark=self.benchmark,

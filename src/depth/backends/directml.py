@@ -25,7 +25,7 @@ from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.providerCheck import warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
-    WriteBuffer,
+    createWriteBuffer,
 )
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -100,13 +100,13 @@ class DepthDirectMLV2(DepthRunOutcome):
                 height=decodeH,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
@@ -593,13 +593,13 @@ class OGDepthV2DirectML(DepthRunOutcome):
             # every og_* depth run wrote MPEG-4 Part 2 no matter what
             # --encode_method said, and ignored --bit_depth. WriteBuffer is
             # what every other depth backend uses.
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
+            self.writeBuffer = createWriteBuffer(
                 self.encode_method,
-                self.width,
-                self.height,
-                self.fps,
+                input=self.input,
+                output=self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
