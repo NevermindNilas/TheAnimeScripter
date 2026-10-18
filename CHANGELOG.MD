@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- `scunet`, `scunet-rocm`, `scunet-mps` and `scunet-openvino` crashed on any frame whose width or height is not a multiple of 64, 1080p included (`EinopsError` / ONNX `Reshape` failure). They now reflect-pad to the multiple and crop back.
+- `scunet-tensorrt` stretched any frame whose width or height was not a multiple of 64 to the engine size, then cropped the top-left, so output was magnified and lost its right and bottom edges (22 dB on a real 640×360 frame, 63 dB after). It now reflect-pads and crops.
 - Upscalers that pad their input (`adore`, `fallin_*`, `shufflecugan` on CUDA, TensorRT and ROCm, e.g. at 854×480) could hand the writer a frame before its crop finished, writing stale or garbage frames. The crop now completes before the frame is returned.
 - `artcnn-tensorrt` could upscale a luma or chroma plane before it was computed. The Y'CbCr split now finishes before the engine and chroma upscale read it.
 - `fastlinedarken` (CUDA, ROCm and CPU) darkened the caller's frame in place as well as returning the darkened copy; the input is now left untouched.

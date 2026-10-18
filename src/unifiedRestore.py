@@ -16,6 +16,36 @@ if ADOBE:
 
 checker = CudaChecker()
 
+# SCUNet's windowed attention needs both dims divisible by 64. The vendored
+# arch's check_image_size is a no-op (keeps the graph ONNX-exportable), so the
+# eager paths pad around the model instead.
+_PAD_MULTIPLES = {"scunet": 64}
+
+
+def _padRightBottom(frame: torch.Tensor, multiple: int) -> torch.Tensor:
+    """Pad ``frame`` on the right/bottom up to ``multiple``; unchanged if aligned.
+
+    Reflect is upstream SCUNet's mode; it needs the pad smaller than the
+    dimension, so only frames under ~64px fall back to replicate.
+    """
+    height, width = frame.shape[-2:]
+    padH = -height % multiple
+    padW = -width % multiple
+    if not (padH or padW):
+        return frame
+    mode = "reflect" if padW < width and padH < height else "replicate"
+    return torch.nn.functional.pad(frame, (0, padW, 0, padH), mode=mode)
+
+
+def _cropTo(
+    output: torch.Tensor, height: int, width: int, channelsLast: bool
+) -> torch.Tensor:
+    """Crop a padded model output back to ``height`` x ``width``."""
+    if tuple(output.shape[-2:]) == (height, width):
+        return output
+    memoryFormat = torch.channels_last if channelsLast else torch.contiguous_format
+    return output[:, :, :height, :width].contiguous(memory_format=memoryFormat)
+
 
 class UnifiedRestoreCuda:
     def __init__(
@@ -45,6 +75,8 @@ class UnifiedRestoreCuda:
         """
         if ADOBE:
             progressState.update({"status": f"Loading restore model: {self.model}..."})
+
+        self.padMultiple = _PAD_MULTIPLES.get(self.model, 1)
 
         from src.spandrelCompat import ModelLoader
 
@@ -130,7 +162,9 @@ class UnifiedRestoreCuda:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
+        height, width = frame.shape[-2:]
         with torch.cuda.stream(self.stream):
+            frame = _padRightBottom(frame, self.padMultiple)
             if self.CHANNELSLAST:
                 frame = frame.to(
                     checker.device,
@@ -141,6 +175,9 @@ class UnifiedRestoreCuda:
             else:
                 frame = frame.to(checker.device, non_blocking=True, dtype=self.dType)
             frame = self.model(frame)
+            # Crop before the sync: the writer never waits on this stream.
+            if self.padMultiple > 1:
+                frame = _cropTo(frame, height, width, self.CHANNELSLAST)
         self.stream.synchronize()
         return frame
 
@@ -163,6 +200,8 @@ class UnifiedRestoreROCm(UnifiedRestoreCuda):
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
+        height, width = frame.shape[-2:]
+        frame = _padRightBottom(frame, self.padMultiple)
         if self.CHANNELSLAST:
             frame = frame.to(
                 checker.device,
@@ -173,6 +212,8 @@ class UnifiedRestoreROCm(UnifiedRestoreCuda):
         else:
             frame = frame.to(checker.device, non_blocking=True, dtype=self.dType)
         frame = self.model(frame)
+        if self.padMultiple > 1:
+            frame = _cropTo(frame, height, width, self.CHANNELSLAST)
         if frame.device.type == "cuda":
             torch.cuda.current_stream().synchronize()
         return frame
@@ -362,6 +403,7 @@ class UnifiedRestoreMPS:
         self.half = half
         self.CHANNELSLAST = True
         self.device = torch.device("mps")
+        self.padMultiple = _PAD_MULTIPLES.get(self.model, 1)
         self.handleModel()
 
     def handleModel(self):
@@ -418,10 +460,15 @@ class UnifiedRestoreMPS:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
-        moved = frame.to(self.device, dtype=self.dType)
+        height, width = frame.shape[-2:]
+        moved = _padRightBottom(
+            frame.to(self.device, dtype=self.dType), self.padMultiple
+        )
         if self.CHANNELSLAST:
             moved = moved.to(memory_format=torch.channels_last)
         output = self.model(moved)
+        if self.padMultiple > 1:
+            output = _cropTo(output, height, width, self.CHANNELSLAST)
         torch.mps.synchronize()
         return output
 
@@ -497,9 +544,23 @@ class UnifiedRestoreTensorRT:
                     "Forcing static engine due to SCUNET limitations.",
                     "yellow",
                 )
-            # padding to 64x64
+            # SCUNet's windowed attention needs both dims divisible by 64. Pad
+            # right/bottom up to the multiple and crop the surplus off the
+            # output; resizing instead stretched the content and the crop then
+            # cut off its right and bottom edges.
             self.height = (self.height + 63) // 64 * 64
             self.width = (self.width + 63) // 64 * 64
+
+        padW = self.width - self.originalWidth
+        padH = self.height - self.originalHeight
+        self.padding = (0, padW, 0, padH)
+        # Reflect (upstream SCUNet's mode) needs the pad smaller than the
+        # dimension; only frames under ~64px fall back to replicate.
+        self.padMode = (
+            "reflect"
+            if padW < self.originalWidth and padH < self.originalHeight
+            else "replicate"
+        )
 
         if self.width >= 1920 and self.height >= 1080:
             if self.forceStatic is not True:
@@ -589,13 +650,8 @@ class UnifiedRestoreTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
-            if self.originalHeight != self.height or self.originalWidth != self.width:
-                frame = torch.nn.functional.interpolate(
-                    frame,
-                    size=(self.height, self.width),
-                    mode="bilinear",
-                    align_corners=False,
-                )
+            if self.padding[1] or self.padding[3]:
+                frame = torch.nn.functional.pad(frame, self.padding, mode=self.padMode)
             self.dummyInput.copy_(
                 frame.to(dtype=self.dtype),
                 non_blocking=False,
@@ -740,6 +796,12 @@ class UnifiedRestoreDirectML:
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
 
+        # Buffers are sized to the model's input multiple (SCUNet: 64); frames
+        # are padded into them and the surplus cropped off the output.
+        self.padMultiple = _PAD_MULTIPLES.get(method.rsplit("-", 1)[0], 1)
+        self.paddedHeight = -(-self.height // self.padMultiple) * self.padMultiple
+        self.paddedWidth = -(-self.width // self.padMultiple) * self.padMultiple
+
         if self.half:
             self.numpyDType = self.np.float16
             self.torchDType = torch.float16
@@ -749,13 +811,13 @@ class UnifiedRestoreDirectML:
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
+            (1, 3, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (1, 3, self.height, self.width),
+            (1, 3, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
@@ -798,7 +860,10 @@ class UnifiedRestoreDirectML:
             else:
                 frame = frame.float()
 
-            self.dummyInput.copy_(frame.contiguous())
+            # A separate name: the CPU-fallback retry below re-enters with
+            # `frame`, which must still be the unpadded frame.
+            padded = _padRightBottom(frame, self.padMultiple)
+            self.dummyInput.copy_(padded.contiguous())
 
             self.IoBinding.bind_input(
                 name="input",
@@ -824,7 +889,7 @@ class UnifiedRestoreDirectML:
             # Restore runs at window entry, so every FrameSlot -- and every
             # frame queued for the writer -- would alias one buffer that the
             # next inference overwrites.
-            return self.dummyOutput.clone()
+            return self.dummyOutput[:, :, : self.height, : self.width].clone()
 
         except Exception as e:
             if not self.usingCpuFallback:
