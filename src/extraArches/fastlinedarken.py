@@ -94,7 +94,7 @@ class FastLineDarkenWithStreams(nn.Module):
                 softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
             else:
                 softenedEdges = thinnedEdges
-            enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+            enhancedImage = image.sub(self.darkenStrength * softenedEdges)
             enhancedImage = enhancedImage.clamp(0, 1)
             enhancedImage = enhancedImage.unsqueeze(0)
         self.stream.synchronize()
@@ -124,7 +124,7 @@ class FastLineDarkenWithStreams(nn.Module):
         else:
             softenedEdges = thinnedEdges
 
-        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = image.sub(self.darkenStrength * softenedEdges)
         return enhancedImage.clamp(0, 1).unsqueeze(0)
 
 
@@ -208,7 +208,7 @@ class FastLineDarken(nn.Module):
             softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
         else:
             softenedEdges = thinnedEdges
-        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = image.sub(self.darkenStrength * softenedEdges)
         enhancedImage = enhancedImage.clamp(0, 1)
         enhancedImage = enhancedImage.unsqueeze(0)
         return enhancedImage
@@ -237,7 +237,7 @@ class FastLineDarken(nn.Module):
         else:
             softenedEdges = thinnedEdges
 
-        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = image.sub(self.darkenStrength * softenedEdges)
         return enhancedImage.clamp(0, 1).unsqueeze(0)
 
 
@@ -412,7 +412,7 @@ class FastLineDarkenROCm(FastLineDarkenWithStreams):
             softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
         else:
             softenedEdges = thinnedEdges
-        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = image.sub(self.darkenStrength * softenedEdges)
         enhancedImage = enhancedImage.clamp(0, 1)
         enhancedImage = enhancedImage.unsqueeze(0)
         if enhancedImage.device.type == "cuda":

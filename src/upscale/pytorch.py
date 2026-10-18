@@ -313,15 +313,17 @@ class UniversalPytorch:
                     non_blocking=True,
                 )
             output = self.dummyOutput.clone()
+            # Crop before the sync: the writer copies on its own stream and
+            # never waits on ours, so a crop queued after it could be read
+            # before it ran.
+            if self.padding[1] or self.padding[3]:
+                output = output[
+                    :,
+                    :,
+                    : self.height * self.upscaleFactor,
+                    : self.width * self.upscaleFactor,
+                ].contiguous()
         self.stream.synchronize()
-
-        if self.padding[1] or self.padding[3]:
-            output = output[
-                :,
-                :,
-                : self.height * self.upscaleFactor,
-                : self.width * self.upscaleFactor,
-            ].contiguous()
 
         return output
 
@@ -721,8 +723,6 @@ class UniversalPytorchROCm:
         if self.padding[1] or self.padding[3]:
             frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
         output = self.model(frame)
-        if self.device.type == "cuda":
-            torch.cuda.current_stream().synchronize()
         if self.padding[1] or self.padding[3]:
             output = output[
                 :,
@@ -730,4 +730,8 @@ class UniversalPytorchROCm:
                 : self.height * self.upscaleFactor,
                 : self.width * self.upscaleFactor,
             ].contiguous()
+        # Sync after the crop: the writer copies on its own stream and never
+        # waits on ours.
+        if self.device.type == "cuda":
+            torch.cuda.current_stream().synchronize()
         return output

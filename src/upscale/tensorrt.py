@@ -259,15 +259,17 @@ class UniversalTensorRT:
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
             output = self.dummyOutput.clone()
+            # Crop before the sync: the writer copies on its own stream and
+            # never waits on ours, so a crop queued after it could be read
+            # before it ran.
+            if self.padding[1] or self.padding[3]:
+                output = output[
+                    :,
+                    :,
+                    : self.height * self.upscaleFactor,
+                    : self.width * self.upscaleFactor,
+                ].contiguous()
         self.stream.synchronize()
-
-        if self.padding[1] or self.padding[3]:
-            output = output[
-                :,
-                :,
-                : self.height * self.upscaleFactor,
-                : self.width * self.upscaleFactor,
-            ].contiguous()
 
         return output
 

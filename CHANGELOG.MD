@@ -36,6 +36,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- Upscalers that pad their input (`adore`, `fallin_*`, `shufflecugan` on CUDA, TensorRT and ROCm, e.g. at 854×480) could hand the writer a frame before its crop finished, writing stale or garbage frames. The crop now completes before the frame is returned.
+- `artcnn-tensorrt` could upscale a luma or chroma plane before it was computed. The Y'CbCr split now finishes before the engine and chroma upscale read it.
+- `fastlinedarken` (CUDA, ROCm and CPU) darkened the caller's frame in place as well as returning the darkened copy; the input is now left untouched.
 - `*_nelux` encodes on macOS with an MPS restore model (`--restore` with a `-mps` method) handed the model's MPS tensor straight to Nelux, which read the device buffer as host memory (garbage frames or a crash). The Nelux writer now copies any frame that is not on the CPU or CUDA to the CPU first, as the FFmpeg writer always has.
 - `*_nelux` encodes fed from a CUDA pipeline could contain a partly or fully stale frame every few hundred frames (1080p NVENC: a frame at 13-32 dB among 49 dB ones; QSV: a stale first frame). The Nelux writer released each input before its own CUDA stream had read it.
 - `rife4.21-directml` and `rife4.21-openvino` crashed at model load (`size mismatch for block0.conv0.0.0.weight`): they were built on the 4.20 network, but 4.21 is the 4.22 network.

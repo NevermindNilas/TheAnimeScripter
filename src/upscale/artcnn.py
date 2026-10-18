@@ -211,10 +211,11 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
-        frame = frame.to(dtype=self.dtype)
-        y, cb, cr = self._rgbToYCbCr(frame)
-
+        # Split on normStream so the sync below covers y, cb and cr: the copy
+        # and the chroma upscale run on streams that never wait on the caller's.
         with torch.cuda.stream(self.normStream):
+            frame = frame.to(dtype=self.dtype)
+            y, cb, cr = self._rgbToYCbCr(frame)
             self.dummyInput.copy_(y, non_blocking=True)
         self.normStream.synchronize()
 
