@@ -2,7 +2,7 @@
 Restore backend factory.
 
 RestoreChain: chains multiple restore callables into one.
-buildRestoreProcess(self) -> callable
+buildRestoreProcess(self, width=None, height=None) -> callable
   Builds either a single backend or a RestoreChain for multi-method restore.
 """
 
@@ -23,7 +23,12 @@ class RestoreChain:
         return frame
 
 
-def buildRestoreProcess(self):
+def buildRestoreProcess(self, width=None, height=None):
+    """``width``/``height`` are the frame size the restore stage receives. The
+    pipeline planner resolves it, because a restore placed after upscale runs at
+    the upscaled size. They default to the source size."""
+    width = self.width if width is None else width
+    height = self.height if height is None else height
     restoreMethods = (
         self.restoreMethod
         if isinstance(self.restoreMethod, list)
@@ -113,8 +118,8 @@ def buildRestoreProcess(self):
                     UnifiedRestoreTensorRT(
                         method,
                         self.half,
-                        self.width,
-                        self.height,
+                        width,
+                        height,
                         self.forceStatic,
                     )
                 )
@@ -147,8 +152,8 @@ def buildRestoreProcess(self):
                     UnifiedRestoreDirectML(
                         method,
                         self.half,
-                        self.width,
-                        self.height,
+                        width,
+                        height,
                     )
                 )
 
@@ -176,8 +181,8 @@ def buildRestoreProcess(self):
                 restoreProcesses.append(
                     FastLineDarkenTRT(
                         self.half,
-                        self.height,
-                        self.width,
+                        height,
+                        width,
                     )
                 )
 
@@ -244,8 +249,8 @@ def buildRestoreProcess(self):
                     MaxineRestore(
                         method,
                         self.half,
-                        self.width,
-                        self.height,
+                        width,
+                        height,
                     )
                 )
 

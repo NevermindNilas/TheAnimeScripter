@@ -1,19 +1,23 @@
 """
 Upscale backend factory.
 
-buildUpscaleProcess(self) -> callable
+buildUpscaleProcess(self, width=None, height=None) -> callable
   Instantiates and returns the correct upscale backend for self.upscaleMethod.
+  ``width``/``height`` are the frame size the backend receives (the pipeline
+  planner resolves it); they default to the source size.
   Returns None when self.upscale is False (callers should guard before calling).
 """
 
 import logging
 
 
-def buildUpscaleProcess(self):
+def buildUpscaleProcess(self, width=None, height=None):
     from src.upscale.pytorch import UniversalPytorch
 
+    width = self.width if width is None else width
+    height = self.height if height is None else height
     logging.info(
-        f"Upscaling to {self.width * self.upscaleFactor}x{self.height * self.upscaleFactor}"
+        f"Upscaling to {width * self.upscaleFactor}x{height * self.upscaleFactor}"
     )
 
     match self.upscaleMethod:
@@ -36,8 +40,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.compileMode,
             )
@@ -74,8 +78,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
             )
 
@@ -100,8 +104,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.compileMode,
             )
@@ -127,8 +131,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.compileMode,
             )
@@ -139,8 +143,8 @@ def buildUpscaleProcess(self):
             return AnimeSRROCm(
                 2,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.compileMode,
             )
 
@@ -150,8 +154,8 @@ def buildUpscaleProcess(self):
             return AnimeSRDirectML(
                 self.upscaleMethod,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
             )
 
         case "shufflecugan-ncnn" | "adore-ncnn" | "span-ncnn":
@@ -182,8 +186,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.forceStatic,
             )
@@ -194,8 +198,8 @@ def buildUpscaleProcess(self):
             return AnimeSR(
                 2,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.compileMode,
             )
 
@@ -205,8 +209,8 @@ def buildUpscaleProcess(self):
             return AnimeSRTensorRT(
                 2,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
             )
 
         case (
@@ -225,8 +229,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.forceStatic,
             )
@@ -255,8 +259,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
             )
 
@@ -277,8 +281,8 @@ def buildUpscaleProcess(self):
                 self.upscaleMethod,
                 self.upscaleFactor,
                 self.half,
-                self.width,
-                self.height,
+                width,
+                height,
                 self.customModel,
                 self.compileMode,
             )

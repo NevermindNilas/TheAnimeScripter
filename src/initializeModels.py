@@ -11,72 +11,82 @@ def _announce(status):
         progressState.update({"status": status})
 
 
-def initializeModels(self):
-    outputWidth = self.width
-    outputHeight = self.height
-    upscaleProcess = None
-    interpolateProcess = None
-    restoreProcess = None
-    dedupProcess = None
-    sceneChangeProcess = None
+_BUILD_ORDER = {
+    "upscale": 0,
+    "interpolate": 1,
+    "restore": 2,
+    "dedup": 3,
+    "smooth-dedup": 3,
+    "scenechange": 4,
+}
 
-    if self.upscale:
-        _announce(f"Initializing upscale model: {self.upscaleMethod}...")
-        outputWidth *= self.upscaleFactor
-        outputHeight *= self.upscaleFactor
 
-        from src.factories.upscale import buildUpscaleProcess
+def initializeModels(self, plan):
+    """Build every enabled driver at the frame size its stage actually receives.
 
-        upscaleProcess = buildUpscaleProcess(self)
+    ``plan`` is the chain the pipeline planner resolved from the typed flag order
+    (``src/pipeline/planner.py``). Each driver is built with that stage's input
+    size, because the fixed I/O buffers (and CUDA graphs) of the interpolation,
+    restore and dedup backends are sized at construction: an interpolation placed
+    after upscale is built at the upscaled size, one placed before it at the
+    source size.
 
-    if self.interpolate:
-        _announce(f"Initializing interpolation model: {self.interpolateMethod}...")
+    Returns ``{unit name: driver}``. A ``hop`` unit has no driver.
 
-        from src.factories.interpolate import buildInterpolateProcess
+    Drivers are built in a fixed order, not chain order: the order they are built
+    in decides where their weights, engines and CUDA graph pools land and what
+    memory cuDNN autotunes against, and the old engine's order is the measured
+    baseline.
+    """
+    drivers = {}
+    for unit in sorted(plan.units, key=lambda unit: _BUILD_ORDER.get(unit.name, 99)):
+        name = unit.name
+        if name == "upscale":
+            _announce(f"Initializing upscale model: {self.upscaleMethod}...")
 
-        # The interpolation driver's fixed I/O buffers (and CUDA graph) are sized
-        # at construction, so it must be built at the resolution it will actually
-        # receive. In interpolate-first order it runs on the source stream; in
-        # interpolate-last order it runs on the upscaled stream, one stage later.
-        if self.upscale and not self.interpolateFirst:
-            interpWidth, interpHeight = outputWidth, outputHeight
-        else:
-            interpWidth, interpHeight = self.width, self.height
+            from src.factories.upscale import buildUpscaleProcess
 
-        interpolateProcess = buildInterpolateProcess(self, interpWidth, interpHeight)
+            drivers[name] = buildUpscaleProcess(
+                self, width=unit.inWidth, height=unit.inHeight
+            )
 
-    if self.restore:
-        _announce(f"Initializing restore model: {self.restoreMethod}...")
+        elif name == "interpolate":
+            _announce(f"Initializing interpolation model: {self.interpolateMethod}...")
 
-        from src.factories.restore import buildRestoreProcess
+            from src.factories.interpolate import buildInterpolateProcess
 
-        restoreProcess = buildRestoreProcess(self)
+            drivers[name] = buildInterpolateProcess(self, unit.inWidth, unit.inHeight)
 
-    if self.dedup or self.smoothDedup:
-        # --smooth_dedup reuses the dedup detectors, but off its own knobs: it turns each
-        # duplicate into extra interpolation slots rather than dropping a frame
-        # from the output, so the two are mutually exclusive (validator.py).
-        method = self.smoothDedupMethod if self.smoothDedup else self.dedupMethod
-        sens = self.smoothDedupSens if self.smoothDedup else self.dedupSens
-        _announce(f"Initializing duplicate detection: {method}...")
+        elif name == "restore":
+            _announce(f"Initializing restore model: {self.restoreMethod}...")
 
-        from src.factories.dedup import buildDedupProcess
+            from src.factories.restore import buildRestoreProcess
 
-        dedupProcess = buildDedupProcess(self, method, sens)
+            drivers[name] = buildRestoreProcess(
+                self, width=unit.inWidth, height=unit.inHeight
+            )
 
-    if self.interpolate and getattr(self, "sceneChange", False):
-        _announce(f"Initializing scene-cut detector: {self.sceneChangeMethod}...")
+        elif name in ("dedup", "smooth-dedup"):
+            # --smooth_dedup reuses the dedup detectors, but off its own knobs: it
+            # turns each duplicate into extra interpolation slots rather than
+            # dropping a frame from the output, so the two are mutually exclusive
+            # (validator.py).
+            smooth = name == "smooth-dedup"
+            method = self.smoothDedupMethod if smooth else self.dedupMethod
+            sens = self.smoothDedupSens if smooth else self.dedupSens
+            _announce(f"Initializing duplicate detection: {method}...")
 
-        from src.factories.sceneChange import buildSceneChangeProcess
+            from src.factories.dedup import buildDedupProcess
 
-        sceneChangeProcess = buildSceneChangeProcess(self)
+            drivers[name] = buildDedupProcess(
+                self, method, sens, width=unit.inWidth, height=unit.inHeight
+            )
 
-    return (
-        outputWidth,
-        outputHeight,
-        upscaleProcess,
-        interpolateProcess,
-        restoreProcess,
-        dedupProcess,
-        sceneChangeProcess,
-    )
+        elif name == "scenechange":
+            _announce(f"Initializing scene-cut detector: {self.sceneChangeMethod}...")
+
+            from src.factories.sceneChange import buildSceneChangeProcess
+
+            drivers[name] = buildSceneChangeProcess(self)
+
+    return drivers

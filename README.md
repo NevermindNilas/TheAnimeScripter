@@ -27,7 +27,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 - **One pass, in memory.** Decode → dedup → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
 - **Built for animation.** `--smooth_dedup` detects frames held on twos and threes and interpolates across them while keeping the original length and audio. `--scenechange` holds the frame at hard cuts so nothing morphs between shots. `--mask` keeps HUDs and hardsubs from warping.
 - **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux.
-- **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with presets, batch input and YouTube URLs.
+- **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with batch input and YouTube URLs.
 
 ## 🧰 What it does
 
@@ -89,11 +89,11 @@ iwr -useb https://tas.nevermindnilas.dev/install.ps1 | iex
 Then run it. Without the installer, use `python main.py` in place of `tas`:
 
 ```sh
-# 2x upscale + 2x interpolation, anime defaults
-tas --input episode.mp4 --upscale --interpolate
+# 2x interpolation, then 2x upscale, anime defaults
+tas --input episode.mp4 --interpolate --upscale
 
-# Picking a method enables its step: TensorRT upscale + RIFE 4.25, scaled to 4K
-tas --input episode.mp4 --upscale_method shufflecugan-tensorrt --interpolate_method rife4.25-tensorrt --output_scale 3840x2160
+# Picking a method enables its step: RIFE 4.25 + TensorRT upscale, scaled to 4K
+tas --input episode.mp4 --interpolate_method rife4.25-tensorrt --upscale_method shufflecugan-tensorrt --output_scale 3840x2160
 
 # Anime on twos → smooth motion, same length, cuts left untouched
 tas --input episode.mp4 --smooth_dedup --scenechange
@@ -105,7 +105,7 @@ tas --input old_show.mkv --restore_method deh264_real anime1080fixer --encode_me
 tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_presets` and `tas --list_methods` to explore, or `tas -h` for every option.
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Flags run in the order you type them: `--upscale --interpolate` upscales first, `--interpolate --upscale` interpolates first (see PARAMETERS.MD, Processing Order).
 
 <details>
 <summary><b>Run from source</b></summary>

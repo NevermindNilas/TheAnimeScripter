@@ -3,6 +3,7 @@ import os
 import sys
 from difflib import get_close_matches
 
+from src.cli.stageOrder import orderedFlag
 from src.io.getVideoMetadata import parseTrimArg
 from src.version import __version__
 
@@ -453,16 +454,8 @@ def _buildParser(outputPath):
         help="Path to JSON configuration file with processing options",
     )
 
-    presetGroup = argParser.add_argument_group("Preset Configuration")
-    presetGroup.add_argument(
-        "--preset",
-        type=str,
-        help="Create and use a preset configuration file based on the current arguments",
-    )
-    presetGroup.add_argument(
-        "--list_presets", action="store_true", help="List all available presets"
-    )
-    presetGroup.add_argument(
+    discoveryGroup = argParser.add_argument_group("Discovery")
+    discoveryGroup.add_argument(
         "--list_methods",
         type=str,
         nargs="?",
@@ -560,13 +553,30 @@ def createParser(outputPath):
     return prepareRuntimeArgs(args, outputPath, argParser)
 
 
+def _childOrder(dest):
+    """Order keywords for a child flag of an orderable unit.
+
+    The unit a child belongs to comes from ``PARENT_FLAG_DEFAULTS``, the same
+    table that auto-enables the parent, so the two cannot drift apart.
+    """
+    from src.cli.config import PARENT_FLAG_DEFAULTS
+
+    return orderedFlag(PARENT_FLAG_DEFAULTS[dest][0], enabling=False)
+
+
 def _addInterpolationOptions(argParser):
     interpolationGroup = argParser.add_argument_group("Interpolation")
     interpolationGroup.add_argument(
-        "--interpolate", action="store_true", help="Interpolate the video"
+        "--interpolate",
+        help="Interpolate the video",
+        **orderedFlag("interpolate", enabling=True, flag=True),
     )
     interpolationGroup.add_argument(
-        "--interpolate_factor", type=float, default=2, help="Interpolation factor"
+        "--interpolate_factor",
+        type=float,
+        default=2,
+        help="Interpolation factor",
+        **_childOrder("interpolate_factor"),
     )
 
     interpolationMethods = [
@@ -685,6 +695,7 @@ def _addInterpolationOptions(argParser):
         choices=interpolationMethods,
         default="rife4.6",
         help="Interpolation method",
+        **_childOrder("interpolate_method"),
     )
     interpolationGroup.add_argument(
         "--slowmo",
@@ -706,21 +717,14 @@ def _addInterpolationOptions(argParser):
         action="store_true",
         help="Force Static Timestep generation for Rife CUDA",
     )
-    interpolationGroup.add_argument(
-        "--interpolate_first",
-        type=str2bool,
-        nargs="?",
-        const=True,
-        default=True,
-        choices=[True, False],
-        help="Switch back to the old approach where interpolated frames would instantly be written to the write queue",
-    )
 
 
 def _addUpscalingOptions(argParser):
     upscaleGroup = argParser.add_argument_group("Upscaling")
     upscaleGroup.add_argument(
-        "--upscale", action="store_true", help="Upscale the video"
+        "--upscale",
+        help="Upscale the video",
+        **orderedFlag("upscale", enabling=True, flag=True),
     )
     upscaleGroup.add_argument(
         "--upscale_factor",
@@ -728,6 +732,7 @@ def _addUpscalingOptions(argParser):
         choices=[2, 3, 4],
         default=2,
         help="Upscaling factor (minimum 2)",
+        **_childOrder("upscale_factor"),
     )
 
     upscaleMethods = [
@@ -854,6 +859,7 @@ def _addUpscalingOptions(argParser):
         choices=upscaleMethods,
         default="shufflecugan",
         help="Upscaling method",
+        **_childOrder("upscale_method"),
     )
     upscaleGroup.add_argument(
         "--custom_model",
@@ -866,7 +872,9 @@ def _addUpscalingOptions(argParser):
 def _addDedupOptions(argParser):
     dedupGroup = argParser.add_argument_group("Deduplication")
     dedupGroup.add_argument(
-        "--dedup", action="store_true", help="Deduplicate the video"
+        "--dedup",
+        help="Deduplicate the video",
+        **orderedFlag("dedup", enabling=True, flag=True),
     )
     dedupGroup.add_argument(
         "--dedup_method",
@@ -886,9 +894,14 @@ def _addDedupOptions(argParser):
             "vmaf-rocm",
         ],
         help="Deduplication method",
+        **_childOrder("dedup_method"),
     )
     dedupGroup.add_argument(
-        "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
+        "--dedup_sens",
+        type=float,
+        default=35,
+        help="Deduplication sensitivity",
+        **_childOrder("dedup_sens"),
     )
 
 
@@ -896,8 +909,8 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup = argParser.add_argument_group("Smooth Deduplication")
     smoothDedupGroup.add_argument(
         "--smooth_dedup",
-        action="store_true",
-        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. Implies --interpolate and disables --dedup",
+        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. Implies --interpolate and disables --dedup. Its position in the command line sets where interpolation runs in the processing order",
+        **orderedFlag("smooth_dedup", enabling=True, flag=True),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_method",
@@ -917,25 +930,30 @@ def _addSmoothDedupOptions(argParser):
             "vmaf-rocm",
         ],
         help="Duplicate detection method used by --smooth_dedup",
+        **_childOrder("smooth_dedup_method"),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_sens",
         type=float,
         default=35,
         help="Duplicate detection sensitivity for --smooth_dedup",
+        **_childOrder("smooth_dedup_sens"),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_max_span",
         type=int,
         default=6,
         help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. 0 removes the cap so every run is interpolated. Raising it costs inference time, not memory",
+        **_childOrder("smooth_dedup_max_span"),
     )
 
 
 def _addVideoProcessingOptions(argParser):
     processingGroup = argParser.add_argument_group("Video Processing")
     processingGroup.add_argument(
-        "--restore", action="store_true", help="Restore the video"
+        "--restore",
+        help="Restore the video",
+        **orderedFlag("restore", enabling=True, flag=True),
     )
     processingGroup.add_argument(
         "--stabilize", action="store_true", help="Stabilize the video"
@@ -1037,6 +1055,7 @@ def _addVideoProcessingOptions(argParser):
         default=["anime1080fixer"],
         choices=restoreMethods,
         help="Denoising method(s), can specify multiple for chaining",
+        **_childOrder("restore_method"),
     )
     processingGroup.add_argument(
         "--resize", action="store_true", help="Resize the video"

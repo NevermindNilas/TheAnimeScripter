@@ -126,7 +126,7 @@ def normalizeUpscaleFactor(args):
 def validatePreviewPort(args):
     """Reject a `--preview_port` outside the valid TCP range.
 
-    argparse bounds nothing here, and ``--json``/``--preset`` assign onto the
+    argparse bounds nothing here, and ``--json`` assigns onto the
     namespace, so an out-of-range port would reach ``socket.bind`` and be
     reported as a generic bind failure. Raising here rather than exiting inside
     ``prepareRuntimeArgs`` also means it fires before ``checkSystem()`` and

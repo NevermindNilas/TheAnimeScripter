@@ -4,6 +4,7 @@ import sys
 
 import src.constants as cs
 from src.cli.config import CliConfig
+from src.cli.stageOrder import resolveStageOrder, stageOrderWarning
 from src.cli.startup import _handleDependencies, _resolveRequestedProfile
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
@@ -223,6 +224,20 @@ def _applyImpliedFlags(args):
     if not args.interpolate:
         logging.info("Auto-enabling --interpolate because --smooth_dedup was provided")
         args.interpolate = True
+
+
+def _resolveRuntimeStageOrder(args):
+    """Set ``args.stageOrder`` from the final enabled set and the typed flag order.
+
+    Must run after :func:`_applyImpliedFlags` and every other enable/disable
+    step, because it reads the final state. Also prints the one order warning
+    (``--dedup`` after ``--interpolate``).
+    """
+    order = resolveStageOrder(args)
+    warning = stageOrderWarning(order)
+    if warning:
+        logAndPrint(warning, "yellow")
+    return order
 
 
 def _mapDedupSensitivity(method, sensitivity):
@@ -534,24 +549,10 @@ def prepareRuntimeArgs(args, outputPath, parser):
     args.png_passthrough = False
     args.single_image_input = False
 
-    if args.list_presets:
-        from src.server.presetLogic import listPresets
-
-        listPresets()
-        sys.exit()
-
     if args.list_methods is not None:
         from src.cli.parser import _listMethods
 
         sys.exit(_listMethods(parser, args.list_methods))
-
-    if args.preset:
-        from src.server.presetLogic import createPreset
-
-        # Compute provided options up front (before CliConfig exists) so a
-        # loaded preset cannot overwrite flags the user explicitly typed.
-        providedOptions = CliConfig.collectProvidedOptions(sys.argv[1:])
-        args = createPreset(args, providedOptions, parser)
 
     cliConfig = CliConfig.fromArgs(args, parser, sys.argv[1:])
     args = cliConfig.args
@@ -759,6 +760,9 @@ def prepareRuntimeArgs(args, outputPath, parser):
     if warning:
         logAndPrint(warning, "yellow")
         logging.info(warning)
+
+    # Last enable/disable step is done: the order reads the final enabled set.
+    _resolveRuntimeStageOrder(args)
 
     logging.info(
         f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"

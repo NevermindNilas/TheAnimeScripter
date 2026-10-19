@@ -1,18 +1,22 @@
 """
 Dedup backend factory.
 
-buildDedupProcess(self, method=None, sens=None) -> callable
+buildDedupProcess(self, method=None, sens=None, width=None, height=None) -> callable
 """
 
 
-def buildDedupProcess(self, method=None, sens=None):
+def buildDedupProcess(self, method=None, sens=None, width=None, height=None):
     """Build a duplicate detector.
 
     ``method``/``sens`` default to the --dedup knobs. `--smooth_dedup` drives the same
     backends off its own --smooth_dedup_method/--smooth_dedup_sens, so it passes them in.
+    ``width``/``height`` are the frame size the detector sees (FlowNetS is built for
+    it); they default to the source size.
     """
     method = self.dedupMethod if method is None else method
     sens = self.dedupSens if sens is None else sens
+    width = self.width if width is None else width
+    height = self.height if height is None else height
 
     match method:
         case "ssim":
@@ -76,8 +80,8 @@ def buildDedupProcess(self, method=None, sens=None):
             return DedupFlownetS(
                 half=self.half,
                 dedupSens=sens,
-                height=self.height,
-                width=self.width,
+                height=height,
+                width=width,
             )
 
         case "flownets-rocm":
@@ -86,8 +90,8 @@ def buildDedupProcess(self, method=None, sens=None):
             return DedupFlownetSROCm(
                 half=self.half,
                 dedupSens=sens,
-                height=self.height,
-                width=self.width,
+                height=height,
+                width=width,
             )
 
         case _:

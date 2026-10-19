@@ -1,193 +1,143 @@
-"""Bounded sliding window over the frame stream a driver actually consumes.
+"""Push-fed lag ring for one edge of the frame pipeline.
 
-Temporal drivers (AnimeSR, DistilDRBA) need neighbouring frames, not just the
-one being processed. Before this existed, ``main.py`` kept a bespoke
-``self.nextFrame`` attribute that was populated behind a hardcoded method-name
-check, so every backend of a temporal model had to be re-listed there by hand
-(``animesr-tensorrt`` never was, and silently ran with ``next == current``).
+Every stage in the processing chain receives its input as a stream of
+``FrameSlot`` objects pushed from upstream. A temporal driver needs neighbouring
+frames handed to it, so each stage owns a ``LagRing``: it holds the last ``past``
+slots plus the ``future`` slots that have not yet been emitted, and runs a
+*centre* only once its future neighbours have arrived. Drivers declare their
+demand as ``temporalWindow = (past, future)`` on the class; ``temporalDemand``
+reads it, and a stage with no declaration is ``(0, 0)`` and runs as soon as its
+frame arrives.
 
-Drivers declare ``temporalWindow = (past, future)`` and the pipeline sizes this
-ring to the widest demand along its stage chain. The declaration covers only the
-neighbours a driver needs *handed to it*; frames it caches internally (RIFE's
-``I0``, AnimeSR's padded ``prevFrame``) are not part of it.
-
-A window has three properties beyond its size:
+Three properties beyond the window size:
 
 **Domain.** A neighbour is only meaningful in the same processing domain as the
-frame it neighbours. Frames enter the ring through the pipeline's *entry*
-callback (dedup, then restore), so every slot holds a restore-domain frame, and
-stages further down the chain memoize their own output per slot (see
-``FrameSlot.cache``). Handing a driver a raw decoded frame as the neighbour of a
-restored or upscaled one is what this replaces.
+frame it neighbours. Each edge carries the frames of its own stream, so a
+driver's neighbour is the next item on that stream: the restore-domain source
+frame for a stage before interpolation, the next interpolated output for a stage
+after it (see ``src/pipeline/executor.py``, option A).
 
 **Validity.** A neighbour across a hard scene cut is not context, it is a
-different shot. ``successorFrame`` returns ``None`` there, exactly as it does at
-the end of the stream. Every temporal driver already treats ``nextFrame=None`` as
-"no future context" and substitutes the current frame.
+different shot. ``LagRing.successor`` returns ``None`` there, exactly as it does
+at the end of the stream, and every temporal driver already treats
+``nextFrame=None`` as "no future context".
 
-**Order.** Memoized stage values are computed on the slot the first time they are
-asked for, and callers only ever look forward, so computation runs in strictly
-increasing frame order. Recurrent drivers (AnimeSR carries ``prevFrame`` and a
-hidden ``state``) therefore still see frames in sequence.
+**Order.** A centre is run exactly once, in increasing index order, so recurrent
+drivers (AnimeSR carries ``prevFrame`` and a hidden ``state``) see frames in
+sequence.
 """
 
-_SENTINEL = object()
-"""Cache-miss marker for ``FrameWindow.staged``: ``None`` is a cached value, not a miss."""
+from collections import namedtuple
+
+Window = namedtuple("Window", "centre past following")
+"""One run of a stage: the slot being processed, the slots before it (oldest
+first), and the slot after it (``None`` at the end of the stream or across a
+scene cut)."""
 
 
 class FrameSlot:
-    """One frame in the window, plus whatever later stages have computed for it.
+    """One frame on a stream, plus the metadata later stages depend on.
 
-    ``frame`` is the frame in the window's own domain (post-dedup, post-restore).
-    ``isCut`` marks a hard scene cut *at* this frame, i.e. between it and the
-    frame before it. ``dupsBefore`` is how many source frames the entry stage
-    dropped between the previous admitted frame and this one, so a consumer can
-    recover how much of the source timeline the gap actually covers (--smooth_dedup).
-    ``cache`` memoizes downstream stage outputs keyed by name.
+    ``frame`` is the frame in the stream's own domain. ``isCut`` marks a hard scene
+    cut *at* this frame, i.e. between it and the frame before it on the same
+    stream. ``dupsBefore`` is how many source frames the smooth-dedup detector
+    dropped between the previous admitted frame and this one, so the interpolation
+    gap can be widened to cover them. ``sourcePos`` is the source position the frame
+    was produced for. ``isCentre`` marks a frame that belongs to a source position
+    (as opposed to an interpolated or held frame) and so is what a trailing
+    duplicate is cloned from. ``cacheKey`` names the source slot a held copy was
+    copied from; a downstream stateless upscaler reuses its output for copies that
+    share a key within one interpolation gap.
     """
 
-    __slots__ = ("frame", "isCut", "dupsBefore", "cache")
+    __slots__ = ("frame", "isCut", "dupsBefore", "sourcePos", "isCentre", "cacheKey")
 
-    def __init__(self, frame, isCut: bool = False, dupsBefore: int = 0):
+    def __init__(
+        self,
+        frame,
+        isCut: bool = False,
+        dupsBefore: int = 0,
+        sourcePos: int = 0,
+        isCentre: bool = False,
+        cacheKey=None,
+    ):
         self.frame = frame
         self.isCut = isCut
         self.dupsBefore = dupsBefore
-        self.cache: dict = {}
+        self.sourcePos = sourcePos
+        self.isCentre = isCentre
+        self.cacheKey = cacheKey
 
 
-class FrameWindow:
-    """A ring of at most ``past + 1 + future`` slots pulled from ``source``.
+class LagRing:
+    """Bounded push-fed window that releases each centre once its future is known.
 
-    ``source`` is a zero-arg callable returning the next raw frame, or ``None``
-    once the stream is exhausted (``BuildBuffer.read``). It is called exactly
-    once past the final frame: the reader emits a single ``None`` sentinel, so
-    the window never reads again after seeing it.
-
-    ``enter`` maps a raw frame to a ``FrameSlot``, or to ``None`` to drop it
-    (dedup). It runs in decode order, once per frame, so the stateful detectors
-    it wraps see exactly the sequence they would have seen inline.
-
-    Frames are held by reference. ``BuildBuffer.processFrameToTorch`` always
-    allocates (the dtype cast from uint8/uint16 is never a view), and every
-    restore/upscale backend returns a fresh tensor -- it has to, since its output
-    already outlives the call in the 32-deep writer queue -- so retaining slots
-    cannot alias a reused buffer.
+    ``push`` takes the next slot of the stream and returns the ``Window`` s that
+    became runnable, in order. ``flush`` is the end of the stream: every remaining
+    centre is released with whatever future it has (``None`` at the very end).
+    At most ``past + 1 + future`` slots are retained.
     """
 
-    __slots__ = (
-        "_source",
-        "_enter",
-        "_past",
-        "_future",
-        "_slots",
-        "_centre",
-        "_exhausted",
-        "consumed",
-        "dropped",
-    )
+    __slots__ = ("past", "future", "_buf", "_base", "_next", "_seen")
 
-    def __init__(self, source, past: int = 0, future: int = 0, enter=None):
+    def __init__(self, past: int = 0, future: int = 0):
         if past < 0 or future < 0:
             raise ValueError(f"window bounds must be non-negative, got {past, future}")
-        self._source = source
-        self._enter = enter if enter is not None else FrameSlot
-        self._past = past
-        self._future = future
-        self._slots: list = []
-        self._centre = -1  # not yet primed
-        self._exhausted = False
-        # Raw frames pulled from the source, and how many `enter` rejected.
-        # The frame loop reports both, so dedup accounting stays decode-based.
-        self.consumed = 0
-        self.dropped = 0
-
-    def _fill(self) -> None:
-        while (
-            not self._exhausted and len(self._slots) - self._centre - 1 < self._future
-        ):
-            frame = self._source()
-            if frame is None:
-                self._exhausted = True
-                return
-            self.consumed += 1
-            slot = self._enter(frame)
-            if slot is None:
-                self.dropped += 1
-                continue
-            self._slots.append(slot)
-
-    def advance(self) -> bool:
-        """Move the centre to the next admitted slot. False once the stream is spent."""
-        if self._centre < 0:
-            self._centre = 0
-        else:
-            self._centre += 1
-        self._fill()
-
-        if self._centre >= len(self._slots):
-            return False
-
-        # Release slots that have fallen out of the trailing edge.
-        drop = self._centre - self._past
-        if drop > 0:
-            del self._slots[:drop]
-            self._centre -= drop
-        return True
+        self.past = past
+        self.future = future
+        self._buf: list = []  # slots still needed, oldest first
+        self._base = 0  # absolute stream index of _buf[0]
+        self._next = 0  # absolute index of the next centre to release
+        self._seen = 0  # slots pushed so far
 
     @property
-    def centre(self) -> FrameSlot:
-        """The slot currently being processed."""
-        return self._slots[self._centre]
+    def capacity(self) -> int:
+        """Slots this edge keeps alive at once: past, centre and future."""
+        return self.past + 1 + self.future
 
-    def at(self, offset: int) -> FrameSlot | None:
-        """Slot at ``offset`` from the centre, or ``None`` past an edge."""
-        index = self._centre + offset
-        if index < 0 or index >= len(self._slots):
+    def push(self, slot) -> list:
+        self._buf.append(slot)
+        self._seen += 1
+        ready = []
+        while self._next + self.future < self._seen:
+            ready.append(self._take())
+        return ready
+
+    def flush(self) -> list:
+        ready = []
+        while self._next < self._seen:
+            ready.append(self._take())
+        return ready
+
+    def _take(self) -> Window:
+        index = self._next
+        local = index - self._base
+        centre = self._buf[local]
+        past = tuple(self._buf[max(0, local - self.past) : local])
+        following = self._successor(index)
+        self._next += 1
+        # Slots older than the new centre's past are no longer reachable.
+        keepFrom = self._next - self.past - self._base
+        if keepFrom > 0:
+            del self._buf[:keepFrom]
+            self._base += keepFrom
+        return Window(centre, past, following)
+
+    def _successor(self, index: int):
+        """The slot after ``index``, unless the stream ended or a cut separates them."""
+        following = index + 1
+        if following >= self._seen:
             return None
-        return self._slots[index]
-
-    def successor(self, offset: int = 0) -> FrameSlot | None:
-        """Slot following the one at ``offset``, unless a scene cut separates them.
-
-        ``None`` means "no future context": either the stream ended, or the next
-        frame opens a new shot. Drivers already handle that by falling back to
-        the current frame.
-        """
-        following = self.at(offset + 1)
-        if following is None or following.isCut:
+        slot = self._buf[following - self._base]
+        if slot.isCut:
             return None
-        return following
-
-    def successorFrame(self, offset: int = 0):
-        """``successor(offset).frame``, in the window's own domain."""
-        following = self.successor(offset)
-        return None if following is None else following.frame
-
-    def staged(self, offset: int, key: str, compute):
-        """Memoized downstream stage output for the slot at ``offset``.
-
-        ``compute(offset)`` runs at most once per slot. Callers only look
-        forward, so slots are computed in increasing frame order and recurrent
-        drivers stay in sequence. A ``None`` result is a real value and is
-        cached like any other, so ``compute`` is never re-run for the slot.
-        """
-        slot = self.at(offset)
-        if slot is None:
-            return None
-        value = slot.cache.get(key, _SENTINEL)
-        if value is _SENTINEL:
-            value = compute(offset)
-            slot.cache[key] = value
-        return value
+        return slot
 
 
 def temporalDemand(*stages) -> tuple[int, int]:
     """Widest ``(past, future)`` window any of ``stages`` asks to be handed.
 
     Stages that are disabled (``None``) or non-temporal contribute ``(0, 0)``.
-    Use this per stage; the pipeline decides whether demands compose by ``max``
-    (parallel consumers of the same stream) or by sum (chained stages, where a
-    stage's lookahead is itself resolved through its upstream's lookahead).
     """
     past = future = 0
     for stage in stages:

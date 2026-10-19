@@ -25,7 +25,8 @@
   - [🔧 Advanced Configuration](#-advanced-configuration)
 - [🎯 Model Selection Guide](#-model-selection-guide)
 - [🎞️ Encoding & Output Options](#️-encoding--output-options)
-- [📝 Preset System](#-preset-system)
+- [🧭 Processing Order](#-processing-order)
+- [📄 JSON Config Files](#-json-config-files)
 - [❓ Troubleshooting & FAQ](#-troubleshooting--faq)
 - [💡 Complete Usage Examples](#-complete-usage-examples)
 
@@ -59,15 +60,15 @@
 **🎨 Complete Enhancement**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale --interpolate
+  --interpolate --upscale
 ```
 *Full AI enhancement with 4K output*
 
 **🔧 Custom Quality**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale_method span-tensorrt \
-  --interpolate_method rife4.25
+  --interpolate_method rife4.25 \
+  --upscale_method span-tensorrt
 ```
 *High-end processing with latest models — auto-enables features when method is specified*
 
@@ -87,12 +88,12 @@
 
 TheAnimeScripter now automatically enables processing features when you specify their method! Instead of:
 ```bash
---upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.25
+--interpolate --interpolate_method rife4.25 --upscale --upscale_method span-tensorrt
 ```
 
 You can now simply use:
 ```bash
---upscale_method span-tensorrt --interpolate_method rife4.25
+--interpolate_method rife4.25 --upscale_method span-tensorrt
 ```
 
 The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
@@ -401,7 +402,8 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 |-----------|------|---------|-------------|
 | `--slowmo` | flag | False | **Slow motion mode** - Slows video instead of increasing frame rate |
 | `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA, ROCm |
-| `--interpolate_first` | bool | True | **Processing order** - Write interpolated frames to queue immediately |
+
+> Where interpolation runs relative to upscaling is set by flag order, not by a flag. See [Processing Order](#-processing-order).
 
 #### ✂️ Scene-Cut-Aware Interpolation
 
@@ -437,12 +439,14 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA, ROCm |
 
 > **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
+>
+> **Order:** `--dedup` runs where it is typed (see [Processing Order](#-processing-order)). Typed after `--interpolate`, it still runs, with a warning.
 
 ### 🎞️ Smooth Deduplication
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate`, disables `--dedup`, keeps audio |
+| `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate` at the position `--smooth_dedup` is typed (an `--interpolate` typed elsewhere is ignored), disables `--dedup`, keeps audio |
 | `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup` |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
 | `--smooth_dedup_max_span` | int | 6 | 0+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies. 0 = no cap, interpolate every run |
@@ -977,57 +981,40 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 
 ---
 
-## 📝 Preset System
+## 🧭 Processing Order
 
-### Understanding Presets
+The command line's flag order is the processing order. The four frame-loop stages take their place from the first flag that turns each one on or configures it:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `--preset` | str | - | **Load saved preset** |
-| `--list_presets` | flag | False | **Show available presets** |
+| Stage | Enabled by | Configured by |
+|-------|------------|---------------|
+| `dedup` | `--dedup` | `--dedup_method`, `--dedup_sens` |
+| `restore` | `--restore` | `--restore_method` |
+| `upscale` | `--upscale` | `--upscale_method`, `--upscale_factor` |
+| `interpolate` | `--interpolate` | `--interpolate_method`, `--interpolate_factor` |
 
-> Tip: You can also load a configuration from a JSON file using `--json <path>`. When `--json` is used it must be supplied alone (no other CLI flags) — the script prevents mixing JSON with other CLI arguments.
->
+```bash
+# Upscale, then interpolate the upscaled frames
+./python.exe ./main.py --input video.mp4 --upscale --interpolate
+
+# Interpolate the source frames, then upscale every output frame
+./python.exe ./main.py --input video.mp4 --interpolate --upscale
+```
+
+- The enabling flag's position counts. When it is absent, the first configuring flag's position counts, so an upscale method given alone places upscaling where that option was typed. Abbreviated flag names, `=value` forms and multi-value flags are read where argparse resolved them.
+- A stage that ends up disabled takes no place. For example, `--dedup` is forced off by `--smooth_dedup`.
+- `--smooth_dedup` places interpolation at its own position, wherever `--interpolate` was typed. Its duplicate detector always runs first, on decoded frames.
+- `--scenechange` is a modifier, not a stage. It runs before the first upscale, interpolation, or temporal stage that respects cuts.
+- Motion blur, depth, segment, object detection, stabilization and autoclip run outside the frame loop and have no place in the order.
+- A stage after `--upscale` works on upscaled pixels, and a stage after `--interpolate` works on every interpolated frame. `--dedup_method flownets` after `--upscale` compares flow in upscaled pixels, so `--dedup_sens` is about N× stricter after an N× upscale.
+- `--dedup` after `--interpolate` still runs, with a warning: dedup then discards most of the in-between frames interpolated across held drawings.
+
+The order that used to be a separate switch is now typed directly: `--interpolate ... --upscale` is the old default, and `--upscale ... --interpolate` is the old "interpolate last" choice.
+
+## 📄 JSON Config Files
+
+`--json <path>` loads options from a JSON file instead of the command line. It must be supplied alone (no other CLI flags); the script refuses to mix JSON with other CLI arguments. Unknown keys are reported and ignored. The key order in the file is the processing order, the same rule as the command line. A key that carries its default value takes no place in the order.
+
 > A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.
-
-### Creating Presets
-
-```bash
-# Run command with desired settings
-./python.exe ./main.py --input video.mp4 \
-  --upscale --upscale_method span-tensorrt \
-  --interpolate --interpolate_method rife4.25 \
-  --preset "high_quality_anime"
-
-# Preset is automatically saved and can be reused
-./python.exe ./main.py --input video2.mp4 --preset "high_quality_anime"
-```
-
-### 📋 Recommended Preset Configurations
-
-<details>
-<summary><b>🎬 Anime Enhancement Presets</b></summary>
-
-**Fast Anime Processing:**
-```bash
-./python.exe ./main.py --input anime.mp4 \
-  --upscale --upscale_method shufflecugan-tensorrt \
-  --interpolate --interpolate_method rife4.22-lite-tensorrt \
-  --encode_method x264_animation \
-  --preset "fast_anime"
-```
-
-**Quality Anime Processing:**
-```bash
-./python.exe ./main.py --input anime.mp4 \
-  --upscale --upscale_method span-tensorrt \
-  --interpolate --interpolate_method rife4.25 \
-  --ensemble \
-  --restore --restore_method scunet \
-  --encode_method x264_animation_10bit \
-  --preset "quality_anime"
-```
-</details>
 
 ---
 

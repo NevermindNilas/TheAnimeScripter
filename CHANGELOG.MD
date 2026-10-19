@@ -31,8 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--depth` and `--segment` now honor `*_nelux` encode methods: depth used to swap them for the FFmpeg twin with a warning, and segment silently encoded through FFmpeg. Depth maps keep the plain encoder's pixel format and segment output is `prores_segment_nelux`.
 - Bumped `nelux` `0.19.0` → `0.20.0`. `*_nelux` encoders keep each codec's own GOP length and B-frames, as their FFmpeg twins do: `x264_nelux` was 2.6 dB below `x264` at 1080p and is now within 0.2 dB at an 18% smaller file. Opus/Vorbis audio into a `.mov` now stays on the Nelux writer (transcoded to AAC) instead of falling back to FFmpeg.
 - `nvenc_*_nelux` use the same rate control as their twins (`-cq` is VBR with a target quality, not constant QP): they wrote half the twin's size at 1.0-1.4 dB lower quality and are now within 0.3 dB.
+- Flag order is now processing order: `--dedup`, `--restore`, `--upscale` and `--interpolate` run in the order typed (or the `--json` key order), not always dedup → restore → interpolate → upscale. Breaking: `--upscale` typed before `--interpolate` now upscales first, and restore or dedup typed after interpolate or upscale runs on the larger stream.
+- `--dedup` typed after `--interpolate` still runs, with a warning, since dedup discards most frames interpolated across held drawings. `--smooth_dedup` places interpolation at its own position in the order.
+- A temporal upscaler after interpolation (`--interpolate ... --upscale animesr`) now gets the next output frame as its neighbour. It used to get the next source frame, one frame off, so output for that combination changes.
+- The frame loop runs the typed order as one chain: the startup line shows the resolved order and warns about costs (restore or dedup after upscale runs at the upscaled size; after interpolate it runs on every interpolated frame).
 
 ### Removed
+- Removed `--preset`, `--list_presets` and the saved `presets.json` loader; a `--json` file covers the same use. Existing `presets.json` files are no longer read.
+- Removed `--interpolate_first`. Type the order instead: `--interpolate ... --upscale` is the old default. A `--json` file that still has the key gets the unknown-key warning.
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed

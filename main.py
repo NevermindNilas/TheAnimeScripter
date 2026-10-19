@@ -62,104 +62,12 @@ def _disableUserSitePackages() -> None:
 _disableUserSitePackages()
 
 import src.constants as cs  # noqa: E402
-from src.interpolate._timesteps import cutHoldSplit, gapPlan  # noqa: E402
-from src.io.frameWindow import FrameSlot  # noqa: E402
 from src.io.runOutcome import (  # noqa: E402
     outputWasWritten,
     truncatedDecodeError,
 )
 
 warnings.filterwarnings("ignore")
-
-
-class _FrameCollector:
-    """Same-thread sink for interpolation outputs, drained as it fills.
-
-    In interpolate-first order the whole gap owed to one source interval lands
-    here before anything downstream runs. That is one or two frames normally,
-    but ``--smooth_dedup`` widens a gap by every duplicate the entry stage
-    dropped, so a long held drawing produced a gap of hundreds of
-    full-resolution frames, all alive at once. Measured on 1080p:
-    ``--smooth_dedup --interpolate_factor 2`` peaked at 5.1 GB of VRAM after a
-    2-second hold and 10.9 GB after 12 seconds, while plain ``--interpolate``
-    stayed flat at 4.5 GB. ``--smooth_dedup_max_span`` did not bound it: it
-    only chooses copies over inference, and the copies were buffered too.
-
-    The drain hook keeps at most ``limit`` frames alive, and it is the same
-    call the caller makes at the end of a gap, so frame order is unchanged.
-    """
-
-    __slots__ = ("frames", "_drain", "_limit")
-
-    def __init__(self, drain=None, limit: int = 0) -> None:
-        self.frames = []
-        self._drain = drain
-        self._limit = limit
-
-    def put(self, frame) -> None:
-        self.frames.append(frame)
-        if self._drain is not None and self._limit and len(self.frames) >= self._limit:
-            self._drain()
-
-    def clear(self) -> None:
-        self.frames.clear()
-
-
-class _HeldFrame:
-    """Collected held source frame with the anchor it was copied from."""
-
-    __slots__ = ("frame", "cacheKey")
-
-    def __init__(self, frame, cacheKey: int) -> None:
-        self.frame = frame
-        self.cacheKey = cacheKey
-
-
-_BASE_STATELESS_UPSCALE_METHODS = frozenset(
-    {
-        "shufflecugan",
-        "cyte",
-        "adore",
-        "span",
-        "open-proteus",
-        "aniscale2",
-        "rtmosr",
-        "saryn",
-        "fallin_soft",
-        "fallin_strong",
-        "gauss",
-        "figsr",
-        "smosr",
-    }
-)
-_ORT_STATELESS_UPSCALE_METHODS = frozenset(
-    method
-    for base in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
-    for method in (f"{base}-directml", f"{base}-openvino")
-)
-_STATELESS_HELD_UPSCALE_ALLOWLIST = {
-    "UniversalPytorch": _BASE_STATELESS_UPSCALE_METHODS,
-    "UniversalPytorchMPS": frozenset(
-        f"{method}-mps" for method in _BASE_STATELESS_UPSCALE_METHODS
-    ),
-    "UniversalPytorchROCm": frozenset(
-        f"{method}-rocm" for method in _BASE_STATELESS_UPSCALE_METHODS
-    ),
-    "UniversalDirectML": _ORT_STATELESS_UPSCALE_METHODS,
-    "UniversalNCNN": frozenset({"shufflecugan-ncnn", "adore-ncnn", "span-ncnn"}),
-    "UniversalTensorRT": frozenset(
-        f"{method}-tensorrt" for method in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
-    ),
-}
-
-
-def _canReuseHeldUpscale(upscaleProcess, upscaleMethod: str, customModel: str) -> bool:
-    if customModel or getattr(upscaleProcess, "customModel", None):
-        return False
-    allowedMethods = _STATELESS_HELD_UPSCALE_ALLOWLIST.get(
-        type(upscaleProcess).__name__
-    )
-    return allowedMethods is not None and upscaleMethod in allowedMethods
 
 
 # The shell's own title, saved by the first _setTerminalTitle so it can be put
@@ -351,7 +259,16 @@ class VideoProcessor:
         self.resizeFactor: float = args.resize_factor
         self.bitDepth: str = args.bit_depth
         self.slowmo: bool = args.slowmo
-        self.interpolateFirst: bool = args.interpolate_first
+        # The enabled processing units in the order they were typed (see
+        # src/cli/stageOrder.py). Without it, fall back to the old default order.
+        self.stageOrder: list[str] = list(
+            getattr(args, "stageOrder", None)
+            or [
+                unit
+                for unit in ("dedup", "restore", "interpolate", "upscale")
+                if getattr(args, unit, False)
+            ]
+        )
         self.outputScaleWidth: int = args.output_scale_width
         self.outputScaleHeight: int = args.output_scale_height
 
@@ -498,491 +415,65 @@ class VideoProcessor:
         else:
             self.start()
 
-    def _enterFrame(self, rawFrame: any):
-        """Admit a decoded frame into the window, or drop it.
+    def _checkRingMemory(self, pipeline) -> None:
+        """Refuse a chain whose frame rings do not fit in the GPU memory left over.
 
-        This is the pipeline's *entry* stage, run once per decoded frame in
-        decode order by ``FrameWindow``. It performs the work that must happen
-        before a frame can serve as anyone's neighbour:
-
-        - dedup, on the raw frame, so duplicates never enter the window at all
-          (a driver's "next frame" is the next frame that survives to the
-          output, not a duplicate of the one it already has, and restore is not
-          spent on frames that are about to be dropped);
-        - restore, so every slot in the window shares one domain;
-        - hard-cut detection, on the post-restore frame.
-
-        Both detectors are stateful and see exactly the sequence of frames they
-        saw when they ran inline, in the same order.
-
-        Under ``--smooth_dedup`` the detector runs identically, but the frames it drops
-        are not lost from the output: the count is carried on the next admitted
-        slot as ``dupsBefore`` so ``processFrame`` can widen that gap's
-        interpolation instead of shortening the video.
+        Runs after the models are built, so the weights, TensorRT engines and CUDA
+        graph pools are already counted. Only frames a ring keeps beyond the one
+        in flight are counted, at the ring's input size, and memory PyTorch has
+        cached but not handed out counts as free: the allocator reuses it.
         """
-        reusableScore = None
-        if self.dedup or self.smoothDedup:
-            isDuplicate = self.dedup_process(rawFrame)
-            if isDuplicate:
-                self._pendingDups += 1
-                return None
-            if not self.restore:
-                reusableScore = getattr(self.dedup_process, "lastReusableScore", None)
-
-        frame = self.restore_process(rawFrame) if self.restore else rawFrame
-
-        isCut = False
-        if self.interpolate and self.sceneChange_process is not None:
-            if reusableScore is not None and getattr(
-                self.sceneChange_process, "supportsScoreReuse", False
-            ):
-                isCut = bool(self.sceneChange_process(frame, reusableScore))
-            else:
-                isCut = bool(self.sceneChange_process(frame))
-        slot = FrameSlot(frame, isCut, self._pendingDups)
-        self._pendingDups = 0
-        return slot
-
-    def _upscaledAt(self, offset: int):
-        """Upscale of the slot at ``offset``, computed once and cached on it.
-
-        The interpolation driver in ``ifInterpolateLast`` consumes upscaled
-        frames, so a temporal driver's neighbour has to be upscaled too. Doing it
-        through the window means each frame is upscaled exactly once even though
-        two stages read it, and always in increasing frame order, which keeps
-        AnimeSR's ``prevFrame``/``state`` recurrence in sequence.
-        """
-        return self.frameWindow.staged(
-            offset,
-            "upscaled",
-            lambda index: self.upscale_process(
-                self.frameWindow.at(index).frame,
-                self.frameWindow.successorFrame(index),
-            ),
-        )
-
-    def processFrame(self, slot: any) -> None:
-        """
-        Process a single video frame through the configured enhancement pipeline.
-
-        Args:
-            slot: The window slot being processed; dedup and restore already ran.
-        """
-        frame = slot.frame
-        self._isCut = slot.isCut
-        self._holdGap = False
-        self._holdFromPrev = 0
-        self._heldCentreKey = None
-
-        if self.interpolate:
-            # Every driver emits its intermediates for the interval *ending* at
-            # the frame it is handed, so plan for (previous, current]. Only --smooth_dedup
-            # widens that interval by the duplicates the entry stage dropped;
-            # plain --dedup deliberately shortens the video, so its gaps stay one
-            # source frame wide.
-            dups = slot.dupsBefore if self.smoothDedup else 0
-            curPos = self._sourcePos + 1 + dups
-            span = curPos - self._sourcePos
-
-            # A long hold is a run of frames the detector called identical.
-            # Interpolating across it burns the full model on near-identical
-            # endpoints and dumps the whole gap into the writer queue at once;
-            # filling it with copies is what the source actually contained.
-            self._holdGap = bool(
-                self.smoothDedup
-                and self.smoothDedupMaxSpan
-                and span > self.smoothDedupMaxSpan
-            )
-
-            self.framesToInsert, self.timesteps = gapPlan(
-                self._sourcePos, curPos, self.factorNum, self.factorDen
-            )
-            if self.factorDen == 1 and span == 1:
-                # Identical values, but letting the driver default keeps the
-                # common path allocation-free and its timestep buffer cached.
-                self.timesteps = None
-
-            # How much of a held gap belongs to the frame it came FROM. Every
-            # source frame in a widened gap except the last one was a duplicate
-            # of the previous frame, so on a scene cut only the final source
-            # step is the cut itself -- filling the whole widened gap with the
-            # incoming shot would move the cut up to (span-1)*factor frames
-            # early and delete the tail of the outgoing one.
-            self._holdFromPrev = (
-                cutHoldSplit(self._sourcePos, curPos, self.factorNum, self.factorDen)
-                if self._isCut
-                else self.framesToInsert
-            )
-
-            self._sourcePos = curPos
-
-        if self.interpolateFirst:
-            self.ifInterpolateFirst(frame)
-        else:
-            self.ifInterpolateLast(frame)
-
-    def _interpolateOrHold(self, frame: any, sink: any, nextFrame: any) -> None:
-        """
-        Feed the interpolation driver, or hold: emit ``framesToInsert``
-        duplicates into ``sink`` and reset the driver's frame/feature cache (via
-        ``cacheFrameReset``) so the next interpolation anchors on this frame with
-        no bleed from what came before. ``sink`` is ``self.interpQueue``
-        (interpolate-first) or ``self.writeBuffer`` (interpolate-last); both
-        expose ``put``.
-
-        Two things hold, and a held gap can be split between them.
-        ``_holdFromPrev`` leading slots are filled with the *previous* frame:
-        under ``--smooth_dedup`` every source frame in a widened gap except the
-        last one was a duplicate of it, so that is literally what the source
-        contained -- and for a gap over ``--smooth_dedup_max_span`` it is also far
-        cheaper than inferring across two frames the detector called identical.
-        The remaining slots are the gap's final source step, filled with the
-        *current* frame on a scene cut, because the new shot has started there
-        and morphing across the cut is the artefact being avoided. Without
-        ``--smooth_dedup`` a gap is one source frame wide, ``_holdFromPrev`` is 0
-        on a cut, and this is exactly the old all-from-``frame`` behaviour.
-
-        With ``--mask``, the sink is wrapped so every emitted intermediate frame
-        has its protected pixels restored from the segment's anchor frame. Held
-        frames on a scene cut are already pristine copies, so they bypass the
-        mask. Anchoring differs by driver: distildrba receives both endpoints and
-        interpolates between ``frame`` and the window's next frame, so ``frame``
-        is the anchor; every other driver keeps the previous frame internally and
-        gets fed the segment's *end*, so the anchor is the previously fed frame.
-        That keeps protected regions on the source frame that precedes them, so a
-        subtitle or HUD swaps exactly on its own output slot instead of early.
-
-        ``nextFrame`` is the driver's future context, in the same domain as
-        ``frame``, or ``None`` at the end of the stream or across a scene cut.
-        """
-        if self._isCut or self._holdGap:
-            prevKey = id(self._lastFedFrame) if self._lastFedFrame is not None else None
-            currentKey = id(frame)
-            fromPrev = (
-                min(self._holdFromPrev, self.framesToInsert)
-                if self._lastFedFrame is not None
-                else 0
-            )
-            for _ in range(fromPrev):
-                self._putHeldFrame(sink, self._lastFedFrame, prevKey)
-            fromCurrent = self.framesToInsert - fromPrev
-            if fromCurrent:
-                self._heldCentreKey = currentKey
-            for _ in range(fromCurrent):
-                self._putHeldFrame(sink, frame, currentKey)
-            self.interpolate_process.cacheFrameReset(frame)
-        elif self.interpolateMethod.startswith("distildrba"):
-            if self.maskedSink is not None:
-                sink = self.maskedSink.bind(sink, frame)
-            self.interpolate_process(
-                frame,
-                nextFrame,
-                sink,
-                self.framesToInsert,
-                self.timesteps,
-            )
-        else:
-            if self.maskedSink is not None:
-                sink = self.maskedSink.bind(sink, self.maskAnchor)
-            self.interpolate_process(frame, sink, self.framesToInsert, self.timesteps)
-
-        self.maskAnchor = frame
-        self._lastFedFrame = frame
-
-    def _putHeldFrame(self, sink: any, frame: any, cacheKey: int | None) -> None:
-        heldFrame = frame.clone()
-        device = getattr(heldFrame, "device", None)
-        if device is not None and device.type == "cuda":
-            import torch
-
-            # The sink may consume immediately on an independent stream.
-            torch.cuda.current_stream(device).synchronize()
-        if (
-            self.interpolateFirst
-            and self.upscale
-            and self._heldUpscaleReuse
-            and sink is self.interpQueue
-            and cacheKey is not None
-        ):
-            sink.put(_HeldFrame(heldFrame, cacheKey))
-        else:
-            sink.put(heldFrame)
-
-    def _drainInterpQueue(self) -> None:
-        """Write every intermediate collected so far, upscaling it on the way.
-
-        Called both at the end of a gap and, for a long one, part-way through
-        it by the collector itself -- see _FrameCollector. Order is identical
-        either way: intermediates in the order the driver produced them, then
-        the centre frame written by the caller.
-
-        Pinned to the default CUDA stream: a mid-gap drain runs inside whatever
-        stream context the driver put its frame from, and gmfss wraps its whole
-        __call__ (including the put) in a private stream. The writer copies on
-        its own private stream and never waits on ours, so upscaling and
-        writing from a driver's stream would break the handoff contract. Every
-        other backend already puts on the default stream; this makes the drain
-        behave the same wherever it fires from.
-        """
-        if not self.interpQueue.frames:
-            return
-
         import torch
 
-        if torch.cuda.is_available():
-            with torch.cuda.stream(torch.cuda.default_stream()):
-                self._writeInterpFrames()
-        else:
-            self._writeInterpFrames()
-
-    def _writeInterpFrames(self) -> None:
-        if self.upscale:
-            nextFrame = self._interpNextFrame
-            for item in self.interpQueue.frames:
-                cacheKey = None
-                if isinstance(item, _HeldFrame):
-                    cacheKey = item.cacheKey
-                    item = item.frame
-                self.writeBuffer.write(
-                    self._upscaleInterpFrame(item, nextFrame, cacheKey)
-                )
-        else:
-            for item in self.interpQueue.frames:
-                if isinstance(item, _HeldFrame):
-                    item = item.frame
-                self.writeBuffer.write(item)
-        self.interpQueue.clear()
-
-    def _upscaleInterpFrame(self, frame: any, nextFrame: any, cacheKey: int | None):
-        if cacheKey is None or not self._heldUpscaleReuse:
-            return self.upscale_process(frame, nextFrame)
-
-        cached = self._heldUpscaleCache.get(cacheKey)
-        if cached is None:
-            cached = self.upscale_process(frame, nextFrame)
-            self._heldUpscaleCache[cacheKey] = cached
-        cloned = cached.clone()
-        # The writer copies on a private stream and never waits for this new
-        # clone. Finish it before handing the tensor to the writer queue.
-        device = getattr(cloned, "device", None)
-        if device is not None and device.type == "cuda":
-            import torch
-
-            torch.cuda.current_stream(device=device).synchronize()
-        elif device is not None and device.type == "mps":
-            import torch
-
-            torch.mps.synchronize()
-        return cloned
-
-    def ifInterpolateFirst(self, frame: any) -> None:
-        """
-        Process frame with interpolation-first pipeline order.
-
-        Interpolation and upscaling both read the restore-domain source stream
-        here -- interpolation consumes it directly, upscaling consumes its
-        output -- so both take their neighbour straight from the window. A
-        temporal upscaler applied to a generated intermediate is handed the
-        source frame that closes the interval, which is the nearest real future
-        frame that exists at that point in the pipeline.
-
-        Args:
-            frame: Restore-domain frame at the window's centre
-        """
-        nextFrame = self.frameWindow.successorFrame()
-        # The collector may drain itself mid-gap, so the neighbour a temporal
-        # upscaler needs has to be reachable from _drainInterpQueue too.
-        self._interpNextFrame = nextFrame
-
-        self._heldUpscaleCache.clear()
-        self._heldCentreKey = None
-        try:
-            if self.interpolate:
-                self.interpQueue.clear()
-                self._interpolateOrHold(frame, self.interpQueue, nextFrame)
-                self._drainInterpQueue()
-
-            if self.upscale:
-                self._writeOut(
-                    self._upscaleInterpFrame(frame, nextFrame, self._heldCentreKey)
-                )
-            else:
-                self._writeOut(frame)
-        finally:
-            self._heldUpscaleCache.clear()
-            self._heldCentreKey = None
-
-    def ifInterpolateLast(self, frame: any) -> None:
-        """
-        Process frame with interpolation-last pipeline order.
-
-        Upscaling comes first, so the interpolation driver's stream *is* the
-        upscaled stream and a temporal driver's neighbour must be upscaled too.
-        Both come from the window's memoized upscale, so each frame is upscaled
-        exactly once despite being read by two stages.
-
-        Args:
-            frame: Restore-domain frame at the window's centre
-        """
-        if self.upscale:
-            frame = self._upscaledAt(0)
-
-        nextFrame = None
-        if self.interpolate and self._interpFuture:
-            if self.upscale:
-                # Guard first: a cut or the stream's end means no future context,
-                # and upscaling the successor early would be pure waste.
-                if self.frameWindow.successor() is not None:
-                    nextFrame = self._upscaledAt(1)
-            else:
-                nextFrame = self.frameWindow.successorFrame()
-
-        if self.interpolate:
-            self._interpolateOrHold(frame, self.writeBuffer, nextFrame)
-
-        self._writeOut(frame)
-
-    def _writeOut(self, frame: any) -> None:
-        """Write a centre frame and remember it as the stream's tail so far.
-
-        Only the centre frame is recorded: it is the last real frame in output
-        domain at any point, which is what ``_flushTrailingDuplicates`` needs to
-        pad with.
-        """
-        self._lastOutFrame = frame
-        self.writeBuffer.write(frame)
-
-    def _flushTrailingDuplicates(self) -> None:
-        """Emit the output slots owed to duplicates that closed the stream.
-
-        A duplicate is only paid out when the next distinct frame arrives, so a
-        run of them at the very end of the video has no successor to widen. Fill
-        those slots with the last frame -- which is exactly what they were copies
-        of -- so the output length still matches the source.
-        """
-        if not (self.smoothDedup and self.interpolate and self._pendingDups):
+        # A run whose backends never touched CUDA keeps no frames on it, and
+        # must not create a CUDA context just to ask.
+        if not torch.cuda.is_initialized():
             return
-        if self._lastOutFrame is None:
+        need = pipeline.ringBytes()
+        if need == 0:
             return
-
-        endPos = self._sourcePos + self._pendingDups
-        owed = (endPos * self.factorNum) // self.factorDen - (
-            self._sourcePos * self.factorNum
-        ) // self.factorDen
-        for _ in range(owed):
-            heldFrame = self._lastOutFrame.clone()
-            device = getattr(heldFrame, "device", None)
-            if device is not None and device.type == "cuda":
-                import torch
-
-                torch.cuda.current_stream(device).synchronize()
-            self.writeBuffer.write(heldFrame)
-        self._sourcePos = endPos
-        self._pendingDups = 0
+        free, _total = torch.cuda.mem_get_info()
+        free += torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
+        if need > free:
+            raise RuntimeError(
+                f"the frame pipeline keeps {need / 1024**3:.2f} GiB of frames alive "
+                f"but only {free / 1024**3:.2f} GiB of GPU memory is free after the "
+                f"models loaded"
+            )
 
     def process(self):
         """
-        Main processing loop that handles frame-by-frame video processing.
+        Main processing loop: decoded frames run through the planned stage chain.
 
-        Processes all frames through the configured enhancement pipeline and
-        tracks processing statistics.
+        ``self.plan`` is the chain the typed flag order resolved to (see start()).
+        The pipeline keeps its own counters, so a partial run still reports what
+        it actually decoded and dropped.
         """
         from src.io.ffmpegSettings import adaptiveQueueDepth, closeWriterAndDrainReader
-        from src.io.frameWindow import FrameWindow, temporalDemand
+        from src.pipeline.executor import Pipeline
 
         frameCount = 0
         self.dedupCount = 0
-        # Source-frame position of the last frame handed to the driver, and the
-        # duplicates dropped since the last admitted frame. Both count decoded
-        # frames, which is the timeline --smooth_dedup has to reconstruct.
-        self._sourcePos = 0
-        self._pendingDups = 0
-        self._holdGap = False
-        self._holdFromPrev = 0
-        self._lastFedFrame = None
-        self._lastOutFrame = None
-        self._heldCentreKey = None
-        self._heldUpscaleCache = {}
-        self._heldUpscaleReuse = (
-            self.interpolate
-            and self.interpolateFirst
-            and self.upscale
-            and _canReuseHeldUpscale(
-                self.upscale_process, self.upscaleMethod, self.customModel
-            )
-        )
+        pipeline = None
 
-        self.maskedSink = None
-        self.maskAnchor = None
+        maskedSink = None
         if self.interpolate and self.maskPath:
             from src.masking import MaskedSink, ProtectionMask
 
-            self.maskedSink = MaskedSink(ProtectionMask(self.maskPath))
+            maskedSink = MaskedSink(ProtectionMask(self.maskPath))
 
         if self.interpolate and isinstance(self.interpolateFactor, float):
             factor = Fraction(self.interpolateFactor).limit_denominator(100)
-            self.factorNum = factor.numerator
-            self.factorDen = factor.denominator
+            factorNum = factor.numerator
+            factorDen = factor.denominator
 
-            increment = self.factorNum / self.factorDen
+            increment = factorNum / factorDen
             if increment.is_integer():
                 increment = int(increment)
         else:
-            self.factorNum = self.interpolateFactor if self.interpolate else 1
-            self.factorDen = 1
+            factorNum = self.interpolateFactor if self.interpolate else 1
+            factorDen = 1
             increment = int(self.interpolateFactor) if self.interpolate else 1
-
-        self.timesteps = None
-        self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
-
-        if self.interpolate and self.interpolateFirst:
-            # The limit mirrors the writer's own queue depth: past that the writer is
-            # the backpressure, so holding more here buys nothing and a widened
-            # --smooth_dedup gap would keep hundreds of frames alive at once.
-            self._interpNextFrame = None
-            self.interpQueue = _FrameCollector(
-                drain=self._drainInterpQueue,
-                limit=adaptiveQueueDepth(
-                    getattr(self, "new_width", self.width),
-                    getattr(self, "new_height", self.height),
-                ),
-            )
-
-        # Drivers declare how many neighbouring frames they need handed to them.
-        # Restore runs at window entry, so every slot already shares its domain
-        # and it contributes no lookahead of its own.
-        restorePast, restoreFuture = temporalDemand(self.restore_process)
-        if restoreFuture or restorePast:
-            raise NotImplementedError(
-                "a temporal restore driver would need lookahead inside the window's "
-                "entry pipeline, which is not wired up"
-            )
-
-        upscalePast, upscaleFuture = temporalDemand(
-            self.upscale_process if self.upscale else None
-        )
-        interpPast, self._interpFuture = temporalDemand(
-            self.interpolate_process if self.interpolate else None
-        )
-
-        if self.interpolateFirst:
-            # Interpolation and upscaling both read the source stream, so their
-            # demands overlap rather than stack.
-            future = max(upscaleFuture, self._interpFuture)
-        else:
-            # Chained: interpolation's neighbour is an upscaled frame, whose own
-            # neighbour is a source frame one further out. The demands compose.
-            future = upscaleFuture + self._interpFuture
-        past = max(upscalePast, interpPast)
-
-        # Constructed before the try so the finally can always read its counters,
-        # but this cannot raise (bounds are non-negative here).
-        self.frameWindow = FrameWindow(
-            self.readBuffer.read,
-            past=past,
-            future=future,
-            enter=self._enterFrame,
-        )
 
         try:
             # The bar counts output frames and only accepts integers, so a
@@ -991,6 +482,25 @@ class VideoProcessor:
             # and killed every fractional-factor run before the first frame.
             def outputPosition(sourceFrames):
                 return int(sourceFrames * increment)
+
+            pipeline = Pipeline(
+                self.plan,
+                self.drivers,
+                self.writeBuffer,
+                factorNum=factorNum,
+                factorDen=factorDen,
+                smoothDedup=self.smoothDedup,
+                smoothDedupMaxSpan=self.smoothDedupMaxSpan,
+                maskedSink=maskedSink,
+                customModel=self.customModel,
+                half=self.half,
+                # An interpolation gap is collected up to the writer's own queue
+                # depth before it is handed on; past that the writer is the
+                # backpressure, and a long --smooth_dedup hold stays bounded.
+                collectLimit=adaptiveQueueDepth(self.new_width, self.new_height),
+            )
+            self.pipeline = pipeline
+            self._checkRingMemory(pipeline)
 
             with self.ProgressBarLogic(
                 outputPosition(self.totalFrames),
@@ -1001,48 +511,47 @@ class VideoProcessor:
                 outputPerSource=increment,
             ) as bar:
                 emitted = 0
-                cuts = 0
                 shownStats = (0, 0)
-                while self.frameWindow.advance():
-                    centre = self.frameWindow.centre
-                    self.processFrame(centre)
+                read = self.readBuffer.read
+                while pipeline.pull(read):
                     # The bar tracks decoded frames, not kept ones, so dedup'd
-                    # frames still advance it. Lookahead means the window may
-                    # have consumed several by the time this centre is reached.
-                    position = outputPosition(self.frameWindow.consumed)
+                    # frames still advance it.
+                    position = outputPosition(pipeline.consumed)
                     if position != emitted:
                         bar(position - emitted)
                         emitted = position
-                    cuts += centre.isCut
-                    stats = (self.frameWindow.dropped, cuts)
+                    stats = (pipeline.dropped, pipeline.cuts)
                     if stats != shownStats:
                         bar.setStats(*self._barStats(*stats))
                         shownStats = stats
 
-                # Trailing duplicates are consumed by the final advance() that
-                # returns False, after the last centre -- the bar stopped short
-                # (598/600) unless they are counted here.
-                position = outputPosition(self.frameWindow.consumed)
+                # End of stream: every stage releases what it still holds, so the
+                # last gap is interpolated with no next frame.
+                pipeline.drain()
+                position = outputPosition(pipeline.consumed)
                 if position != emitted:
                     bar(position - emitted)
                     emitted = position
-                stats = (self.frameWindow.dropped, cuts)
+                stats = (pipeline.dropped, pipeline.cuts)
                 if stats != shownStats:
                     bar.setStats(*self._barStats(*stats))
 
-                self._flushTrailingDuplicates()
+                # Trailing duplicates are consumed after the last frame, so the bar
+                # stopped short (598/600) unless they are counted here.
+                pipeline.payoutTrailing()
 
-                if self.frameWindow.consumed != self.totalFrames:
-                    bar.updateTotal(outputPosition(self.frameWindow.consumed))
+                if pipeline.consumed != self.totalFrames:
+                    bar.updateTotal(outputPosition(pipeline.consumed))
 
         except Exception as e:
             self.processingError = e
             logging.exception(f"Something went wrong while processing the frames, {e}")
         finally:
-            # Counters live on the window, so a partial run still reports what it
+            # Counters live on the pipeline, so a partial run still reports what it
             # actually decoded and dropped.
-            frameCount = self.frameWindow.consumed
-            self.dedupCount = self.frameWindow.dropped
+            if pipeline is not None:
+                frameCount = pipeline.consumed
+                self.dedupCount = pipeline.dropped
 
             decodeError = truncatedDecodeError(
                 self.readBuffer, self.totalFrames, self.writeBuffer
@@ -1056,7 +565,7 @@ class VideoProcessor:
                 self.preview.close()
             # Closes the writer and drains the decode buffer, so the producer's
             # blocking put() returns and the reader thread can reach its
-            # sentinel-enqueue finally. Without it, an exception in processFrame
+            # sentinel-enqueue finally. Without it, an exception in the frame loop
             # leaves the read thread blocked on put() to a full queue ->
             # ThreadPoolExecutor.__exit__ hangs (only KeyboardInterrupt escapes
             # today, via os._exit).
@@ -1118,20 +627,38 @@ class VideoProcessor:
         self.ProgressBarLogic = ProgressBarLogic
 
         try:
-            # Initialize AI models and get processing functions
+            # Resolve the processing chain from the typed flag order, then build
+            # every driver at the frame size its stage receives.
             from src.initializeModels import initializeModels
+            from src.pipeline.planner import planChain
+
+            methods = {
+                "dedup": self.dedupMethod,
+                "smooth-dedup": self.smoothDedupMethod,
+                "restore": self.restoreMethod,
+                "upscale": self.upscaleMethod,
+                "interpolate": self.interpolateMethod,
+                "scenechange": self.sceneChangeMethod,
+            }
+            self.plan = planChain(
+                self.stageOrder,
+                width=self.width,
+                height=self.height,
+                upscaleFactor=self.upscaleFactor,
+                interpolateFactor=self.interpolateFactor,
+                smoothDedup=self.smoothDedup,
+                sceneChange=bool(self.sceneChange and self.interpolate),
+                methods=methods,
+            )
+            self.new_width = self.plan.outWidth
+            self.new_height = self.plan.outHeight
+            if self.plan.line:
+                logAndPrint(self.plan.line, colorFunc="cyan")
+            for hint in self.plan.hints:
+                logAndPrint(hint, colorFunc="yellow")
 
             progressState.update({"status": "Initializing AI models..."})
-
-            (
-                self.new_width,
-                self.new_height,
-                self.upscale_process,
-                self.interpolate_process,
-                self.restore_process,
-                self.dedup_process,
-                self.sceneChange_process,
-            ) = initializeModels(self)
+            self.drivers = initializeModels(self, self.plan)
 
             starTime: float = time()
 

@@ -23,9 +23,10 @@ class ProtectionMask:
 
     Weight tensors are built lazily on first use and cached per
     (height, width, device, dtype). The interpolation path needs this because a
-    frame reaching the mask may be pre- or post-upscale depending on
-    ``--interpolate_first``, and DirectML/NCNN backends hand back CPU tensors
-    while CUDA backends keep them on the GPU.
+    frame reaching the mask may be pre- or post-upscale depending on where
+    ``--upscale`` and ``--interpolate`` sit in the command line, and
+    DirectML/NCNN backends hand back CPU tensors while CUDA backends keep them
+    on the GPU.
     """
 
     __slots__ = ("path", "_cache", "_logged")

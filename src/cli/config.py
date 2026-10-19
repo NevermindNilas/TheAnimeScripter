@@ -5,6 +5,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 
+from src.cli.stageOrder import ORDER_PARENTS, recordStageOrder
 from src.infra.logAndPrint import logAndPrint
 
 
@@ -12,9 +13,9 @@ def _actionsByDest(parser):
     """Cached ``{dest: action}`` map for a parser (built once, then reused).
 
     :func:`validateChoiceForKey` and :func:`coerceValueForKey` used to scan
-    ``parser._actions`` on every call, so a preset load (one call per stored
-    key) re-scanned the whole action list hundreds of times. The map is cached
-    on the parser instance itself, so each built parser pays for one scan.
+    ``parser._actions`` on every call, so a JSON config (one call per key)
+    re-scanned the whole action list hundreds of times. The map is cached on the
+    parser instance itself, so each built parser pays for one scan.
     """
     cached = getattr(parser, "_tas_actions_by_dest", None)
     if cached is None:
@@ -52,11 +53,11 @@ def _defaultsByDest(parser):
 def validateChoiceForKey(parser, key, value, sourceLabel):
     """Reject a value argparse would have rejected on the command line.
 
-    Config sources that assign straight onto the namespace (``--json``,
-    ``--preset``) bypass every ``choices=`` list the parser declares, so a
-    stale or hand-edited value used to travel all the way into a factory
-    before anything noticed. Exits with the same red diagnostic argparse
-    would have produced at parse time.
+    Config sources that assign straight onto the namespace (``--json``)
+    bypass every ``choices=`` list the parser declares, so a stale or
+    hand-edited value used to travel all the way into a factory before anything
+    noticed. Exits with the same red diagnostic argparse would have produced at
+    parse time.
 
     Returns the value normalized to the parser's canonical casing: the AE
     panel serialized its decode dropdown label as ``"CPU"``, which the JSON
@@ -123,7 +124,7 @@ def coerceValueForKey(parser, key, value, sourceLabel):
     """Apply the parser's own type conversion to a config-file value.
 
     Companion to :func:`validateChoiceForKey`, which guards ``choices=`` only.
-    ``--json`` and ``--preset`` assign JSON scalars straight onto the
+    ``--json`` assigns JSON scalars straight onto the
     namespace, so nothing ever ran ``action.type`` over them and a panel or
     hand-written file that quoted a number carried a ``str`` into the run: it
     died at ``main.py``'s ``self.fps * self.interpolateFactor`` with "can't
@@ -182,10 +183,9 @@ def coerceValueForKey(parser, key, value, sourceLabel):
         ):
             fail(item, _expectedLabel(converter))
         # `isinstance(item, converter)` is only meaningful when the converter
-        # is a real class. `--half` and `--interpolate_first` declare
-        # `type=str2bool`, a plain function, and isinstance() against it raises
-        # TypeError -- which would break every preset load, since presets store
-        # all of vars(args). `type(x) is C` also sidesteps bool-is-an-int.
+        # is a real class. `--half` declares `type=str2bool`, a plain function,
+        # and isinstance() against it raises TypeError. `type(x) is C` also
+        # sidesteps bool-is-an-int.
         if isinstance(converter, type) and type(item) is converter:
             converted.append(item)
             continue
@@ -318,6 +318,12 @@ class CliConfig:
                 if currentValue == defaultValue:
                     setattr(self.args, key, value)
                     logging.info(f"Loaded from JSON: {key} = {value}")
+                # The file's key order is the processing order, as the command
+                # line's flag order is. Same rule as the command line: the
+                # enabling key's place wins, and a child key counts only when it
+                # asks for something (below).
+                if key in ORDER_PARENTS and value:
+                    recordStageOrder(self.args, key, True)
                 if value != defaultValue:
                     # Only a key that actually asks for something counts as
                     # "provided". The After Effects panel serializes its whole
@@ -327,10 +333,12 @@ class CliConfig:
                     # dedup and restore for a config that asked for
                     # interpolation alone.
                     loadedKeys.add(key)
+                    parent = PARENT_FLAG_DEFAULTS.get(key, (None,))[0]
+                    if parent in ORDER_PARENTS:
+                        recordStageOrder(self.args, parent, False)
             else:
                 # logging.warning alone only reaches TAS-Log.log, so a typo'd
-                # key changed nothing and said nothing. The preset path has
-                # printed this since 4fd967c4; match it.
+                # key changed nothing and said nothing.
                 message = f"Unknown option in JSON config: '{key}'; ignoring it."
                 close = difflib.get_close_matches(key, list(defaults), 1)
                 if close:

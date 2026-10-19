@@ -168,7 +168,7 @@ class DistilDRBACuda:
 
         Args:
             frame: Current frame tensor [B, C, H, W] - this becomes I1
-            nextFrame: Next frame from the pipeline's FrameWindow [B, C, H, W] - this becomes I2
+            nextFrame: Next frame on the pipeline's stream [B, C, H, W] - this becomes I2
             interpQueue: Queue to put interpolated frames
             framesToInsert: Number of frames to insert between consecutive frames
             timesteps: Optional list of timestep values (in TAS range 0-1)
@@ -554,7 +554,7 @@ class DistilDRBATensorRT:
 
         Args:
             frame: Current frame tensor [B, C, H, W] - this becomes I1
-            nextFrame: Next frame from the pipeline's FrameWindow [B, C, H, W] - this becomes I2
+            nextFrame: Next frame on the pipeline's stream [B, C, H, W] - this becomes I2
             interpQueue: Queue to put interpolated frames
             framesToInsert: Number of frames to insert
             timesteps: Optional list of timestep values (in TAS range 0-1)
