@@ -9,7 +9,9 @@ first time it fires. argparse has already resolved prefix abbreviations,
 ``--json`` records the same units in the file's key order.
 
 ``--smooth_dedup`` is recorded under its own name and then overrides the
-``interpolate`` position: wherever ``--interpolate`` was typed is ignored. The
+``interpolate`` position: wherever ``--interpolate`` was typed is ignored. A
+smooth-dedup option alone (``--smooth_dedup_sens``) yields to a typed
+``--interpolate`` and places interpolation only when that is absent. The
 smooth-dedup detector itself is not positional (the engine always runs it on
 decoded frames), so it does not appear in the order.
 
@@ -111,11 +113,17 @@ def resolveStageOrder(args) -> list[str]:
     def unitPosition(unit: str):
         if unit == "interpolate" and getattr(args, _SMOOTH_DEDUP, False):
             # --smooth_dedup sets the place of interpolation, wherever
-            # --interpolate was typed. Fall back to --interpolate's own place
-            # only if the smooth flag was never recorded.
-            smoothPosition = positionOf(_SMOOTH_DEDUP)
-            if smoothPosition is not None:
-                return smoothPosition
+            # --interpolate was typed. A smooth-dedup option typed without
+            # --smooth_dedup itself (it enables it implicitly) is weaker: it
+            # places interpolation only when --interpolate was not typed, so
+            # tuning a sensitivity at the end of the line does not move it.
+            for key in ((_SMOOTH_DEDUP, True), (unit, True)):
+                if key in firstIndex:
+                    return firstIndex[key]
+            for key in ((_SMOOTH_DEDUP, False), (unit, False)):
+                if key in firstIndex:
+                    return firstIndex[key]
+            return None
         return positionOf(unit)
 
     enabled = [unit for unit in STAGE_UNITS if getattr(args, unit, False)]

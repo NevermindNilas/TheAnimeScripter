@@ -447,7 +447,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate` at the position `--smooth_dedup` is typed (an `--interpolate` typed elsewhere is ignored), disables `--dedup`, keeps audio |
-| `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup` |
+| `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup`; places interpolation only if `--interpolate` was not typed |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
 | `--smooth_dedup_max_span` | int | 6 | 0+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies. 0 = no cap, interpolate every run |
 
@@ -1002,8 +1002,9 @@ The command line's flag order is the processing order. The four frame-loop stage
 
 - The enabling flag's position counts. When it is absent, the first configuring flag's position counts, so an upscale method given alone places upscaling where that option was typed. Abbreviated flag names, `=value` forms and multi-value flags are read where argparse resolved them.
 - A stage that ends up disabled takes no place. For example, `--dedup` is forced off by `--smooth_dedup`.
-- `--smooth_dedup` places interpolation at its own position, wherever `--interpolate` was typed. Its duplicate detector always runs first, on decoded frames.
-- `--scenechange` is a modifier, not a stage. It runs before the first upscale, interpolation, or temporal stage that respects cuts.
+- `--smooth_dedup` places interpolation at its own position, wherever `--interpolate` was typed. A smooth-dedup option typed without `--smooth_dedup` itself (`--smooth_dedup_method`, `--smooth_dedup_sens`, `--smooth_dedup_max_span`) places interpolation only when `--interpolate` was not typed. Its duplicate detector always runs first, on decoded frames.
+- `--scenechange` is a modifier, not a stage. It runs before the first upscale or interpolation.
+- Frontends that build the command line or `--json` file decide the order too: they must emit the stages in the order the user chose, not in a fixed form order.
 - Motion blur, depth, segment, object detection, stabilization and autoclip run outside the frame loop and have no place in the order.
 - A stage after `--upscale` works on upscaled pixels, and a stage after `--interpolate` works on every interpolated frame. `--dedup_method flownets` after `--upscale` compares flow in upscaled pixels, so `--dedup_sens` is about N× stricter after an N× upscale.
 - `--dedup` after `--interpolate` still runs, with a warning: dedup then discards most of the in-between frames interpolated across held drawings.

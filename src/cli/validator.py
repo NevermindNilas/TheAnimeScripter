@@ -321,9 +321,9 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         #
         # The cap chooses copies over inference for a gap wider than it; it is
         # NOT a memory bound, and never was. What bounds memory is the
-        # interpolate-first sink draining itself as it fills -- see
-        # main.py:_FrameCollector, which is where a long hold used to keep the
-        # whole gap alive at once. 0 disables the cap (every run is
+        # interpolation stage handing a gap on as it fills -- see
+        # src/pipeline/executor.py:ExpandNode.collectLimit, which keeps a long
+        # hold from holding the whole gap at once. 0 disables the cap (every run is
         # interpolated, however long); negatives normalize to 0 rather than
         # inverting the span comparison into "hold everything".
         args.smooth_dedup_max_span = max(
