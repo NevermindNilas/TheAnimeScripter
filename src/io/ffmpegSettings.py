@@ -29,6 +29,7 @@ import src.constants as cs
 from src.io.encodingSettings import (
     colorSpaceFilter,
     colorSpaceOptions,
+    ffmpegHasFilter,
     getPixFMT,
     matchEncoder,
     matchNeluxEncoder,
@@ -254,6 +255,25 @@ def closeWriterAndDrainReader(writeBuffer, readBuffer) -> None:
     drainReader(readBuffer)
 
 
+# nelux 0.20.0's CPU decoder does not put a >8-bit source's nominal white at
+# 65535 in the uint16 frames it returns, and its encoder expects the same
+# limited-range white back (NeluxWriteBuffer._uint16White). Black is exact, so it is a pure gain:
+# limited range lands on 65283 at every bit depth, and full range is
+# bit-shifted rather than rescaled ((2**n - 1) << (16 - n), 65472 at 10-bit).
+# NVDEC returns 65535. Dividing by 65535 dimmed every CPU-decoded HDR frame by
+# 0.4% -- hidden on 16-bit output, where swscale's encode ran 0.4% bright.
+_NELUX_CPU_LIMITED_WHITE = 65283.0
+
+
+def neluxUint16White(decodeMethod: str, bitDepth: int, colorRange: str) -> float:
+    """The uint16 value nelux decodes a source's nominal white to."""
+    if decodeMethod.lower() != "cpu" or not 8 < bitDepth <= 16:
+        return 65535.0
+    if colorRange in ("pc", "jpeg"):
+        return float(((1 << bitDepth) - 1) << (16 - bitDepth))
+    return _NELUX_CPU_LIMITED_WHITE
+
+
 class BuildBuffer:
     def __init__(
         self,
@@ -337,6 +357,8 @@ class BuildBuffer:
             self.cudaEnabled = False
 
         self.backend = "pytorch" if toTorch else "numpy"
+        # Set per reader in _decodeWithnelux; see neluxUint16White.
+        self._uint16Norm = 1 / 65535.0
 
     def __call__(self):
         """
@@ -453,6 +475,12 @@ class BuildBuffer:
             CachedReaderResize = resizeTarget
 
         self._didDecoderResize = resizeTarget is not None
+        # Read after any reconfigure(): a batch input can change depth/range.
+        self._uint16Norm = 1 / neluxUint16White(
+            decodeMethod,
+            CachedReader.bit_depth,
+            CachedReader.properties.get("color_range", "unknown"),
+        )
 
         fps = CachedReader.fps or 0.0
         # Shared with getVideoMetadata so the decode and the reported frame
@@ -595,7 +623,7 @@ class BuildBuffer:
         Returns:
             The processed frame as a torch tensor in BCHW format.
         """
-        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
+        norm = 1 / 255.0 if frame.dtype == torch.uint8 else self._uint16Norm
         if self.cudaEnabled:
             with torch.cuda.stream(normStream):
                 frame = frame.to(
@@ -1071,8 +1099,9 @@ class WriteBuffer:
             # BT.709 (the common path; unknown/SD sources also default here):
             # use swscale (`scale`) instead of `zscale`. zscale/zimg runs a
             # float pipeline and costs ~3x the CPU of swscale's SIMD-integer
-            # path for a matrix-identical result (verified bit-for-bit on luma
-            # mean, black level, and banding across every test source/pixfmt).
+            # path for a result within 1 code on 8-bit (rgb24) input. On
+            # 16-bit input swscale's luma runs up to ~0.4% high, so that takes
+            # zscale where the build has it (encodingSettings._matrixConversion).
             # swscale only dithers on a bit-DEPTH reduction, so we route through
             # a 16-bit working format (yuv444p16le); the downstream -pix_fmt /
             # hwupload reduction then error-diffusion-dithers down to the target
@@ -1080,10 +1109,20 @@ class WriteBuffer:
             # full color metadata (matrix + primaries + transfer + range) --
             # swscale alone only tags the matrix.
             #
-            # BT.2020 takes the same swscale route with `out_color_matrix=
-            # bt2020`. It was on zscale, which Homebrew's FFmpeg lacks, so
-            # every BT.2020 render on macOS failed at filtergraph setup.
-            filterList.append(colorSpaceFilter(_probedMetadata()))
+            # BT.2020 takes the same routes with its own matrix. It was on
+            # zscale alone, which Homebrew's FFmpeg lacks, so every BT.2020
+            # render on macOS failed at filtergraph setup.
+            useZscale = False
+            if self.bitDepth == "16bit":
+                useZscale = bool(cs.FFMPEGPATH) and ffmpegHasFilter(
+                    cs.FFMPEGPATH, "zscale"
+                )
+                if not useZscale:
+                    logging.info(
+                        "This FFmpeg has no zscale; 16-bit colour conversion "
+                        "uses swscale, whose luma runs up to ~0.4% high."
+                    )
+            filterList.append(colorSpaceFilter(_probedMetadata(), useZscale))
 
         return filterList
 
@@ -1594,6 +1633,17 @@ class NeluxWriteBuffer:
             **colourOptions,
             **(self.encoderKwargs.get("options") or {}),
         }
+        # nelux's encoder takes uint16 RGB white to be the same 65283 its CPU
+        # decoder produces (libswscale and its NVENC CUDA kernel alike), so a
+        # frame scaled by 65535 came out 0.4% bright (10-bit white 943). Gray,
+        # alpha and RGB destinations get no YUV range conversion; alpha must
+        # not be scaled at all.
+        yuvOutput = str(self.encoderKwargs.get("pixel_format", "")).startswith(
+            ("yuv", "nv", "p0")
+        )
+        self._uint16White = (
+            _NELUX_CPU_LIMITED_WHITE if colourOptions and yuvOutput else 65535.0
+        )
         # --output_scale: build the encoder at the target dims and let nelux
         # scale each incoming pipeline-res frame inside the libswscale convert
         # pass it already runs (encoder-side resize, nelux >= 0.18.0). bilinear
@@ -1812,7 +1862,7 @@ class NeluxWriteBuffer:
                 # WriteBuffer._toOutputFrame (including its fp16 -> fp32
                 # promotion: fp16 tops out at 65504, so mul(65535) saturates
                 # to inf and the clamp raises).
-                multiplier = 65535 if self.bitDepth == "16bit" else 255
+                multiplier = self._uint16White if self.bitDepth == "16bit" else 255
                 outDtype = torch.uint16 if self.bitDepth == "16bit" else torch.uint8
                 # WriteBuffer's bicubic fallback for a frame that is not at
                 # the pipeline size; depth backends lean on it.

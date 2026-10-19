@@ -1,3 +1,6 @@
+import functools
+import subprocess
+
 from src.infra.logAndPrint import logWarning
 
 
@@ -851,15 +854,69 @@ SETPARAMS_TRANSFERS = frozenset(
 # tagged as, BT.709.
 BT2020_COLOR_VALUES = ("bt2020", "bt2020nc", "bt2020c")
 
-BT709_FILTER = (
-    "scale=in_range=pc:out_range=tv:out_color_matrix=bt709,"
-    "format=yuv444p16le,"
-    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
-)
+# zimg's names for the two matrices, for the 16-bit zscale route.
+_ZSCALE_MATRICES = {"bt709": "709", "bt2020": "bt2020nc"}
 
 
-def bt2020Filter(sourceTransfer: str = "unknown") -> str:
-    """swscale conversion for a BT.2020 source, tagged with its own transfer.
+def _matrixConversion(matrix: str, useZscale: bool) -> str:
+    """The RGB -> limited-range YUV step, on swscale or (16-bit input) zscale.
+
+    swscale is exact on rgb24 and costs about a third of zscale's CPU, so it is
+    the default. Fed rgb48le it is not: its limited-range luma runs high for
+    both matrices -- peak white lands on 943 instead of 940 at 10-bit, the
+    average sample +1.7 codes -- and no swscale flag or intermediate format
+    removes it, while zimg stays within 1 code of an exact float conversion.
+    So 16-bit input takes zscale wherever the FFmpeg build has it; Homebrew's
+    does not, and keeps swscale.
+    """
+    if useZscale:
+        return (
+            f"zscale=rangein=full:range=limited:matrix={_ZSCALE_MATRICES[matrix]}"
+            ":dither=error_diffusion"
+        )
+    return f"scale=in_range=pc:out_range=tv:out_color_matrix={matrix}"
+
+
+def bt709Filter(useZscale: bool = False) -> str:
+    """Conversion for a BT.709 (or unknown/SD) source, fully tagged."""
+    return (
+        f"{_matrixConversion('bt709', useZscale)},"
+        "format=yuv444p16le,"
+        "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
+    )
+
+
+BT709_FILTER = bt709Filter()
+
+
+def ffmpegHasFilter(ffmpegPath: str, name: str) -> bool:
+    """Whether the FFmpeg at `ffmpegPath` was built with the filter `name`.
+
+    Cached per binary: the answer cannot change mid-run, and a batch builds a
+    writer per input.
+    """
+    return name in _ffmpegFilters(ffmpegPath)
+
+
+@functools.cache
+def _ffmpegFilters(ffmpegPath: str) -> frozenset[str]:
+    try:
+        listing = subprocess.run(
+            [ffmpegPath, "-hide_banner", "-filters"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout
+    except OSError, subprocess.SubprocessError:
+        return frozenset()
+    # Rows read " TSC zscale            V->V       Apply resizing, ...".
+    return frozenset(
+        fields[1] for fields in map(str.split, listing.splitlines()) if len(fields) > 2
+    )
+
+
+def bt2020Filter(sourceTransfer: str = "unknown", useZscale: bool = False) -> str:
+    """Conversion for a BT.2020 source, tagged with its own transfer.
 
     Only the matrix is converted here, so the transfer is whatever the source
     already had: copy it rather than guess. An unrecognized or missing value
@@ -872,23 +929,18 @@ def bt2020Filter(sourceTransfer: str = "unknown") -> str:
     10-bit codes, every one a multiple of 4. Let `-pix_fmt` do the reduction,
     which is also where the dithering belongs.
 
-    This arm used to be `zscale`, on the belief that swscale had no bt2020nc
-    matrix -- it does (`out_color_matrix=bt2020`). zscale needs FFmpeg built
-    with zimg, which Homebrew's formula is not, so every BT.2020 render on
-    macOS died at filtergraph setup with "No such filter: 'zscale'". Against
-    zscale this lands within 1 code at 8/10-bit output, the same as the
-    BT.709 arm does.
+    This arm was `zscale` only, which Homebrew's FFmpeg lacks, so every
+    BT.2020 render on macOS died at filtergraph setup with "No such filter:
+    'zscale'". It now picks a route like the BT.709 arm: see
+    _matrixConversion.
     """
     setparams = "setparams=colorspace=bt2020nc:color_primaries=bt2020:range=tv"
     if sourceTransfer in SETPARAMS_TRANSFERS:
         setparams += f":color_trc={sourceTransfer}"
-    return (
-        "scale=in_range=pc:out_range=tv:out_color_matrix=bt2020,"
-        f"format=yuv444p16le,{setparams}"
-    )
+    return f"{_matrixConversion('bt2020', useZscale)},format=yuv444p16le,{setparams}"
 
 
-def colorSpaceFilter(probedMetadata: dict) -> str:
+def colorSpaceFilter(probedMetadata: dict, useZscale: bool = False) -> str:
     """The colour-conversion filter for a source, from its probed metadata.
 
     Kept out of ffmpegSettings so it can be tested without torch/nelux/cv2 --
@@ -898,8 +950,8 @@ def colorSpaceFilter(probedMetadata: dict) -> str:
     fields = ("ColorSpace", "PixelFormat", "ColorTRT")
     for field in fields:
         if probedMetadata.get(field, "unknown") in BT2020_COLOR_VALUES:
-            return bt2020Filter(probedMetadata.get("ColorTRT", "unknown"))
-    return BT709_FILTER
+            return bt2020Filter(probedMetadata.get("ColorTRT", "unknown"), useZscale)
+    return bt709Filter(useZscale)
 
 
 def colorSpaceOptions(probedMetadata: dict) -> dict:
