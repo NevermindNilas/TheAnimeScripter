@@ -70,6 +70,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - RifeDirectML and DistilDRBA-TensorRT skip redundant timestep buffer fills via shared `fillTimestepBuffer` caching (ORT per-insert rebind and all output clones unchanged); the 6ch scene-change DML path reuses its concat buffer and the AnimeSR-DML / 6ch paths run under `inference_mode`.
 - `lookupRequiredMultiple` now strips `-rocm` like the other backend suffixes, so ROCm upscale methods hit the input-multiple table instead of probing; CUDA SSIM/MSE dedup resizes in the source dtype and casts the 224px result, leaving scores and drops unchanged.
 
+## TAS Adobe Edition
+### New
+- Support for After Effects 2020 and newer.
+
+## TAS-Standalone
+### New
+- **Default output folder** in Settings, under Output. Single videos and queued jobs without their own output path are written there instead of next to the input. The folder is created if it does not exist yet, and a change also applies to jobs already waiting in the queue.
+- Performance options, the Preview toggle, the trim unit (frames or seconds) and the default output folder are now remembered across restarts. They are kept apart from chain presets, so applying a preset or Reset to defaults leaves them alone.
+- Keyboard shortcuts: **Ctrl+O** opens a video, **Ctrl+Enter** starts a run (the overwrite prompt still asks first), and **Ctrl+,** opens Settings.
+- The mouse back and forward side buttons move through the panes you have visited, like a browser.
+- The Logs pane can save the log to a file. Clear log moved into an overflow menu next to it, one step away from a stray click.
+- Media details gained a **Show in folder** action once a run has finished, and the preview header gained **Change video**.
+
+### Changed
+- Redesigned in the style of the Windows 11 Settings app: flat cards 4px apart, "On"/"Off" labels beside every switch, a standard 32px titlebar that dims while the window is in the background, a slimmer icon rail with Filled glyphs on the selected tab, and one consistent set of type sizes, empty states and animations. Animations follow the system's reduced motion setting.
+- Chain cards behave like Windows expanders, and a collapsed card that is on shows what it will run ("ShuffleCUGAN · DirectML · 2x"). The quick-start presets now sit at the top of an empty Chain list.
+- Presets are a single command bar under the Chain list: a Presets menu (favorites first), Save as, and an overflow with Reset to defaults. The per-preset list (rename, duplicate, export, delete) lives in Manage presets.
+- Entering and leaving the Preview theatre view animates as one smooth motion, instead of the preview shrinking before it grew and the Run button jumping.
+- Overlay controls on the preview (fullscreen, the compare labels) fade in on hover or keyboard focus, like a media player. Switching between the compare layouts eases the preview height instead of snapping.
+- The overwrite prompt is a themed dialog instead of the unthemed system box.
+- Themes use Fluent's own brand colour ramps and keep secondary text and button labels readable on bright palettes. The startup splash uses the last theme instead of flashing dark for light-theme users.
+- The trim slider has Windows-style thumbs, and an ETA over an hour reads as h:mm:ss, matching Elapsed.
+- The Settings dot on the rail stays neutral until TAS detection has finished, instead of briefly reporting a missing CLI. The Queue tab shows a dot while work is waiting or running.
+- Media probing follows the TAS folder actually in use, and a video whose details failed to load is re-read automatically once the engine install supplies the tools.
+- Electron 43.2 to 43.7.4.
+
+### Fixed
+- Updating the dependency set could fail with `WinError 5` because the engine was started first and locked PyTorch's files before pip could replace them. Dependencies now install without starting the engine.
+- A failed, cancelled or interrupted dependency install could later be treated as complete, from a partial torch folder or the previous install's record. It now stays retryable until it actually finishes.
+- An engine release zipped inside a top-level folder was downloaded again on every install even though a copy was already on disk.
+- A disk error during the engine download could crash the install or leave it stuck on "Downloading…" forever.
+- An engine update could leave old files behind, or fail to lay down the new ones, where a file had become a folder or the other way round.
+- An older install that could not be moved on the first try (for example, locked by an antivirus scan) was never retried, so the app installed from scratch.
+- Cancelling a run in the instant before TAS started let it start anyway, with the UI stuck on "Starting…". Quitting in that window did the same.
+- The final log lines could arrive after the run already showed Completed.
+- Windows line endings added an empty line after every log line.
+- The `$ ...` command line in the log is quoted, so a path with spaces pastes back correctly.
+- A failed metadata read was cached and kept failing until the app restarted.
+- Copy reported "Copied" even when the clipboard refused the write.
+- One unreadable preset file emptied the whole presets list, and a JSON file that was not a preset loaded as an empty preset instead of an error.
+- Turning Discord Rich Presence off while it was still connecting turned it back on.
+- Manual update checks could report "Checking" after the check had already found an update.
+- On a display smaller than the minimum window size, the window opened larger than the screen.
+- A dragged trim handle could get stuck in a dead drag after an interrupted gesture, and handles sat slightly to the right of the time they pointed at.
+- Account requests left timers running in the background, and a failed unlink stopped the background account check.
+
 ## [2.10.0] - 2026-09-19
 
 ### Added
@@ -93,6 +139,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `small_v2-tensorrt` and `og_small_v2-tensorrt` engine builds no longer fail with `Dynamic input tensor input is missing dimensions`; a failed build now raises instead of crashing on `num_io_tensors`.
 - Video inputs with only 1 detected frame now warn to check the AE work area / prerender range and time remap.
 
+## TAS Adobe Edition
+### New
+- AMD ROCm (`-rocm`) counterparts for every CUDA model in the pickers: upscale, interpolate, restore, depth, segmentation, dedup and scene-cut detectors, autoclip, stabilization and motion blur. They sit in a new AMD ROCm section shown on AMD GPUs, are sponsor-gated like their CUDA twins, and the installer gains the `linux-rocm` runtime profile.
+- The depth picker matches the backend's `--depth_method` choices exactly, adding `small_v2`, the full MPS image-depth line, `og_small_v2-openvino` and the streaming methods (`video_small_v3`, `video_base_v3`, `video_limbo`, `video_limbo_v2`, their TensorRT builds and `limbo_v2-openvino`). The temporal-window picker applies to all of them.
+- Depth Map Settings gains a **Normalize over time** toggle (`--depth_norm`).
+- The Encoding Codec picker covers all 54 backend encoders: AV1, VP9, QSV VP9, ProRes Segment, GIF and Lossless NVENC, plus the 18 `*_nelux` twins it was missing. The NVENC twins are sponsor-gated.
+- Preview Options gains a port field (`--preview_port`). Left empty, the backend falls back to a free port when 5000 is taken.
+- Trims accept frame-exact `<frames>f` values.
+- The Media Browser and file pickers list `.m2ts`, `.mts`, `.mpg`, `.mpeg`, `.m2v`, `.flv`, `.wmv` and `.ogv`, which decode normally and are written out as `.mp4`.
+
+### Changed
+- Interpolation factors below 1 are rejected in the field and at enqueue time, since the backend exits on them. Factor 1 stays valid for Smooth Held Frames.
+
+### Removed
+- Depth picker entries the backend never implemented: the V3 `-tensorrt`/`-directml`/`-openvino` builds, the Giant checkpoints and `og_video_small_v2-tensorrt`. Saved selections and already-queued items move to the closest remaining model on the same accelerator.
+
+### Fixed
+- After Effects chain runs ignored Post-Resize: `output_scale` was only sent on the Premiere path, so the backend encoded at full resolution while the log claimed the scale.
+
 ## [2.9.6] - 2026-08-25
 
 ### Added
@@ -103,6 +168,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Removed
 - 47 `--depth_method` choices were removed for licensing reasons, leaving `small_v2`, `og_small_v2`, `video_small_v2`, `og_video_small_v2` and the v3 family (20 in total). A removed method now exits 2 with the list of valid choices.
+
+## TAS Adobe Edition
+### New
+- The Limbo depth models (`limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`) are selectable, and the depth picker gains an Apple Silicon section. macOS previously had no depth model to choose at all.
+
+### Changed
+- The default depth model is `small_v2-directml` instead of `distill_small_v2-directml`.
+
+### Removed
+- Depth models without a commercial licence: Depth Anything V2 Base, Large and Giant, Video Depth Anything Base and Large, and the whole Distill-Any-Depth family, `og_` builds included. The Apache-2.0 Small checkpoints and the full Depth Anything V3 line remain. Saved selections and already-queued items move to the closest surviving model on the same accelerator; OpenVINO is down to `small_v2-openvino`.
 
 ## [2.9.5] - 2026-08-16
 
