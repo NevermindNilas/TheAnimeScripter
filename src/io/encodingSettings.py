@@ -859,7 +859,7 @@ BT709_FILTER = (
 
 
 def bt2020Filter(sourceTransfer: str = "unknown") -> str:
-    """zscale conversion for a BT.2020 source, tagged with its own transfer.
+    """swscale conversion for a BT.2020 source, tagged with its own transfer.
 
     Only the matrix is converted here, so the transfer is whatever the source
     already had: copy it rather than guess. An unrecognized or missing value
@@ -871,12 +871,20 @@ def bt2020Filter(sourceTransfer: str = "unknown") -> str:
     re-expanded it for the encoder: a 16-bit ramp came out as 220 distinct
     10-bit codes, every one a multiple of 4. Let `-pix_fmt` do the reduction,
     which is also where the dithering belongs.
+
+    This arm used to be `zscale`, on the belief that swscale had no bt2020nc
+    matrix -- it does (`out_color_matrix=bt2020`). zscale needs FFmpeg built
+    with zimg, which Homebrew's formula is not, so every BT.2020 render on
+    macOS died at filtergraph setup with "No such filter: 'zscale'". Against
+    zscale this lands within 1 code at 8/10-bit output, the same as the
+    BT.709 arm does.
     """
     setparams = "setparams=colorspace=bt2020nc:color_primaries=bt2020:range=tv"
     if sourceTransfer in SETPARAMS_TRANSFERS:
         setparams += f":color_trc={sourceTransfer}"
     return (
-        f"zscale=matrix=bt2020nc:dither=error_diffusion,format=yuv444p16le,{setparams}"
+        "scale=in_range=pc:out_range=tv:out_color_matrix=bt2020,"
+        f"format=yuv444p16le,{setparams}"
     )
 
 

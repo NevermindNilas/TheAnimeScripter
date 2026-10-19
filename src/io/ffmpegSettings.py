@@ -1080,16 +1080,9 @@ class WriteBuffer:
             # full color metadata (matrix + primaries + transfer + range) --
             # swscale alone only tags the matrix.
             #
-            # BT.2020 stays on zscale: swscale has no bt2020nc matrix.
-            #
-            # This arm used to read `matrix=bt2020:norm=bt2020`, and neither
-            # token exists: zscale's matrix constants are 2020_ncl/2020_cl
-            # (aliases bt2020nc/bt2020c) and there is no `norm` option at all.
-            # So the filtergraph could never parse -- FFmpeg died with
-            # "Undefined constant or missing '(' in 'bt2020'" and every
-            # BT.2020/HDR10 source failed the whole render for a 0-byte output.
-            # setparams mirrors the bt709 arm, which already stamps the full
-            # colour metadata rather than the matrix alone.
+            # BT.2020 takes the same swscale route with `out_color_matrix=
+            # bt2020`. It was on zscale, which Homebrew's FFmpeg lacks, so
+            # every BT.2020 render on macOS failed at filtergraph setup.
             filterList.append(colorSpaceFilter(_probedMetadata()))
 
         return filterList
