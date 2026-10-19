@@ -1415,7 +1415,10 @@ def _addMiscOptions(argParser):
             "macos-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
             "or lite dependencies, with guidance for newer NVIDIA GPUs, Apple "
-            "Silicon MPS, and CPU-only hardware."
+            "Silicon MPS, and CPU-only hardware. With no terminal to prompt in, "
+            "installs the profile detected from the hardware instead (it can "
+            "only detect linux-rocm once a ROCm torch is installed; name it "
+            "explicitly)."
         ),
     )
     miscGroup.add_argument(

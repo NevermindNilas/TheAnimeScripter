@@ -4,7 +4,7 @@ import sys
 
 import src.constants as cs
 from src.cli.config import CliConfig
-from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
+from src.cli.startup import _handleDependencies, _resolveRequestedProfile
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
 from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
@@ -560,9 +560,9 @@ def prepareRuntimeArgs(args, outputPath, parser):
         from src.infra.dependencyHandler import DependencyChecker
 
         _handleDependencies(args)
-        selectedProfile = args.download_requirements.strip().lower()
-        if not selectedProfile:
-            selectedProfile = _promptDownloadRequirementsSelection()
+        selectedProfile = _resolveRequestedProfile(
+            args.download_requirements, args.dependency_profile
+        )
 
         checker = DependencyChecker()
         if not checker.installProfile(selectedProfile):

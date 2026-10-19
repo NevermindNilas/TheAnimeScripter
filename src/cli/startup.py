@@ -9,7 +9,16 @@ def _promptDownloadRequirementsSelection() -> str:
 
     from inquirer import List, prompt
 
+    from src.infra.dependencyHandler import (
+        DependenciesMissingError,
+        canPromptInteractively,
+    )
     from src.infra.logAndPrint import logAndPrint
+
+    # Without a terminal the picker cannot be answered: on Windows it blocks
+    # forever on the console, on macOS/Linux it fails at once.
+    if not canPromptInteractively():
+        raise DependenciesMissingError("No terminal to choose a dependency profile in")
 
     currentPlatform = "windows" if cs.SYSTEM == "Windows" else "linux"
     if cs.SYSTEM == "Darwin":
@@ -50,6 +59,57 @@ def _promptDownloadRequirementsSelection() -> str:
         sys.exit(1)
 
     return answers["dependency_profile"]
+
+
+def _resolveRequestedProfile(requested: str, detectedProfile: str) -> str:
+    """The profile a `--download_requirements [PROFILE]` run installs.
+
+    A bare flag asks at a terminal; with no terminal it takes the profile
+    detected from the hardware instead of waiting on a picker nobody can answer.
+    """
+    from src.infra.dependencyHandler import canPromptInteractively
+    from src.infra.logAndPrint import logAndPrint
+
+    profile = requested.strip().lower()
+    if profile:
+        return profile
+    if canPromptInteractively():
+        return _promptDownloadRequirementsSelection()
+    logAndPrint(
+        f"No dependency profile given and no terminal to choose one in; "
+        f"installing the detected '{detectedProfile}' profile.",
+        "yellow",
+    )
+    return detectedProfile
+
+
+def _ensureDependenciesOrExit() -> None:
+    """Make sure the stored profile's dependencies are installed before a run.
+
+    Where that needs a profile choice and there is no terminal to make it in,
+    print DEPENDENCIES_MISSING_MARKER and exit, so the host panel can run its
+    own installer instead of watching a run that never starts.
+    """
+    import sys
+
+    from src.infra.dependencyHandler import (
+        DEPENDENCIES_MISSING_EXIT_CODE,
+        DEPENDENCIES_MISSING_MARKER,
+        DependenciesMissingError,
+        DependencyChecker,
+    )
+    from src.infra.logAndPrint import logAndPrint
+
+    try:
+        DependencyChecker().ensureDependencies()
+    except DependenciesMissingError as e:
+        logAndPrint(
+            f"{DEPENDENCIES_MISSING_MARKER}: {e}. Install them from the TAS "
+            f"panel, or run TAS once with --download_requirements.",
+            "red",
+            "ERROR",
+        )
+        sys.exit(DEPENDENCIES_MISSING_EXIT_CODE)
 
 
 def _handleDependencies(args):
@@ -147,7 +207,4 @@ def _handleDependencies(args):
     args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
 
     if args.download_requirements is None and not args.cleanup:
-        from src.infra.dependencyHandler import DependencyChecker
-
-        checker = DependencyChecker()
-        checker.ensureDependencies()
+        _ensureDependenciesOrExit()

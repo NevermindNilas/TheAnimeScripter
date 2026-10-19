@@ -767,7 +767,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `linux-rocm` once a ROCm torch is installed; pass it by name). |
 | `--list_methods` | optional str | None | **List available methods** for one capability (e.g. `--list_methods upscale`) or, with no value, for every capability |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 

@@ -124,7 +124,7 @@ python main.py -h
 | `extra-requirements-linux-rocm.txt` | AMD ROCm (experimental) |
 | `extra-requirements-macos.txt` | Apple Silicon (MPS) |
 
-Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use), or pass one by name, e.g. `--download_requirements linux-rocm`.
+Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use, or picks one from your hardware when run without a terminal), or pass one by name, e.g. `--download_requirements linux-rocm`.
 
 On macOS TAS uses Homebrew's FFmpeg and runs `brew install ffmpeg` on first launch if it is missing. FFmpeg is GPL, so TAS does not ship it. [Homebrew](https://brew.sh) itself must already be installed.
 

@@ -44,6 +44,86 @@ DEPENDENCY_PROFILE_REQUIREMENTS = {
     "macos-mps": "extra-requirements-macos.txt",
 }
 
+# The AE/Premiere panels and the Standalone app spawn TAS with no terminal. On
+# Windows the dependency picker reads keys from the (hidden) console and so used
+# to wait forever there; on macOS/Linux it failed at once and the run went on.
+# A run that cannot work without an install and has no terminal to ask in now
+# prints this marker and exits with this code; the hosts match the marker and
+# open their own installer.
+DEPENDENCIES_MISSING_MARKER = "TAS_DEPENDENCIES_MISSING"
+DEPENDENCIES_MISSING_EXIT_CODE = 78  # EX_CONFIG
+
+# Packages no TAS run can work without. A missing optional package (yt-dlp,
+# vmaf-torch, ...) only breaks the runs that use it, so a run with no terminal
+# to reinstall from warns and carries on, as it always did on macOS and Linux.
+CORE_PACKAGES = frozenset({"torch", "torchvision"})
+
+
+class DependenciesMissingError(RuntimeError):
+    """The runtime needs a dependency install and nobody can be asked which."""
+
+
+def canPromptInteractively() -> bool:
+    """Whether a person at a terminal can answer the dependency picker.
+
+    isatty() alone is not enough on Windows, where the picker reads its keys
+    from the console and would wait forever on one nobody can see or type in:
+    - NUL is a character device, so stdin ignored by the host (Node's stdio
+      "ignore", subprocess.DEVNULL, `< NUL`) reads as a terminal;
+    - a wrapper that captures stdout leaves the picker drawn into a pipe;
+    - a console created with CREATE_NO_WINDOW (Task Scheduler, launchers) has
+      no window at all.
+    So stdin and stdout must both be the console, and the console must have a
+    window (ConPTY / Windows Terminal report a pseudo-window, which counts). A
+    window that exists but is hidden still counts: that cannot be told apart
+    from a terminal the user minimised. A terminal run whose stdout is piped
+    (`| tee`) no longer gets the picker and is told to use
+    --download_requirements instead.
+    """
+    stdin = sys.stdin
+    try:
+        if stdin is None or not stdin.isatty():
+            return False
+        if sys.platform != "win32":
+            return True
+
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetConsoleMode.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.GetConsoleMode.restype = wintypes.BOOL
+        kernel32.GetConsoleWindow.argtypes = []
+        kernel32.GetConsoleWindow.restype = wintypes.HWND
+        mode = wintypes.DWORD()
+        for stream in (stdin, sys.stdout):
+            if stream is None:
+                return False
+            handle = msvcrt.get_osfhandle(stream.fileno())
+            if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                return False
+        return bool(kernel32.GetConsoleWindow())
+    except AttributeError, OSError, ValueError:
+        return False
+
+
+def _missingCorePackages() -> list[str]:
+    """CORE_PACKAGES that are not installed or not importable."""
+    missing = []
+    for name in sorted(CORE_PACKAGES):
+        try:
+            version(name)
+        except PackageNotFoundError:
+            missing.append(name)
+            continue
+        if find_spec(name) is None:
+            missing.append(name)
+    return missing
+
 
 def getDependencyProfile(
     systemName: str, supportsCuda: bool, isRocm: bool = False
@@ -348,14 +428,16 @@ class DependencyChecker:
         cache = self._loadCache()
         return cache.get("profile")
 
-    def storeProfile(self, profile: str):
-        """Persist the user's chosen profile."""
+    def storeProfile(self, profile: str) -> bool:
+        """Persist the user's chosen profile. Returns False if it could not."""
         try:
             with open(self.cachePath, "w") as f:
                 json.dump({"profile": profile}, f)
             self._cache = {"profile": profile}
+            return True
         except Exception as e:
             logging.warning(f"Failed to store dependency profile: {e}")
+            return False
 
     def clearCache(self):
         """Delete the cache file (used by --cleanup)."""
@@ -373,12 +455,16 @@ class DependencyChecker:
         - Stored profile with missing packages → prompt + install + store.
         - Everything present → return True immediately.
 
-        Returns True if dependencies are satisfied after this call.
+        Returns True if dependencies are satisfied after this call. With no
+        terminal to prompt in, raises DependenciesMissingError when a
+        CORE_PACKAGES package is missing or (on Windows) no usable profile is
+        recorded; anything less is warned about and returns False so the run
+        carries on, as it always did on macOS/Linux.
         """
         storedProfile = self.loadStoredProfile()
 
         if storedProfile is None:
-            return self._promptInstallAndStore()
+            return self._recordMissing("No dependency profile is installed")
 
         try:
             requirementsFile = getRequirementsFileForProfile(storedProfile)
@@ -386,8 +472,10 @@ class DependencyChecker:
             logging.warning(
                 f"Stored profile '{storedProfile}' is invalid, re-prompting"
             )
-            self.clearCache()
-            return self._promptInstallAndStore()
+            return self._recordMissing(
+                f"The installed dependency profile '{storedProfile}' is not recognised",
+                clearInvalid=True,
+            )
 
         requirementsPath = os.path.join(_getRuntimeRoot(), requirementsFile)
         if not os.path.exists(requirementsPath):
@@ -402,11 +490,13 @@ class DependencyChecker:
         if not missing and not notImportable:
             return True
 
-        logAndPrint(
-            "Missing dependencies detected: " + ", ".join(missing + notImportable),
-            "yellow",
-        )
-        return self._promptInstallAndStore()
+        missingList = ", ".join(missing + notImportable)
+        logAndPrint(f"Missing dependencies detected: {missingList}", "yellow")
+        if not canPromptInteractively() and CORE_PACKAGES.isdisjoint(
+            missing + notImportable
+        ):
+            return False
+        return self._promptInstallAndStore(f"Missing dependencies: {missingList}")
 
     def installProfile(self, profile: str) -> bool:
         """Install a specific profile's requirements and store the choice."""
@@ -429,7 +519,15 @@ class DependencyChecker:
             except Exception as e:
                 logging.warning(f"nelux macOS FFmpeg link repair skipped: {e}")
 
-        self.storeProfile(profile)
+        # The hosts read this record as "the install finished"; without it every
+        # later run would ask for a profile again.
+        if not self.storeProfile(profile):
+            logAndPrint(
+                f"Dependencies installed, but the profile record could not be "
+                f"written to {self.cachePath}.",
+                "red",
+            )
+            return False
 
         invalidate_caches()
 
@@ -498,8 +596,40 @@ class DependencyChecker:
 
         return missing, wrongVersion, notImportable
 
-    def _promptInstallAndStore(self) -> bool:
-        """Show the inquirer prompt, install, and store the chosen profile."""
+    def _recordMissing(self, reason: str, clearInvalid: bool = False) -> bool:
+        """No usable profile record: prompt at a terminal. Without one, stop.
+
+        Except on macOS/Linux with the core packages importable: a from-source
+        install there never writes the record and such runs always carried on.
+        On Windows the record is written by every host install, so its absence
+        means the install never finished, even when pip got as far as torch.
+        """
+        if canPromptInteractively():
+            if clearInvalid:
+                self.clearCache()
+            return self._promptInstallAndStore(reason)
+
+        missingCore = _missingCorePackages()
+        if missingCore:
+            raise DependenciesMissingError(
+                f"{reason}, and core packages are missing: {', '.join(missingCore)}"
+            )
+        if sys.platform == "win32":
+            raise DependenciesMissingError(reason)
+        logAndPrint(
+            f"{reason}; continuing with the packages already installed.", "yellow"
+        )
+        return False
+
+    def _promptInstallAndStore(self, reason: str) -> bool:
+        """Show the inquirer prompt, install, and store the chosen profile.
+
+        Raises DependenciesMissingError, carrying `reason`, when there is no
+        terminal to show the prompt in.
+        """
+        if not canPromptInteractively():
+            raise DependenciesMissingError(reason)
+
         from src.cli.startup import _promptDownloadRequirementsSelection
 
         try:
