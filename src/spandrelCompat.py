@@ -1,3 +1,5 @@
+import functools
+import hashlib
 import json
 import logging
 import os
@@ -28,9 +30,35 @@ __all__ = [
 
 ARCH_CACHE_NAME = ".spandrelArchCache.json"
 
-# The registry's detection order decides which architecture claims a file, so
-# a record is only trusted while the registry module is unchanged.
-_REGISTRY_FILE = _spandrel_lib / "spandrel" / "__helpers" / "main_registry.py"
+# Which architecture claims a file depends on the registry's order and on every
+# earlier architecture's detect(), so a record is only trusted while no source
+# file of the spandrel package has changed.
+_PACKAGE_DIR = _spandrel_lib / "spandrel"
+
+
+@functools.cache
+def _packageFingerprint() -> str | None:
+    """Digest of every .py file's path, size and mtime in the spandrel package.
+
+    ~2 ms for its ~190 files, once per process.
+    """
+    entries = []
+    stack = [str(_PACKAGE_DIR)]
+    try:
+        while stack:
+            folder = stack.pop()
+            with os.scandir(folder) as it:
+                for entry in it:
+                    if entry.is_dir(follow_symlinks=False):
+                        if entry.name != "__pycache__":
+                            stack.append(entry.path)
+                    elif entry.name.endswith(".py"):
+                        st = entry.stat()
+                        rel = os.path.relpath(entry.path, _PACKAGE_DIR)
+                        entries.append(f"{rel}|{st.st_size}|{st.st_mtime_ns}")
+    except OSError:
+        return None
+    return hashlib.sha1("\n".join(sorted(entries)).encode()).hexdigest()
 
 
 def _cachePath() -> str | None:
@@ -51,16 +79,14 @@ def _readCache() -> dict:
 
 
 def _fingerprint(path: str) -> dict | None:
+    package = _packageFingerprint()
     try:
         st = os.stat(path)
-        reg = os.stat(_REGISTRY_FILE)
     except OSError:
         return None
-    return {
-        "size": st.st_size,
-        "mtime": st.st_mtime_ns,
-        "registry": [reg.st_size, reg.st_mtime_ns],
-    }
+    if package is None:
+        return None
+    return {"size": st.st_size, "mtime": st.st_mtime_ns, "spandrel": package}
 
 
 def _cacheKey(path: str) -> str:

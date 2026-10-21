@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Changed
 - RIFE `-tensorrt` no longer loads the PyTorch model when its engines are cached: the first frame's and a scene cut's encoder features now come from the pair engine, as every other frame's already did. Driver build 459 → 281 ms (`rife4.26`, 720p, RTX 3090); the first interpolated frame and the first one after a cut change slightly (~58-60 dB), all others are bit-identical.
-- PyTorch upscale and restore models load through the one spandrel architecture that claimed that weight file last time (recorded in `.spandrelArchCache.json`) instead of importing all ~47: −65 ms per start after the first. A changed file or registry falls back to full detection.
+- PyTorch upscale and restore models load through the one spandrel architecture that claimed that weight file last time (recorded in `.spandrelArchCache.json`) instead of importing all ~47: −65 ms per start after the first. A changed weight file or any changed spandrel source falls back to full detection.
 - `--ae` no longer waits for the panel server to report its port before starting up (−85 ms per launch); a busy port is still reported.
 - `--ae` on a port that was already in use no longer hangs at exit: progress kept queueing for the server that never started, and after ~800 updates (a few long videos in one batch) TAS never exited.
 - Startup skips the NVML GPU probe when torch already reports CUDA and reads total RAM from the OS instead of importing psutil: −35 ms on every run.
