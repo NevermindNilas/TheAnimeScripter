@@ -299,12 +299,16 @@ def runServer(host, queue=None, bindStatus=None):
     httpd.serve_forever()
 
 
-def _awaitBind(process, bindStatus, bindTimeout):
+def _awaitBind(process, queue, bindStatus, bindTimeout):
     """Wait for ``process`` to report its bind. None if it bound, else why not.
 
     A child that did not bind is stopped, and no longer counts as the server.
+    Its progress ``queue`` is dropped too: nothing reads it any more, and once
+    ~64 KB of progress piled up in it, its feeder thread blocked interpreter
+    exit forever (a batch of long --ae videos on a busy port never exited).
     """
     global serverProcess
+    global progressQueue
 
     try:
         status, detail = bindStatus.get(timeout=bindTimeout)
@@ -316,6 +320,9 @@ def _awaitBind(process, bindStatus, bindTimeout):
         return None
     if serverProcess is process:
         serverProcess = None  # don't let the dead child mask a later retry
+    if progressQueue is queue:
+        progressQueue = None
+    queue.cancel_join_thread()
     try:
         process.terminate()
     except Exception:
@@ -347,16 +354,16 @@ def startServerInThread(host, bindTimeout=15.0, onFailure=None):
     )
     serverProcess.daemon = True
     serverProcess.start()
-    process = serverProcess
+    process, queue = serverProcess, progressQueue
 
     if onFailure is None:
-        failure = _awaitBind(process, bindStatus, bindTimeout)
+        failure = _awaitBind(process, queue, bindStatus, bindTimeout)
         if failure is not None:
             raise RuntimeError(failure)
         return process
 
     def watchBind():
-        failure = _awaitBind(process, bindStatus, bindTimeout)
+        failure = _awaitBind(process, queue, bindStatus, bindTimeout)
         if failure is not None:
             onFailure(failure)
 
