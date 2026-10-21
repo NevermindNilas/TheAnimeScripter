@@ -7,7 +7,6 @@ import torch
 from safetensors.torch import load_file
 
 from .canonicalize import canonicalize_state_dict
-from .main_registry import MAIN_REGISTRY
 from .model_descriptor import ModelDescriptor, StateDict
 from .registry import ArchRegistry
 from .unpickler import RestrictedUnpickle
@@ -19,11 +18,17 @@ class ModelLoader:
     def __init__(
         self,
         device: str | torch.device | None = None,
-        registry: ArchRegistry = MAIN_REGISTRY,
+        registry: ArchRegistry | None = None,
     ):
         if isinstance(device, str):
             device = torch.device(device)
         self.device: torch.device = device or torch.device("cpu")
+        if registry is None:
+            # TAS: imported here, not at module level, so `import spandrel`
+            # does not import every architecture.
+            from .main_registry import MAIN_REGISTRY
+
+            registry = MAIN_REGISTRY
         self.registry: ArchRegistry = registry
         """
         The architecture registry to use for loading models.

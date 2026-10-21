@@ -62,8 +62,8 @@ class UniversalPytorch:
 
         from src.spandrelCompat import (
             ImageModelDescriptor,
-            ModelLoader,
             UnsupportedDtypeError,
+            loadSpandrelModel,
         )
 
         if not self.customModel:
@@ -99,10 +99,10 @@ class UniversalPytorch:
             self.model.load_state_dict(stateDict, strict=False)
             del stateDict
         elif self.upscaleMethod == "smosr":
-            # SMoSR is a registered spandrel arch; ModelLoader reads the
+            # SMoSR is a registered spandrel arch; spandrel reads the
             # .safetensors, auto-detects dim/depth/rep, and reparameterizes
             # (fuses) the rep branches when .eval() runs below.
-            self.model = ModelLoader().load_from_file(modelPath)
+            self.model = loadSpandrelModel(modelPath)
             if not isinstance(self.model, ImageModelDescriptor):
                 raise TypeError(
                     f"SMoSR model {modelPath} did not resolve to an image model descriptor"
@@ -119,7 +119,7 @@ class UniversalPytorch:
             del stateDict
         else:
             if self.customModel:
-                self.model = ModelLoader().load_from_file(modelPath)
+                self.model = loadSpandrelModel(modelPath)
                 if not isinstance(self.model, ImageModelDescriptor):
                     raise TypeError(
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
@@ -130,7 +130,7 @@ class UniversalPytorch:
                 )
 
                 if isinstance(self.model, dict):
-                    self.model = ModelLoader().load_from_state_dict(self.model)
+                    self.model = loadSpandrelModel(modelPath, self.model)
 
             if self.customModel:
                 assert isinstance(self.model, ImageModelDescriptor)
@@ -367,8 +367,8 @@ class UniversalPytorchMPS:
 
         from src.spandrelCompat import (
             ImageModelDescriptor,
-            ModelLoader,
             UnsupportedDtypeError,
+            loadSpandrelModel,
         )
 
         if not self.customModel:
@@ -402,7 +402,7 @@ class UniversalPytorchMPS:
             self.model.load_state_dict(stateDict, strict=False)
             del stateDict
         elif self.baseMethod == "smosr":
-            self.model = ModelLoader().load_from_file(modelPath)
+            self.model = loadSpandrelModel(modelPath)
             if not isinstance(self.model, ImageModelDescriptor):
                 raise TypeError(
                     f"SMoSR model {modelPath} did not resolve to an image model descriptor"
@@ -419,7 +419,7 @@ class UniversalPytorchMPS:
             del stateDict
         else:
             if self.customModel:
-                self.model = ModelLoader().load_from_file(modelPath)
+                self.model = loadSpandrelModel(modelPath)
                 if not isinstance(self.model, ImageModelDescriptor):
                     raise TypeError(
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
@@ -429,7 +429,7 @@ class UniversalPytorchMPS:
                     modelPath, map_location="cpu", weights_only=False
                 )
                 if isinstance(self.model, dict):
-                    self.model = ModelLoader().load_from_state_dict(self.model)
+                    self.model = loadSpandrelModel(modelPath, self.model)
 
             try:
                 # SPANDREL HAXX
@@ -567,8 +567,8 @@ class UniversalPytorchROCm:
 
         from src.spandrelCompat import (
             ImageModelDescriptor,
-            ModelLoader,
             UnsupportedDtypeError,
+            loadSpandrelModel,
         )
 
         if not self.customModel:
@@ -602,7 +602,7 @@ class UniversalPytorchROCm:
             self.model.load_state_dict(stateDict, strict=False)
             del stateDict
         elif self.baseMethod == "smosr":
-            self.model = ModelLoader().load_from_file(modelPath)
+            self.model = loadSpandrelModel(modelPath)
             if not isinstance(self.model, ImageModelDescriptor):
                 raise TypeError(
                     f"SMoSR model {modelPath} did not resolve to an image model descriptor"
@@ -619,7 +619,7 @@ class UniversalPytorchROCm:
             del stateDict
         else:
             if self.customModel:
-                self.model = ModelLoader().load_from_file(modelPath)
+                self.model = loadSpandrelModel(modelPath)
                 if not isinstance(self.model, ImageModelDescriptor):
                     raise TypeError(
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
@@ -629,7 +629,7 @@ class UniversalPytorchROCm:
                     modelPath, map_location="cpu", weights_only=False
                 )
                 if isinstance(self.model, dict):
-                    self.model = ModelLoader().load_from_state_dict(self.model)
+                    self.model = loadSpandrelModel(modelPath, self.model)
 
             try:
                 self.model = self.model.model

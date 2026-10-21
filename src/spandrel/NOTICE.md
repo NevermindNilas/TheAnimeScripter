@@ -12,3 +12,8 @@ under non-permissive / research-only licenses. Only the permissively-licensed
 `libs/spandrel/spandrel/` package is retained. Per-architecture upstream licenses
 remain in each `architectures/<arch>/__arch/LICENSE`; spandrel's own license is in
 `LICENSE`.
+
+TAS changes to the package itself: `MAIN_REGISTRY` is built on first use
+(`spandrel.__getattr__`, and `ModelLoader`'s default `registry=None`) rather
+than at `import spandrel`, so loading a model whose architecture is already
+known imports only that architecture (`src/spandrelCompat.py:loadSpandrelModel`).

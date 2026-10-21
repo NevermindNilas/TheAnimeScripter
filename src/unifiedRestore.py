@@ -78,7 +78,7 @@ class UnifiedRestoreCuda:
 
         self.padMultiple = _PAD_MULTIPLES.get(self.model, 1)
 
-        from src.spandrelCompat import ModelLoader
+        from src.spandrelCompat import loadSpandrelModel
 
         if self.model in ["deepdeband-f"]:
             self.half = False
@@ -92,9 +92,9 @@ class UnifiedRestoreCuda:
         customLoaders = ("gater3", "deepdeband-f")
         if self.model not in customLoaders:
             try:
-                self.model = ModelLoader().load_from_file(path=modelPath)
+                self.model = loadSpandrelModel(modelPath)
                 if isinstance(self.model, dict):
-                    self.model = ModelLoader().load_from_state_dict(self.model)
+                    self.model = loadSpandrelModel(modelPath, self.model)
             except Exception as e:
                 logging.error(f"Error loading model: {e}")
         else:
@@ -412,16 +412,16 @@ class UnifiedRestoreMPS:
                 {"status": f"Loading MPS restore model: {self.model}..."}
             )
 
-        from src.spandrelCompat import ModelLoader
+        from src.spandrelCompat import loadSpandrelModel
 
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
 
         if self.model not in ["gater3"]:
             try:
-                self.model = ModelLoader().load_from_file(path=modelPath)
+                self.model = loadSpandrelModel(modelPath)
                 if isinstance(self.model, dict):
-                    self.model = ModelLoader().load_from_state_dict(self.model)
+                    self.model = loadSpandrelModel(modelPath, self.model)
             except Exception as e:
                 logging.error(f"Error loading model: {e}")
         else:
