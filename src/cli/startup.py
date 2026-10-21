@@ -188,16 +188,19 @@ def _handleDependencies(args):
             detectGPUArchitecture,
             detectNVidiaGPU,
             detectRocmGPU,
+            torchCudaSupport,
         )
 
-        isNvidia = detectNVidiaGPU()
-        supportsCuda = False
-        if isNvidia:
-            supportsCuda, _, _ = detectGPUArchitecture()
         isRocm = detectRocmGPU()
+        # The NVML / nvidia-smi probe only when torch cannot answer: before
+        # the dependencies are installed, or with a CPU-only torch.
+        supportsCuda = torchCudaSupport()
+        if supportsCuda is None:
+            supportsCuda = False
+            if detectNVidiaGPU():
+                supportsCuda, _, _ = detectGPUArchitecture()
         args.supportsCuda = supportsCuda or isRocm
     except ImportError:
-        isNvidia = False
         supportsCuda = False
         isRocm = False
         args.supportsCuda = False

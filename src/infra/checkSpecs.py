@@ -1,10 +1,42 @@
 import logging
 import os
 import platform
-
-import psutil
+import sys
 
 import src.constants as cs
+
+
+def _totalRamBytes():
+    # Read from the OS directly: psutil costs ~9 ms to import, and this log
+    # line is the only thing that used it.
+    if sys.platform == "win32":
+        import ctypes
+
+        class _MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        status = _MemoryStatusEx()
+        status.dwLength = ctypes.sizeof(status)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return status.ullTotalPhys
+    else:
+        try:
+            return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+        except ValueError, OSError, AttributeError:
+            pass
+    import psutil
+
+    return psutil.virtual_memory().total
 
 
 def _windowsCpuName():
@@ -28,8 +60,7 @@ def getWindowsInfo():
     osName = platform.system()
     osVersion = platform.release()
 
-    ramInfo = psutil.virtual_memory()
-    totalRam = round(ramInfo.total / (1024.0**3), 2)
+    totalRam = round(_totalRamBytes() / (1024.0**3), 2)
 
     cpuInfo = (
         _windowsCpuName()
@@ -53,8 +84,7 @@ def getLinuxInfo():
     osVersion = platform.release()
 
     cpuInfo = platform.processor()
-    ramInfo = psutil.virtual_memory()
-    totalRam = round(ramInfo.total / (1024.0**3), 2)
+    totalRam = round(_totalRamBytes() / (1024.0**3), 2)
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")
@@ -66,8 +96,7 @@ def getMacosInfo():
     osVersion = platform.mac_ver()[0] or platform.release()
 
     cpuInfo = platform.processor() or platform.machine()
-    ramInfo = psutil.virtual_memory()
-    totalRam = round(ramInfo.total / (1024.0**3), 2)
+    totalRam = round(_totalRamBytes() / (1024.0**3), 2)
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")

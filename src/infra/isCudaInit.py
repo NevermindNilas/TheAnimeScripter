@@ -376,6 +376,38 @@ def isTuringOrNewer(major, minor):
     return False
 
 
+def torchCudaSupport():
+    """detectGPUArchitecture()'s answer, from a torch that already sees CUDA.
+
+    True for a Turing-or-newer device, False for an older one, None when torch
+    cannot tell (not installed, a CPU or HIP build, no device). Startup imports
+    torch anyway, and asking it costs ~1 ms against NVML's ~20-30 ms; it also
+    answers for the device the run will actually use.
+    """
+    try:
+        import torch
+
+        if getattr(torch.version, "hip", None) is not None:
+            return None
+        if not torch.cuda.is_available():
+            return None
+        major, minor = torch.cuda.get_device_capability(0)
+        gpuName = torch.cuda.get_device_name(0)
+    except Exception:
+        return None
+
+    isModern = isTuringOrNewer(major, minor)
+    if isModern:
+        logging.info(
+            f"GPU {gpuName} has compute capability {major}.{minor} - modern CUDA support available"
+        )
+    else:
+        logging.warning(
+            f"GPU {gpuName} has compute capability {major}.{minor} (Pascal or older). DirectML backend recommended."
+        )
+    return isModern
+
+
 def detectNVidiaGPU():
     gpus = queryGpus()
     if gpus:
