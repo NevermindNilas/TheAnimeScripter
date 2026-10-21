@@ -158,26 +158,6 @@ def finalizeLiveWriters(timeout: float = 5.0) -> bool:
         return False
 
 
-def _resolveOutputScale(
-    width: int | None, height: int | None
-) -> tuple[int | None, int | None]:
-    """The `--output_scale` target for a writer, explicit value or run default.
-
-    Only ``main.py`` ever passed these; every standalone driver (depth,
-    segment, stabilize, moblur, obj_detect) builds its writer from a long
-    positional argument list that never carried them, so `--output_scale` was
-    silently discarded for half the toolkit while `src/cli/validator.py` logged
-    that it had been applied. The flag is run-wide, so falling back to
-    ``cs.OUTPUT_SCALE_*`` here fixes every driver at once and keeps a future
-    one from inheriting the same omission. An explicit argument still wins, and
-    a partial pair (one dimension only) is treated as unset, matching the
-    ``and`` guards at both consumers.
-    """
-    if width is None and height is None:
-        return cs.OUTPUT_SCALE_WIDTH, cs.OUTPUT_SCALE_HEIGHT
-    return width, height
-
-
 def _imageOutputPath(output: str, encodeMethod: str, singleImageOutput: bool) -> str:
     """Where a png/jpeg method writes, shared by both writers.
 
@@ -720,8 +700,6 @@ class WriteBuffer:
         inpoint: float | str = 0,
         outpoint: float | str = 0,
         slowmo: bool = False,
-        output_scale_width: int | None = None,
-        output_scale_height: int | None = None,
         enablePreview: bool = False,
         previewSink=None,
         single_image_output: bool = False,
@@ -746,8 +724,6 @@ class WriteBuffer:
             seconds for the audio trim. Defaults to fps (correct for every
             standalone driver, where output fps == source fps); main.py passes
             the source fps explicitly because interpolation changes fps.
-        output_scale_width: int - The target width for output scaling (optional).
-        output_scale_height: int - The target height for output scaling (optional).
         enablePreview: bool - Whether to sample preview frames for the preview server.
         previewSink: PreviewSink - In-memory holder the writer pushes preview JPEGs
             to. Preview is only active when a sink is supplied.
@@ -790,9 +766,6 @@ class WriteBuffer:
         self.outpoint = outpoint
         self.sourceFps = sourceFps if sourceFps else fps
         self.slowmo = slowmo
-        self.output_scale_width, self.output_scale_height = _resolveOutputScale(
-            output_scale_width, output_scale_height
-        )
         # Preview is sampled from the frames this writer already holds, never
         # produced by the encoder: the ffmpeg command below is identical whether
         # preview is on or off, so preview cannot perturb encoding. The sampler
@@ -1073,11 +1046,6 @@ class WriteBuffer:
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
         filterList = []
-
-        if self.output_scale_width and self.output_scale_height:
-            filterList.append(
-                f"scale={self.output_scale_width}:{self.output_scale_height}:flags=bilinear"
-            )
 
         if self.grayscale:
             filterList.append(
@@ -1505,8 +1473,6 @@ class NeluxWriteBuffer:
         bitDepth: str = "8bit",
         enablePreview: bool = False,
         previewSink=None,
-        output_scale_width: int | None = None,
-        output_scale_height: int | None = None,
         sourceFps: float | None = None,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
@@ -1539,10 +1505,6 @@ class NeluxWriteBuffer:
             bitDepth: "8bit" frames go out as uint8; "16bit" frames go out as
                 uint16 at full precision (nelux >= 0.17.0) into a 10-bit
                 pixel_format -- see matchNeluxEncoder's promotion table.
-            output_scale_width/output_scale_height: `--output_scale` target. The
-                encoder is built at these dims with nelux's encoder-side
-                `resize=True` (nelux >= 0.18.0), which scales incoming frames
-                inside the libswscale convert pass it already runs.
         """
         self.input = input
         # png_nelux/jpeg_nelux take the numbered path the FFmpeg twin writes
@@ -1644,23 +1606,8 @@ class NeluxWriteBuffer:
         self._uint16White = (
             _NELUX_CPU_LIMITED_WHITE if colourOptions and yuvOutput else 65535.0
         )
-        # --output_scale: build the encoder at the target dims and let nelux
-        # scale each incoming pipeline-res frame inside the libswscale convert
-        # pass it already runs (encoder-side resize, nelux >= 0.18.0). bilinear
-        # matches the FFmpeg twin's `scale=w:h:flags=bilinear` byte-identically.
-        # NVENC caveat: a CUDA frame whose size differs from the output takes
-        # nelux's CPU staging path (the fused NVENC kernel converts but does
-        # not scale).
-        output_scale_width, output_scale_height = _resolveOutputScale(
-            output_scale_width, output_scale_height
-        )
         self.outputWidth = width
         self.outputHeight = height
-        if output_scale_width and output_scale_height:
-            self.outputWidth = output_scale_width
-            self.outputHeight = output_scale_height
-            self.encoderKwargs["resize"] = True
-            self.encoderKwargs["resize_filter"] = "bilinear"
         self.codec = self.encoderKwargs["codec"]
         # NVENC variants expect a hardware encoder; software (libx*/libsvtav1) do not.
         self.expectHardware = self.codec.endswith("_nvenc")
@@ -1669,13 +1616,8 @@ class NeluxWriteBuffer:
         if checker.cudaAvailable:
             self.CudaStream = torch.cuda.Stream()
 
-        scaleNote = (
-            f" -> {self.outputWidth}x{self.outputHeight} (encoder-side resize)"
-            if self.encoderKwargs.get("resize")
-            else ""
-        )
         logging.info(
-            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps{scaleNote}, "
+            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, "
             f"codec={self.codec}, "
             f"pix_fmt={self.encoderKwargs.get('pixel_format', 'default')}, "
             f"bitDepth={self.bitDepth}"
@@ -1992,8 +1934,7 @@ def createWriteBuffer(encode_method: str, **kwargs):
 
     Every writer in src/ is built here, so a `*_nelux` method is honored by
     every operation: `--bit_depth 16bit` via matchNeluxEncoder's 10-bit
-    pixel_format promotion, `--output_scale` via nelux's encoder-side resize,
-    and the grayscale (depth) and transparent (segment) writers via its
+    pixel_format promotion, and the grayscale (depth) and transparent (segment) writers via its
     grayscale/transparent arms. Opus/Vorbis audio into a .mov needs no
     FFmpeg fallback since nelux 0.20.0: its passthrough transcodes it to AAC,
     as the FFmpeg writer does.

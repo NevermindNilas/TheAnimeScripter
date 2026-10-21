@@ -5,8 +5,24 @@ import os
 import sys
 from dataclasses import dataclass, field
 
-from src.cli.stageOrder import ORDER_PARENTS, recordStageOrder
+from src.cli.stageOrder import (
+    CHILD_FLAGS,
+    PER_STAGE_JSON_KEYS,
+    STAGE_FLAGS,
+    ChildEvent,
+    StageChainError,
+    buildFromNamespace,
+    recordChild,
+    recordedEvents,
+    recordJsonChain,
+    recordStage,
+    removedFlagMessage,
+    splitChainEntry,
+)
 from src.infra.logAndPrint import logAndPrint
+
+# --json keys that were removed with the old --resize/--output_scale pair.
+REMOVED_JSON_KEYS = ("output_scale", "resize_factor")
 
 
 def _actionsByDest(parser):
@@ -214,15 +230,6 @@ PARENT_FLAG_DEFAULTS = {
     "stabilize_method": ("stabilize", "classic"),
     "depth_method": ("depth", "small_v2"),
     "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
-    "resize_factor": ("resize", 2),
-    # --output_scale is deliberately absent. It is an encoder-side `scale=`
-    # filter (WriteBuffer._buildFilterList) and needs no capability flag, but
-    # mapping it onto "resize" here also handed it --resize_factor's default of
-    # 2: `--upscale --output_scale 1280x720` on a 640x360 source bilinearly
-    # doubled the DECODE to 1280x720, ran the model over 4x the pixels to
-    # 2560x1440, then made FFmpeg scale back down. Slower, more VRAM, softer.
-    # isAnyOtherProcessingMethodEnabled counts it directly instead, so
-    # --output_scale on its own is still a valid run.
     "moblur_method": ("moblur", "rife4.25"),
     "moblur_factor": ("moblur", 8),
     "moblur_strength": ("moblur", "gaussian_sym"),
@@ -285,6 +292,72 @@ class CliConfig:
             self.mergeJsonConfig()
 
         self.autoEnableParentFlags()
+        self.buildChain()
+
+    def buildChain(self):
+        """Turn what was recorded (flags or --json) into the stage drafts and
+        point the per-kind booleans and global settings at them."""
+        if self.parser is None:
+            return
+        try:
+            buildFromNamespace(self.args, self.parser)
+        except StageChainError as error:
+            self.failChain(str(error))
+
+    def failChain(self, message):
+        """A stage error: exit 2 with the parser's style for a command line
+        (it replaces argparse's own value checks), exit 1 for --json like every
+        other config error."""
+        if not getattr(self.args, "json", None) and hasattr(self.parser, "error"):
+            self.parser.error(message)
+        logAndPrint(f"JSON config: {message}", "red")
+        sys.exit(1)
+
+    def _jsonStageSwitch(self, key, value):
+        """``"upscale": true`` -- a stage key in key-order mode is on or off."""
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            from src.cli.parser import str2bool
+
+            try:
+                return str2bool(value)
+            except Exception:
+                pass
+        logAndPrint(
+            f"Invalid value for '{key}' in JSON config: {value!r}. Expected true "
+            f'or false. For per-stage values use "chain", e.g. "chain": '
+            f'["{key} ..."].',
+            "red",
+        )
+        sys.exit(1)
+
+    def _jsonResize(self, value):
+        """``"resize": "1440p"`` -- one resize stage at the key's position."""
+        # A frontend that serializes every field as text writes the removed
+        # on/off switch as "true"/"false"; that is the same migration.
+        if isinstance(value, bool) or (
+            isinstance(value, str)
+            and value.strip().lower() in ("true", "false", "yes", "no", "on", "off")
+        ):
+            self.failChain(
+                '"resize": true/false was removed: give the target instead, '
+                'e.g. "resize": "1440p", "resize": "1920x1080" or "resize": 0.5.'
+            )
+        if isinstance(value, (int, float)):
+            return [repr(value) if isinstance(value, float) else str(value)]
+        if isinstance(value, str):
+            try:
+                return splitChainEntry(value)
+            except ValueError as error:
+                self.failChain(f'"resize": cannot split {value!r}: {error}.')
+        self.failChain(
+            f'"resize" must be a size or scale such as "1440p" or 0.5, got {value!r}.'
+        )
 
     def mergeJsonConfig(self):
         extraCliOptions = self.providedOptions - {"json"}
@@ -297,11 +370,70 @@ class CliConfig:
             sys.exit(1)
 
         jsonConfig = self.loadJsonConfig()
+        if not isinstance(jsonConfig, dict):
+            logAndPrint(
+                "JSON config must be an object of option names, e.g. "
+                '{"input": "clip.mp4", "chain": ["upscale span"]}.',
+                "red",
+            )
+            sys.exit(1)
+
+        for key in REMOVED_JSON_KEYS:
+            if key in jsonConfig:
+                value = jsonConfig[key]
+                shown = (
+                    value
+                    if isinstance(value, (str, int, float))
+                    and not isinstance(value, bool)
+                    else None
+                )
+                self.failChain(removedFlagMessage(key, shown) + f' (JSON key "{key}")')
+
+        if "chain" in jsonConfig:
+            # The chain describes every stage; a per-stage key next to it would
+            # be a second, conflicting description.
+            clashing = [key for key in jsonConfig if key in PER_STAGE_JSON_KEYS]
+            if clashing:
+                self.failChain(
+                    '"chain" cannot be combined with per-stage keys '
+                    f"({', '.join(repr(k) for k in clashing)}). Put their "
+                    'values on the chain entries, e.g. "upscale span 2x".'
+                )
+
         defaults = self.parserDefaults
         loadedKeys = set()
         presentKeys = set()
+        switchedOff = set()
         for key, value in jsonConfig.items():
             if key == "json":
+                continue
+
+            if key == "chain":
+                presentKeys.add(key)
+                try:
+                    recordJsonChain(self.args, value)
+                except StageChainError as error:
+                    self.failChain(str(error))
+                continue
+
+            if key in STAGE_FLAGS:
+                # The file's key order is the processing order, as the command
+                # line's flag order is.
+                presentKeys.add(key)
+                if key == "resize":
+                    values = self._jsonResize(value)
+                    recordStage(self.args, key, values, '"resize"', where='"resize"')
+                    setattr(self.args, key, True)
+                    loadedKeys.add(key)
+                    continue
+                enabled = self._jsonStageSwitch(key, value)
+                setattr(self.args, key, enabled)
+                if enabled:
+                    recordStage(self.args, key, (), f'"{key}"')
+                    loadedKeys.add(key)
+                else:
+                    switchedOff.add(key)
+                logging.info(f"Loaded from JSON: {key} = {enabled}")
                 continue
 
             # Coerce first: `"upscale_factor": "2"` is a valid choice once it
@@ -318,12 +450,17 @@ class CliConfig:
                 if currentValue == defaultValue:
                     setattr(self.args, key, value)
                     logging.info(f"Loaded from JSON: {key} = {value}")
-                # The file's key order is the processing order, as the command
-                # line's flag order is. Same rule as the command line: the
-                # enabling key's place wins, and a child key counts only when it
-                # asks for something (below).
-                if key in ORDER_PARENTS and value:
-                    recordStageOrder(self.args, key, True)
+                if key in CHILD_FLAGS and value is not None:
+                    # Same rule as the command line, with one difference: a
+                    # key at its default asks for nothing (it never creates
+                    # or binds), it only keeps its typed value as a default.
+                    recordChild(
+                        self.args,
+                        key,
+                        value,
+                        f'"{key}"',
+                        default=value == defaultValue,
+                    )
                 if value != defaultValue:
                     # Only a key that actually asks for something counts as
                     # "provided". The After Effects panel serializes its whole
@@ -333,9 +470,6 @@ class CliConfig:
                     # dedup and restore for a config that asked for
                     # interpolation alone.
                     loadedKeys.add(key)
-                    parent = PARENT_FLAG_DEFAULTS.get(key, (None,))[0]
-                    if parent in ORDER_PARENTS:
-                        recordStageOrder(self.args, parent, False)
             else:
                 # logging.warning alone only reaches TAS-Log.log, so a typo'd
                 # key changed nothing and said nothing.
@@ -344,6 +478,15 @@ class CliConfig:
                 if close:
                     message += f" Did you mean '{close[0]}'?"
                 logAndPrint(message, "yellow")
+
+        # The config named the capability itself and said off. A sibling key
+        # must not overrule that: a JSON carrying both "upscale": false and
+        # "upscale_method" used to upscale anyway. The key still configures a
+        # stage that exists for another reason ("interpolate": false next to
+        # "smooth_dedup": true keeps its "interpolate_method").
+        for event in recordedEvents(self.args):
+            if isinstance(event, ChildEvent) and event.group in switchedOff:
+                event.creates = False
 
         self.jsonKeys.update(loadedKeys)
         self.jsonPresentKeys.update(presentKeys)

@@ -25,7 +25,7 @@
   - [🔧 Advanced Configuration](#-advanced-configuration)
 - [🎯 Model Selection Guide](#-model-selection-guide)
 - [🎞️ Encoding & Output Options](#️-encoding--output-options)
-- [🧭 Processing Order](#-processing-order)
+- [🧭 Stages and values](#-stages-and-values)
 - [📄 JSON Config Files](#-json-config-files)
 - [❓ Troubleshooting & FAQ](#-troubleshooting--faq)
 - [💡 Complete Usage Examples](#-complete-usage-examples)
@@ -94,6 +94,11 @@ TheAnimeScripter now automatically enables processing features when you specify 
 You can now simply use:
 ```bash
 --interpolate_method rife4.25 --upscale_method span-tensorrt
+```
+
+Or give the method as a value on the stage flag itself:
+```bash
+--interpolate rife4.25 --upscale span-tensorrt
 ```
 
 The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
@@ -315,7 +320,7 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--upscale` | flag | False | - | **Enable AI upscaling** — automatically enabled when `--upscale_method` is specified |
+| `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 4x`; repeatable; see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
 | `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
@@ -358,7 +363,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--interpolate` | flag | False | - | **Enable frame interpolation** — automatically enabled when `--interpolate_method` is specified |
+| `--interpolate` | values | - | method, factor, `ensemble`, ... | **Interpolation stage** — `--interpolate rife4.26 3x`; repeatable; see [Stages and values](#-stages-and-values). Also enabled by `--interpolate_method` alone |
 | `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
@@ -403,7 +408,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | `--slowmo` | flag | False | **Slow motion mode** - Slows video instead of increasing frame rate |
 | `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA, ROCm |
 
-> Where interpolation runs relative to upscaling is set by flag order, not by a flag. See [Processing Order](#-processing-order).
+> Where interpolation runs relative to upscaling is set by flag order, not by a flag, and `--interpolate` may be typed more than once (`--interpolate rife4.26 --interpolate 3x`). See [Stages and values](#-stages-and-values).
 
 #### ✂️ Scene-Cut-Aware Interpolation
 
@@ -421,7 +426,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--dedup` | flag | False | - | **Remove duplicate frames** — automatically enabled when `--dedup_method` is specified |
+| `--dedup` | values | - | method, sensitivity | **Duplicate removal stage** — `--dedup mse 40`; repeatable. Also enabled by `--dedup_method` alone |
 | `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** — specifying a non-default method auto-enables deduplication |
 | `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
@@ -440,13 +445,13 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 
 > **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
 >
-> **Order:** `--dedup` runs where it is typed (see [Processing Order](#-processing-order)). Typed after `--interpolate`, it still runs, with a warning.
+> **Order:** `--dedup` runs where it is typed and may be typed more than once (see [Stages and values](#-stages-and-values)). Typed after `--interpolate`, it still runs, with a warning.
 
 ### 🎞️ Smooth Deduplication
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate` at the position `--smooth_dedup` is typed (an `--interpolate` typed elsewhere is ignored), disables `--dedup`, keeps audio |
+| `--smooth_dedup` | values | - | interpolation and detection values | **Interpolate across duplicate frames** — an interpolation stage of its own (`--smooth_dedup rife4.26 2x mse 20%`): at most one, the first interpolation, runs where it is typed. Without interpolation values it takes over a single `--interpolate`. Disables every `--dedup`, keeps audio |
 | `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup`; places interpolation only if `--interpolate` was not typed |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
 | `--smooth_dedup_max_span` | int | 6 | 0+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies. 0 = no cap, interpolate every run |
@@ -480,7 +485,7 @@ rather than held whole. `0` removes the cap entirely, so every duplicate run is 
 matter how long; useful when the "duplicates" are really slow motion (a pan misdetected at high
 sensitivity, a baked slowdown) rather than static holds. Negative values are treated as 0.
 
-Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `--scenechange`,
+Works alongside `--upscale` (either pipeline order), a second interpolation (`--smooth_dedup 1x --interpolate 2x`), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop
 (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`).
 
@@ -499,7 +504,7 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
-| `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
+| `--restore` | values | - | restore methods | **Restoration stage** — `--restore scunet nafnet` runs both in order as one stage; repeatable. Also enabled by `--restore_method` alone |
 | `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
 | `--stabilize` | flag | False | - | **Enable video stabilization** (black border fill, no crop) |
 | `--stabilize_method` | str | "classic" | ["classic", "dut", "dut-rocm"] | **Stabilization method** — specifying it auto-enables `--stabilize`. `classic`: feature-point global translation/rotation smoothing (CPU); `dut` / `dut-rocm`: DUT deep unsupervised stabilization with per-region mesh warping — markedly smoother output and less content pushed off-frame, CUDA / ROCm respectively, slower, downloads ~57MB of weights on first use |
@@ -655,51 +660,24 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 > **Output:** cut timestamps (seconds, one per line) are written per input video as `<name>-Autoclip.txt` in the output directory; `--output cuts.txt` names the file explicitly. Batches write one file per video.
 
-### 📏 Resizing & Output Scaling
+### 📏 Resizing
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--resize` | flag | False | - | **Enable resizing** |
-| `--resize_factor` | float | 2.0 | 0.1-10.0 | **Resize multiplier** (>1 = larger, <1 = smaller) |
-| `--output_scale` | str | "" | WIDTHxHEIGHT | **Output resolution** (e.g., 2560x1440, 1920x1080) |
+| `--resize` | value | - | `1920x1080`, `1440p`, `4k`, `8k`, `0.5`, `0.5x`, `50%` | **Resize stage**, wherever it is typed; repeatable. The first stage of the chain is resized by the decoder |
 
-#### 🎯 Output Scaling Examples
-
-**Common Resolutions:**
 ```bash
-# 1440p output
---output_scale 2560x1440
+# Downscale before upscaling (decoder resize, the old --resize --resize_factor 0.5)
+./python.exe ./main.py --input anime.mp4 --resize 0.5 --upscale span-tensorrt
 
-# 4K output  
---output_scale 3840x2160
+# Upscale anime, then fit the result to 4K (the old --output_scale 3840x2160)
+./python.exe ./main.py --input anime.mp4 --upscale span-tensorrt --resize 3840x2160
 
-# 1080p output
---output_scale 1920x1080
+# 1440p output, width from the aspect ratio
+./python.exe ./main.py --input video.mp4 --interpolate rife4.22-tensorrt --resize 1440p
 ```
 
-**Combined with AI Enhancement:**
-```bash
-# Upscale anime to 4K
-./python.exe ./main.py --input anime.mp4 \
-  --upscale --upscale_method span-tensorrt \
-  --output_scale 3840x2160
-
-# Create smooth 1440p output
-./python.exe ./main.py --input video.mp4 \
-  --interpolate --interpolate_method rife4.22-tensorrt \
-  --output_scale 2560x1440
-```
-
-> **💡 Note:** `--output_scale` uses bilinear scaling for minimal artifacts and is applied during encoding for optimal performance.
-
-> **Note:** it applies to every capability, including the standalone ones that
-> bypass the main frame loop (`--depth`, `--segment`, `--stabilize`, `--moblur`,
-> `--obj_detect`) — those used to discard it silently while the log claimed it
-> had been applied. Two consequences worth knowing: with `--segment` the alpha
-> matte is resampled along with the colour, so a hard edge softens slightly at a
-> smaller size; with `--obj_detect` the boxes and labels are drawn at source
-> resolution and then scaled down with the frame, so a large downscale makes
-> them hard to read.
+`--resize_factor` and `--output_scale` were removed. See [Stages and values](#-stages-and-values) for the size rules and the migration table.
 
 ---
 
@@ -931,7 +909,7 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | **png_nelux** | png | - |
 | **jpeg_nelux** | jpeg | - |
 
-> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path). `--depth` and `--segment` use it too: depth maps are encoded from grayscale frames into the same pixel format as the plain encoder (`yuv420p`, or `yuv444p10le`/`p010le` at `--bit_depth 16bit`), and segmentation turns any in-process encoder into `prores_segment_nelux` (ProRes 4444 with alpha), as it turns plain encoders into `prores_segment`. Like the plain encoders, neither applies the BT.709 conversion (segment output decodes byte-identical to `prores_segment`); the in-process file is tagged bt470bg where the plain one is left untagged. `--output_scale` IS honored in-process (nelux ≥ 0.18.0 scales inside the encoder, bilinear, matching the plain encoders' `scale=` filter). `png_nelux`/`jpeg_nelux` write the same numbered sequence as `png`/`jpeg` (one file for a single-image input) and carry no audio. The AMF family remains FFmpeg-only.
+> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path). `--depth` and `--segment` use it too: depth maps are encoded from grayscale frames into the same pixel format as the plain encoder (`yuv420p`, or `yuv444p10le`/`p010le` at `--bit_depth 16bit`), and segmentation turns any in-process encoder into `prores_segment_nelux` (ProRes 4444 with alpha), as it turns plain encoders into `prores_segment`. Like the plain encoders, neither applies the BT.709 conversion (segment output decodes byte-identical to `prores_segment`); the in-process file is tagged bt470bg where the plain one is left untagged. `png_nelux`/`jpeg_nelux` write the same numbered sequence as `png`/`jpeg` (one file for a single-image input) and carry no audio. The AMF family remains FFmpeg-only.
 
 #### High-Quality Presets
 
@@ -981,39 +959,177 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 
 ---
 
-## 🧭 Processing Order
+## 🧭 Stages and values
 
-The command line's flag order is the processing order. The four frame-loop stages take their place from the first flag that turns each one on or configures it:
-
-| Stage | Enabled by | Configured by |
-|-------|------------|---------------|
-| `dedup` | `--dedup` | `--dedup_method`, `--dedup_sens` |
-| `restore` | `--restore` | `--restore_method` |
-| `upscale` | `--upscale` | `--upscale_method`, `--upscale_factor` |
-| `interpolate` | `--interpolate` | `--interpolate_method`, `--interpolate_factor` |
+The frame-loop stages are `--dedup`, `--restore`, `--upscale`, `--interpolate`, `--smooth_dedup` and `--resize`. They run in the order you type them. Every stage except `--smooth_dedup` may be typed any number of times, and each one takes its own settings as values right after the flag:
 
 ```bash
-# Upscale, then interpolate the upscaled frames
-./python.exe ./main.py --input video.mp4 --upscale --interpolate
-
-# Interpolate the source frames, then upscale every output frame
-./python.exe ./main.py --input video.mp4 --interpolate --upscale
+./python.exe ./main.py --input video.mp4 \
+  --resize 720p --upscale span --resize 1440p --interpolate rife4.26 \
+  --upscale shufflecugan --interpolate 3x --restore scunet nafnet anime1080fixer
 ```
 
-- The enabling flag's position counts. When it is absent, the first configuring flag's position counts, so an upscale method given alone places upscaling where that option was typed. Abbreviated flag names, `=value` forms and multi-value flags are read where argparse resolved them.
-- A stage that ends up disabled takes no place. For example, `--dedup` is forced off by `--smooth_dedup`.
-- `--smooth_dedup` places interpolation at its own position, wherever `--interpolate` was typed. A smooth-dedup option typed without `--smooth_dedup` itself (`--smooth_dedup_method`, `--smooth_dedup_sens`, `--smooth_dedup_max_span`) places interpolation only when `--interpolate` was not typed. Its duplicate detector always runs first, on decoded frames.
-- `--scenechange` is a modifier, not a stage. It runs before the first upscale or interpolation.
-- Frontends that build the command line or `--json` file decide the order too: they must emit the stages in the order the user chose, not in a fixed form order.
-- Motion blur, depth, segment, object detection, stabilization and autoclip run outside the frame loop and have no place in the order.
-- A stage after `--upscale` works on upscaled pixels, and a stage after `--interpolate` works on every interpolated frame. `--dedup_method flownets` after `--upscale` compares flow in upscaled pixels, so `--dedup_sens` is about N× stricter after an N× upscale.
-- `--dedup` after `--interpolate` still runs, with a warning: dedup then discards most of the in-between frames interpolated across held drawings.
+This runs, in order: resize to 720p → upscale with `span` (2x) → resize to 1440p → interpolate with `rife4.26` (2x) → upscale with `shufflecugan` (2x) → interpolate 3x (still `rife4.26`, carried over from the previous `--interpolate`) → restore with `scunet`, then `nafnet`, then `anime1080fixer`. The output runs at 6x the source frame rate. At startup TAS prints the resolved chain. The `span` upscale already hands on 1440p frames, so the 1440p resize changes nothing: the line marks it `(no-op)` and it is skipped:
 
-The order that used to be a separate switch is now typed directly: `--interpolate ... --upscale` is the old default, and `--upscale ... --interpolate` is the old "interpolate last" choice.
+```
+Order: resize 720p → upscale span → resize 1440p (no-op) → interpolate rife4.26 2x → upscale shufflecugan → interpolate rife4.26 3x → restore scunet nafnet anime1080fixer
+```
+
+### Values
+
+A stage flag takes zero or more values, up to the next option. The `=` form (`--upscale=span`) gives exactly one value. The order of the values does not matter. Each value is read as one of these forms:
+
+| Stage | Method name | Factor `2x` | Percent `40%` | Bare number `40` | Size | `key=value` | Words |
+|-------|-------------|-------------|---------------|------------------|------|-------------|-------|
+| `--dedup` | a dedup method | - | sensitivity | sensitivity | - | `method=`, `sens=` | - |
+| `--restore` | one or more restore methods, run in the order given (one stage) | - | - | - | - | `method=` (repeatable) | - |
+| `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
+| `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=` | `ensemble`, `dynamic_scale`, `static_step` |
+| `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=` | as `--interpolate` |
+| `--resize` | - | scale | scale (`50%` = 0.5) | scale | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
+
+A `-` means that form is an error for that stage.
+
+- **Method names** match exactly and are always one value. `--interpolate rife 4.26` is an error ("did you mean 'rife4.26'"), never "rife" plus a factor of 4.26. `--smooth_dedup` tells an interpolation method from a detection method by name; the two lists never overlap.
+- **Factors** are written `2x`, `x2`, `2.5x` (the `x` is case-insensitive). Numbers are plain decimals: `1e3`, `inf`, `nan`, `1_000` and signed values such as `-2x` are refused.
+- **Ranges** are checked per stage: sensitivity 0-100 (a value on the stage flag; `--dedup_sens` and `--smooth_dedup_sens` accept what they always did), upscale factor 2, 3 or 4, interpolation factor at least 1 (1 only does something on `--smooth_dedup`).
+- **Bool settings** are a bare word (`ensemble`) or `ensemble=true` / `ensemble=false` (also `yes`/`no`, `1`/`0`).
+- **One setting per flag:** `--interpolate 2x 4x` or `--upscale span method=cyte` is an error. The same value twice is fine. To run a second stage, type the flag again.
+- **Custom models:** a value containing `/` or `\`, or ending in `.pt`, `.pth`, `.ckpt`, `.safetensors` or `.onnx`, is a custom model path for `--upscale` and must exist (`model=PATH` does the same). Quote paths with spaces.
+- **Errors name the stage** (`upscale #2`), the value and the closest matches, e.g. `interpolate #1: unknown value 'rife'. Did you mean 'rife4.26'? A method name is one value; do not split it with a space.`
+
+### Resize
+
+| Value | Meaning |
+|-------|---------|
+| `1920x1080` | exactly that size |
+| `1440p` | height 1440; the width keeps the aspect ratio of the frames this stage receives (`round(w * 1440 / h / 2) * 2`) |
+| `4k`, `8k` | `2160p`, `4320p` |
+| `0.5`, `0.5x`, `50%`, `scale=0.5` | scale both sides; each side is rounded to an even number, at least 16 |
+
+- Typed sizes (`W`, `H` and `N` of `Np`) must be even and at least 16. A scale must be above 0. A bare `--resize` with no target is an error.
+- A `--resize` that is the **first** stage is done by the decoder; it is bit-identical to the removed `--resize --resize_factor`. Any other `--resize` resizes in the chain (bicubic, antialiased when either side shrinks).
+- A resize to the size the stage already receives is skipped.
+- Resize does not carry over: every `--resize` needs its own target.
+- The standalone capabilities (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`) take at most one `--resize`, applied when decoding.
+
+### Repeating a stage
+
+- A repeated stage without values reuses the settings of the previous stage of the same kind: `--upscale span 4x --interpolate --upscale` runs `span` 4x twice.
+- Values given on the repeat replace only those settings: in `--interpolate rife4.26 --interpolate 3x`, the second stage keeps `rife4.26`.
+- A repeat inherits what the previous stage asked for, and each stage is then checked on its own: in `--interpolate rife4.26-tensorrt --dynamic_scale --interpolate rife4.26`, `dynamic_scale` is dropped (with a warning) on the TensorRT stage and kept on the second.
+- A plain `--interpolate` after a `--smooth_dedup` that has values of its own reuses its interpolation settings (method, factor, `ensemble`, ...), not its detection settings.
+- A repeated `--restore` reuses the whole method list.
+- An `--upscale` that names its own method does not reuse a previous custom model.
+- Each stage loads its own model, so VRAM adds up.
+- Stages are named `upscale`, `upscale#2`, ... in the log; error messages say `upscale #2 (span)`.
+- The output name repeats the kind's suffix in chain order: `--interpolate --interpolate 3x` gives `-Int2-Int3`, and a resize adds its target (`-Resize1440p`).
+
+### Long flags
+
+`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step` and `--smooth_dedup_method`/`_sens`/`_max_span` keep working:
+
+- A long flag applies to the **last stage of its kind typed before it**. `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale` and `--static_step` apply to the last `--interpolate` or `--smooth_dedup`; `--smooth_dedup_method`, `--smooth_dedup_sens` and `--smooth_dedup_max_span` apply only to `--smooth_dedup`; `--custom_model` applies to `--upscale`.
+- Typed **before every stage of its kind**, it is the default for all of them. Typed there twice, the last one wins, as before.
+- With **no stage of its kind** at all, a method, factor or sensitivity flag adds one stage where it is typed, as before: `--upscale_method span` alone upscales. `--custom_model`, `--ensemble`, `--dynamic_scale` and `--static_step` never add a stage.
+- A long flag that disagrees with a value given on its stage, or with another long flag applied to the same stage, is an error. Equal values are fine.
+- **Precedence** for each setting: a value on the stage flag > a long flag applied to that stage > the previous stage of the same kind > a long flag typed before every stage of its kind > the built-in default.
+
+| Command | Runs |
+|---------|------|
+| `--upscale span --upscale_factor 4` | `span` 4x |
+| `--upscale_factor 4 --upscale span --upscale cyte` | `span` 4x, then `cyte` 4x |
+| `--upscale span --upscale_factor 4 --upscale cyte` | `span` 4x, then `cyte` 4x (the factor carries over) |
+| `--upscale span --upscale cyte --upscale_factor 4` | `span` 2x, then `cyte` 4x |
+| `--upscale 2x --upscale_factor 4` | error: factor given twice |
+| `--interpolate_method rife4.26 --upscale` | interpolate with `rife4.26`, then upscale (the long flag added the stage where it was typed) |
+
+### Smooth dedup
+
+- `--smooth_dedup` is an interpolation stage that interpolates across duplicate frames. A chain has at most one, and it must be the first interpolation, because its gaps are measured in source frames.
+- It takes interpolation and detection values: `--smooth_dedup rife4.26 2x mse 20%` (or `sens=20`). A bare number is refused, because it could mean either.
+- Without interpolation values of its own it takes over a single plain `--interpolate`, whatever long flags were typed around them, so `--interpolate rife4.26 --smooth_dedup` and `--smooth_dedup --ensemble --interpolate rife4.26` are still one interpolation, as before. For two, give `--smooth_dedup` a value: `--smooth_dedup 1x --interpolate 2x`. It runs where `--smooth_dedup` was typed; smooth-dedup long flags alone (`--smooth_dedup_sens 20`) do not move a typed `--interpolate`.
+- With two or more plain `--interpolate`, put the method and factor of the smooth interpolation on `--smooth_dedup` itself: `--smooth_dedup rife4.26 2x --upscale --interpolate 2x`.
+- It disables every `--dedup` stage, with a warning. Its duplicate detector always runs first, on decoded frames.
+
+### Order notes
+
+- `--scenechange` is a modifier, not a stage. It runs before the first upscale or interpolation (a resize does not count).
+- `--dedup` after an interpolation still runs, with a warning: it discards most of the frames interpolated across held drawings.
+- A stage after `--upscale` (or an enlarging `--resize`) works on the larger frames, and a stage after `--interpolate` works on every interpolated frame. `--dedup flownets` after an N× upscale compares flow in upscaled pixels, so its sensitivity is about N× stricter.
+- The output frame rate is the source rate times every interpolation factor (`--interpolate --interpolate 3x` = 6x); `--slowmo` keeps the source rate.
+- Motion blur, depth, segmentation, object detection, stabilization and autoclip run outside the frame loop and have no place in the chain.
+- Frontends that build a command line or a `--json` file must emit the stages in the order the user chose.
+
+### Shells
+
+- In a Windows `.bat`/`.cmd` file, `%` must be written `%%`: `--dedup 40%%`. `--dedup 40` and `sens=40` need no escaping and work in every shell.
+- Quote values with spaces: `--upscale "D:/my models/4x_custom.pth"`.
+
+### Removed flags
+
+| Removed | Use instead |
+|---------|-------------|
+| `--resize --resize_factor 0.5` | `--resize 0.5`. Typed first, it is the same decoder resize, bit-identical. |
+| `--output_scale 2560x1440` | `--resize 2560x1440` typed last. It resizes in the chain (bicubic) instead of in the encoder (bilinear). Standalone capabilities take one `--resize` at decode instead; they no longer scale in the encoder. |
+| `--resize` with no value | `--resize <target>` |
+
+Using a removed flag stops with a message naming its replacement. The JSON keys `output_scale`, `resize_factor` and `"resize": true/false` do the same.
+
+### Examples
+
+```bash
+# Two upscalers, one after the other
+./python.exe ./main.py --input in.mp4 --upscale span --upscale shufflecugan
+
+# Downscale a 4K source before upscaling (done by the decoder)
+./python.exe ./main.py --input in.mp4 --resize 1080p --upscale span
+
+# Final size, the replacement for --output_scale
+./python.exe ./main.py --input in.mp4 --upscale span --interpolate rife4.26 --resize 2560x1440
+
+# Interpolate twice: 2x, then 3x on the result (6x in total)
+./python.exe ./main.py --input in.mp4 --interpolate rife4.26 --interpolate 3x
+
+# Smooth the motion of anime on twos (2x), then double it again: 4x the source frame rate
+./python.exe ./main.py --input in.mp4 --smooth_dedup rife4.26 --interpolate 2x
+
+# Remove duplicates between two interpolations (warns: dedup after interpolate)
+./python.exe ./main.py --input in.mp4 --interpolate rife4.6 --dedup 20 --interpolate
+
+# Restore before and after upscaling, three restore stages
+./python.exe ./main.py --input in.mp4 --restore deh264_real --upscale span --restore scunet --restore anime1080fixer
+
+# CPU restore, then a resize, then flownets dedup
+./python.exe ./main.py --input in.mp4 --restore scunet-directml --resize 0.5 --dedup flownets
+
+# key=value form, any order
+./python.exe ./main.py --input in.mp4 --interpolate factor=2.5 method=rife4.26 ensemble
+
+# A custom model, with a long flag as the default for every upscale
+./python.exe ./main.py --input in.mp4 --upscale_factor 4 --upscale "D:/models/4x_custom.pth" --upscale span
+
+# The long-flag spelling still works and means the same as before
+./python.exe ./main.py --input in.mp4 --interpolate --interpolate_method rife4.26 --interpolate_factor 3
+```
 
 ## 📄 JSON Config Files
 
 `--json <path>` loads options from a JSON file instead of the command line. It must be supplied alone (no other CLI flags); the script refuses to mix JSON with other CLI arguments. Unknown keys are reported and ignored. The key order in the file is the processing order, the same rule as the command line. A key that carries its default value takes no place in the order.
+
+`"chain"` describes the stages with the command line's value grammar, one string per stage, in processing order. The first word is the stage (`dedup`, `restore`, `upscale`, `interpolate`, `smooth_dedup`, `resize`), the rest are its values. Entries are split like a shell line, so quote paths with spaces:
+
+```json
+{
+  "input": "episode.mkv",
+  "chain": ["resize 1440p", "upscale span", "interpolate rife4.26 3x", "upscale \"D:/my models/4x.pth\"", "restore scunet nafnet"],
+  "encode_method": "x265_10bit"
+}
+```
+
+- `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `dedup*`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`half`, `slowmo`, `scenechange`, encode options, ...) are fine.
+- An empty list means no frame-loop stages. A non-string or empty entry, or an unknown stage name, is an error naming the entry's index (`"chain"[2]`).
+- Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"` and `"resize_factor"` were removed and stop with a message.
 
 > A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.
 
@@ -1029,7 +1145,7 @@ The order that used to be a separate switch is now typed directly: `--interpolat
 **Symptoms:** CUDA/GPU memory errors during processing
 
 **Solutions:**
-1. **Reduce resolution:** Use `--resize_factor 0.5` before upscaling
+1. **Reduce resolution:** Put `--resize 0.5` before `--upscale`
 2. **Enable FP16:** Use `--half True` (default)
 3. **Switch models:** Try "lite" variants (e.g., `rife4.22-lite`)
 4. **Process shorter clips:** Use `--inpoint` and `--outpoint`
@@ -1111,7 +1227,7 @@ The order that used to be a separate switch is now typed directly: `--interpolat
 
 **💾 Memory Management:**
 - Monitor GPU memory usage
-- Use `--resize_factor` to reduce memory load
+- Put `--resize 0.5` first to reduce memory load
 - Process in segments for long videos
 - Close unnecessary applications
 

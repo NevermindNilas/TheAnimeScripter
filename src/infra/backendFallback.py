@@ -110,9 +110,11 @@ def _warnNoFallback(attr, method, choices, preferMps, capability, preferRocm=Fal
         for choice in (choices or ())
         if any(choice.endswith(suffix) for suffix in suggestable)
     )
+    # A repeated stage passes "upscale #2: upscale_method"; name it as is.
+    flag = attr if ":" in attr else f"--{attr}"
     message = (
         f"'{method}' has no {'/'.join(s.lstrip('-') for s in tried)} variant, so "
-        f"--{attr} is unchanged and this run will fail if it needs CUDA."
+        f"{flag} is unchanged and this run will fail if it needs CUDA."
     )
     if alternatives:
         shown = ", ".join(alternatives[:6])
@@ -122,66 +124,120 @@ def _warnNoFallback(attr, method, choices, preferMps, capability, preferRocm=Fal
     logAndPrint(message, "yellow", level="WARNING")
 
 
-def applyBackendFallbacks(
-    args, availableModels, preferMps=False, methodChoices=None, preferRocm=False
+# The capabilities that are chain stages: with a chain their methods are
+# rewritten per stage, never through the global attribute.
+STAGE_METHOD_ATTRIBUTES = {
+    "interpolate": "interpolate_method",
+    "upscale": "upscale_method",
+    "restore": "restore_method",
+    "dedup": "dedup_method",
+}
+
+
+def _adjustedMethods(
+    attr, currentMethod, availableModels, preferMps, choices, capability, preferRocm
 ):
+    """``currentMethod`` (a method, or the restore list) after the fallback."""
+    if isinstance(currentMethod, (list, tuple)):
+        adjusted = []
+        for method in currentMethod:
+            if hasExplicitBackend(method):
+                logging.info(f"{attr} method {method} already uses a backend")
+                adjusted.append(method)
+                continue
+
+            newMethod = fallbackMethod(
+                method,
+                availableModels,
+                preferMps=preferMps,
+                choices=choices,
+                capability=capability,
+                preferRocm=preferRocm,
+            )
+            if newMethod != method:
+                logging.info(f"Adjusted {attr} method from {method} to {newMethod}")
+            else:
+                _warnNoFallback(
+                    attr, method, choices, preferMps, capability, preferRocm
+                )
+            adjusted.append(newMethod)
+        return type(currentMethod)(adjusted)
+
+    if hasExplicitBackend(currentMethod):
+        logging.info(f"{attr} already uses a backend: {currentMethod}")
+        return currentMethod
+
+    newMethod = fallbackMethod(
+        currentMethod,
+        availableModels,
+        preferMps=preferMps,
+        choices=choices,
+        capability=capability,
+        preferRocm=preferRocm,
+    )
+    if newMethod != currentMethod:
+        logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
+    else:
+        logging.info(f"No adjustment for {attr} ({currentMethod} remains unchanged)")
+        _warnNoFallback(attr, currentMethod, choices, preferMps, capability, preferRocm)
+    return newMethod
+
+
+def applyBackendFallbacks(
+    args,
+    availableModels,
+    preferMps=False,
+    methodChoices=None,
+    preferRocm=False,
+    stages=None,
+):
+    """Rewrite CUDA-only methods to a sibling backend.
+
+    ``stages`` are the chain's stage drafts (``src/cli/stageOrder.py``). When
+    given, every stage's own method is rewritten (a repeated kind is named in
+    the messages) and the global ``*_method`` attributes of the stage kinds are
+    left to the caller's sync; the standalone capabilities always go through
+    their globals.
+    """
     methodChoices = methodChoices or {}
+    handled = set()
+
+    if stages is not None:
+        handled = set(STAGE_METHOD_ATTRIBUTES.values())
+        for stage in stages:
+            attr = STAGE_METHOD_ATTRIBUTES.get(stage.kind)
+            if attr is None:
+                continue
+            key = "methods" if stage.kind == "restore" else "method"
+            display = stage.flagName(attr) if hasattr(stage, "flagName") else attr
+            stage.settings[key] = _adjustedMethods(
+                display,
+                stage.settings[key],
+                availableModels,
+                preferMps,
+                methodChoices.get(stage.kind),
+                stage.kind,
+                preferRocm,
+            )
 
     for attr, flagName in METHOD_ATTRIBUTES.items():
-        if not getattr(args, flagName, False):
+        if attr in handled or not getattr(args, flagName, False):
             continue
 
         currentMethod = getattr(args, attr)
-        choices = methodChoices.get(flagName)
-
-        if attr == "restore_method" and isinstance(currentMethod, list):
-            adjusted = []
-            for method in currentMethod:
-                if hasExplicitBackend(method):
-                    logging.info(f"{attr} method {method} already uses a backend")
-                    adjusted.append(method)
-                    continue
-
-                newMethod = fallbackMethod(
-                    method,
-                    availableModels,
-                    preferMps=preferMps,
-                    choices=choices,
-                    capability=flagName,
-                    preferRocm=preferRocm,
-                )
-                if newMethod != method:
-                    logging.info(f"Adjusted {attr} method from {method} to {newMethod}")
-                else:
-                    _warnNoFallback(
-                        attr, method, choices, preferMps, flagName, preferRocm
-                    )
-                adjusted.append(newMethod)
-            setattr(args, attr, adjusted)
-            continue
-
-        if hasExplicitBackend(currentMethod):
-            logging.info(f"{attr} already uses a backend: {currentMethod}")
-            continue
-
-        newMethod = fallbackMethod(
+        newMethod = _adjustedMethods(
+            attr,
             currentMethod,
             availableModels,
-            preferMps=preferMps,
-            choices=choices,
-            capability=flagName,
-            preferRocm=preferRocm,
+            preferMps,
+            methodChoices.get(flagName),
+            flagName,
+            preferRocm,
         )
-        if newMethod != currentMethod:
-            logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
+        if attr == "restore_method" and isinstance(currentMethod, list):
+            setattr(args, attr, list(newMethod))
+        elif newMethod != currentMethod:
             setattr(args, attr, newMethod)
-        else:
-            logging.info(
-                f"No adjustment for {attr} ({currentMethod} remains unchanged)"
-            )
-            _warnNoFallback(
-                attr, currentMethod, choices, preferMps, flagName, preferRocm
-            )
 
     if getattr(args, "moblur", False):
         moblurMethod = args.moblur_method

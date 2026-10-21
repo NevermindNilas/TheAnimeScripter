@@ -220,18 +220,12 @@ class VideoProcessor:
         self.stabilize: bool = args.stabilize
         self.stabilizeMethod: str = args.stabilize_method
 
-        # Processing parameters
-        self.interpolateFactor: int = args.interpolate_factor
-        self.interpolateMethod: str = args.interpolate_method
-        self.upscaleFactor: int = args.upscale_factor
-        self.upscaleMethod: str = args.upscale_method
-        self.dedupMethod: str = args.dedup_method
-        self.dedupSens: float = args.dedup_sens
+        # The processing chain, one StageSpec per typed stage, in order (see
+        # src/pipeline/chain.py). Every per-stage setting (methods, factors,
+        # sensitivities, custom model) lives on these specs; the run-wide
+        # args.<stage>_method-style attributes are not read here.
+        self.chain: tuple = tuple(getattr(args, "chain", None) or ())
         self.smoothDedup: bool = getattr(args, "smooth_dedup", False)
-        self.smoothDedupMethod: str = getattr(args, "smooth_dedup_method", "ssim")
-        self.smoothDedupSens: float = getattr(args, "smooth_dedup_sens", 35.0)
-        self.smoothDedupMaxSpan: int = getattr(args, "smooth_dedup_max_span", 6)
-        self.restoreMethod: str = args.restore_method
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
         self.segmentBatch: int = getattr(args, "segment_batch", 1)
@@ -240,10 +234,12 @@ class VideoProcessor:
 
         # Quality and performance settings
         self.half: bool = args.half
-        self.ensemble: bool = args.ensemble
+        # Motion blur's own RIFE takes these run-wide; the interpolate stages
+        # read theirs from the chain.
+        self.ensemble: bool = getattr(args, "ensemble", False)
         self.forceStatic: bool = args.static
-        self.dynamicScale: bool = args.dynamic_scale
-        self.staticStep: bool = args.static_step
+        self.dynamicScale: bool = getattr(args, "dynamic_scale", False)
+        self.staticStep: bool = getattr(args, "static_step", False)
         self.compileMode: str = args.compile_mode
         # Normalize: argparse choices=["cpu","nvdec"] enforces lowercase on the
         # CLI path, but --json passes the value through verbatim and the AE
@@ -255,22 +251,8 @@ class VideoProcessor:
         # Video processing settings
         self.inpoint: float | str = args.inpoint
         self.outpoint: float | str = args.outpoint
-        self.resize: bool = args.resize
-        self.resizeFactor: float = args.resize_factor
         self.bitDepth: str = args.bit_depth
         self.slowmo: bool = args.slowmo
-        # The enabled processing units in the order they were typed (see
-        # src/cli/stageOrder.py). Without it, fall back to the old default order.
-        self.stageOrder: list[str] = list(
-            getattr(args, "stageOrder", None)
-            or [
-                unit
-                for unit in ("dedup", "restore", "interpolate", "upscale")
-                if getattr(args, unit, False)
-            ]
-        )
-        self.outputScaleWidth: int = args.output_scale_width
-        self.outputScaleHeight: int = args.output_scale_height
 
         # Enhancement settings
         self.autoclipSens: float = args.autoclip_sens
@@ -295,7 +277,6 @@ class VideoProcessor:
         self.maskPath: str = getattr(args, "mask", "")
 
         # Utility settings
-        self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
         self.preview: bool = args.preview
         requestedPort = getattr(args, "preview_port", None)
@@ -358,20 +339,57 @@ class VideoProcessor:
         """
         logging.info("\n============== Processing Outputs ==============")
 
+        # Every interpolate stage multiplies the frame rate. The product is of
+        # the typed factors, so a single stage gives exactly fps * factor.
+        self.fpsMultiplier = 1
+        for spec in self.chain:
+            if spec.kind == "interpolate":
+                self.fpsMultiplier = self.fpsMultiplier * spec["factor"]
+
         if self.slowmo:
             self.outputFPS = self.fps
         else:
             self.outputFPS = (
-                self.fps * self.interpolateFactor if self.interpolate else self.fps
+                self.fps * self.fpsMultiplier if self.interpolate else self.fps
+            )
+        if self.outputFPS > 1000:
+            from src.infra.logAndPrint import logAndPrint
+
+            logAndPrint(
+                f"The output frame rate is {self.outputFPS:.2f} fps (the source "
+                f"{self.fps:.2f} fps times every interpolate factor); most players "
+                f"and encoders handle 1000 fps or less.",
+                colorFunc="yellow",
             )
 
-        if self.resize:
-            aspectRatio = self.width / self.height
-            self.width = round(self.width * self.resizeFactor / 2) * 2
-            self.height = round(self.width / aspectRatio / 2) * 2
-            logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resizeFactor} factor."
-            )
+        if self._isStandalone():
+            # A standalone capability bypasses the stage chain: its one --resize
+            # (the CLI allows no other stage alongside) is applied at decode,
+            # the way the removed boolean --resize was.
+            resizes = [spec for spec in self.chain if spec.kind == "resize"]
+            if len(resizes) > 1:
+                raise ValueError(
+                    "a standalone capability (depth, segment, autoclip, stabilize, "
+                    "obj_detect, moblur) accepts at most one --resize"
+                )
+            if resizes:
+                from src.pipeline.planner import resizeDims
+
+                self.width, self.height = resizeDims(
+                    resizes[0]["target"], self.width, self.height
+                )
+                logging.info(f"Resizing to {self.width}x{self.height} at decode.")
+
+    def _isStandalone(self) -> bool:
+        """Whether _selectProcessingMethod hands this run to a standalone driver."""
+        return bool(
+            self.autoclip
+            or self.depth
+            or self.segment
+            or self.objDetect
+            or self.stabilize
+            or self.moblur
+        )
 
     def _selectProcessingMethod(self) -> None:
         """
@@ -456,24 +474,23 @@ class VideoProcessor:
         self.dedupCount = 0
         pipeline = None
 
-        maskedSink = None
-        if self.interpolate and self.maskPath:
+        maskedSinkFactory = None
+        if self.maskPath and self.plan.ofKind("interpolate"):
             from src.masking import MaskedSink, ProtectionMask
 
-            maskedSink = MaskedSink(ProtectionMask(self.maskPath))
+            # One mask (its weight tensors are cached per frame size, device
+            # and dtype), one sink per interpolate stage.
+            mask = ProtectionMask(self.maskPath)
 
-        if self.interpolate and isinstance(self.interpolateFactor, float):
-            factor = Fraction(self.interpolateFactor).limit_denominator(100)
-            factorNum = factor.numerator
-            factorDen = factor.denominator
+            def maskedSinkFactory():
+                return MaskedSink(mask)
 
-            increment = factorNum / factorDen
-            if increment.is_integer():
-                increment = int(increment)
-        else:
-            factorNum = self.interpolateFactor if self.interpolate else 1
-            factorDen = 1
-            increment = int(self.interpolateFactor) if self.interpolate else 1
+        # Output frames per decoded frame: the product of every interpolate
+        # stage's factor, each resolved the way the gap planner runs it.
+        factor = Fraction(self.plan.factor)
+        increment = factor.numerator / factor.denominator
+        if increment.is_integer():
+            increment = int(increment)
 
         try:
             # The bar counts output frames and only accepts integers, so a
@@ -487,12 +504,7 @@ class VideoProcessor:
                 self.plan,
                 self.drivers,
                 self.writeBuffer,
-                factorNum=factorNum,
-                factorDen=factorDen,
-                smoothDedup=self.smoothDedup,
-                smoothDedupMaxSpan=self.smoothDedupMaxSpan,
-                maskedSink=maskedSink,
-                customModel=self.customModel,
+                maskedSinkFactory=maskedSinkFactory,
                 half=self.half,
                 # An interpolation gap is collected up to the writer's own queue
                 # depth before it is handed on; past that the writer is the
@@ -583,16 +595,7 @@ class VideoProcessor:
 
     def _barTitleDetail(self) -> str:
         """The encoded output's resolution and frame rate, e.g. 2160p/60fps."""
-        from src.io.ffmpegSettings import _resolveOutputScale
-
         width, height = self.new_width, self.new_height
-        # Same rule the writer applies: --output_scale replaces the pipeline's
-        # own output size, but only when both dimensions are set.
-        scaleWidth, scaleHeight = _resolveOutputScale(
-            self.outputScaleWidth, self.outputScaleHeight
-        )
-        if scaleWidth and scaleHeight:
-            width, height = scaleWidth, scaleHeight
         fps = f"{self.outputFPS:.2f}".rstrip("0").rstrip(".")
         # "p" names the shorter side, so ultrawide 2560x1080 and portrait
         # 1080x1920 both read 1080p.
@@ -627,31 +630,31 @@ class VideoProcessor:
         self.ProgressBarLogic = ProgressBarLogic
 
         try:
-            # Resolve the processing chain from the typed flag order, then build
-            # every driver at the frame size its stage receives.
+            # Resolve the processing plan from the typed chain, then build every
+            # driver at the frame size its stage receives.
             from src.initializeModels import initializeModels
             from src.pipeline.planner import planChain
 
-            methods = {
-                "dedup": self.dedupMethod,
-                "smooth-dedup": self.smoothDedupMethod,
-                "restore": self.restoreMethod,
-                "upscale": self.upscaleMethod,
-                "interpolate": self.interpolateMethod,
-                "scenechange": self.sceneChangeMethod,
-            }
             self.plan = planChain(
-                self.stageOrder,
+                self.chain,
                 width=self.width,
                 height=self.height,
-                upscaleFactor=self.upscaleFactor,
-                interpolateFactor=self.interpolateFactor,
-                smoothDedup=self.smoothDedup,
                 sceneChange=bool(self.sceneChange and self.interpolate),
-                methods=methods,
+                sceneChangeMethod=self.sceneChangeMethod,
             )
+            # A leading resize is done by the decoder: from here on the frames
+            # are that size.
+            if self.plan.decodeResize:
+                logging.info(
+                    f"Resizing {self.width}x{self.height} to "
+                    f"{self.plan.decodeWidth}x{self.plan.decodeHeight} at decode."
+                )
+            self.width = self.plan.decodeWidth
+            self.height = self.plan.decodeHeight
             self.new_width = self.plan.outWidth
             self.new_height = self.plan.outHeight
+            for note in self.plan.skipped:
+                logging.info(f"Resize skipped, {note}")
             if self.plan.line:
                 logAndPrint(self.plan.line, colorFunc="cyan")
             for hint in self.plan.hints:
@@ -669,7 +672,7 @@ class VideoProcessor:
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
                 half=self.half,
-                resize=self.resize,
+                resize=self.plan.decodeResize,
                 width=self.width,
                 height=self.height,
                 bitDepth=self.bitDepth,
@@ -700,8 +703,6 @@ class VideoProcessor:
                 outpoint=self.outpoint,
                 sourceFps=self.fps,
                 slowmo=self.slowmo,
-                output_scale_width=self.outputScaleWidth,
-                output_scale_height=self.outputScaleHeight,
                 enablePreview=self.preview,
                 previewSink=previewSink,
                 single_image_output=self.singleImageInput,
@@ -769,7 +770,7 @@ class VideoProcessor:
                 totalFPS: float = (
                     self.totalFrames
                     / elapsedTime
-                    * (1 if not self.interpolate else self.interpolateFactor)
+                    * (1 if not self.interpolate else self.fpsMultiplier)
                 )
                 logAndPrint(
                     f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",

@@ -25,18 +25,6 @@ AUDIO: bool = True  # Audio passthrough for the video currently being processed
 # first silent video in a batch turned audio off for every video after it.
 AUDIO_REQUESTED: bool = True
 
-# The run-wide `--output_scale` target, latched by CLI validation. Both writers
-# fall back to it when a caller passes neither dimension, which is how the
-# standalone drivers (depth, segment, stabilize, moblur, obj_detect) honour the
-# flag: they build their writers from long positional argument lists that never
-# carried it, so every one of them silently discarded the requested resolution
-# while the validator logged "Output scale set to WxH". Resolving it at the
-# writer instead of threading it through ~20 driver constructors also means a
-# new driver cannot inherit the omission -- `src/stabilize/dutStabilizer.py`
-# did exactly that when it was added. ``None`` means "no scaling requested".
-OUTPUT_SCALE_WIDTH: int | None = None
-OUTPUT_SCALE_HEIGHT: int | None = None
-
 # The current input's probed metadata, set by getVideoMetadata.saveMetadata once
 # per video. The writers' colour decision used to round-trip through
 # metadata.json at a fixed install-dir path -- identical for every TAS process

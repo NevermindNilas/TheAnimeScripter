@@ -1,35 +1,9 @@
+import math
 import os
 
 
 class CliValidationError(ValueError):
     pass
-
-
-def parseOutputScale(value):
-    if not value:
-        return None, None
-
-    try:
-        width, height = value.split("x")
-        outputWidth = int(width)
-        outputHeight = int(height)
-    except (ValueError, AttributeError) as e:
-        raise CliValidationError(
-            f"Invalid output_scale format: {value}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
-        ) from e
-
-    if outputWidth <= 0 or outputHeight <= 0:
-        raise CliValidationError(
-            f"Invalid output_scale format: {value}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
-        )
-
-    return outputWidth, outputHeight
-
-
-def applyOutputScale(args):
-    args.output_scale_width, args.output_scale_height = parseOutputScale(
-        args.output_scale
-    )
 
 
 def validateTrimRange(args):
@@ -76,51 +50,59 @@ def validateTrimRange(args):
     # BuildBuffer raise per file via trimFrameRange instead.
 
 
-def normalizeUpscaleFactor(args):
-    if not args.upscale or not hasattr(args, "upscale_factor"):
-        return None
+def _prefix(label):
+    return f"{label}: " if label else ""
 
-    rawFactor = args.upscale_factor
-    # Config loading rejects fractional values before integer coercion.
-    # Keep this guard for callers supplying a namespace directly.
+
+def upscaleFactorValue(rawFactor, label=None):
+    """``(factor, warning)`` for one upscale stage's factor.
+
+    Config loading rejects fractional values before integer coercion; this
+    guard is for callers supplying a namespace directly.
+    """
+    flag = "the upscale factor" if label else "--upscale_factor"
     if isinstance(rawFactor, bool) or (
         isinstance(rawFactor, float) and not rawFactor.is_integer()
     ):
         raise CliValidationError(
-            f"Invalid --upscale_factor: {rawFactor!r}. "
+            f"{_prefix(label)}Invalid {flag}: {rawFactor!r}. "
             "Expected a whole number: 2, 3, or 4."
         )
     if isinstance(rawFactor, float):
-        args.upscale_factor = int(rawFactor)
-        rawFactor = args.upscale_factor
+        rawFactor = int(rawFactor)
 
     try:
-        coerced = int(args.upscale_factor)
+        coerced = int(rawFactor)
     except Exception:
-        args.upscale_factor = 2
-        return "Invalid upscale_factor provided; defaulting to 2"
+        return 2, f"{_prefix(label)}Invalid upscale_factor provided; defaulting to 2"
 
     if isinstance(rawFactor, str):
         try:
             if float(rawFactor) != coerced:
                 raise CliValidationError(
-                    f"Invalid --upscale_factor: {args.upscale_factor!r}. "
+                    f"{_prefix(label)}Invalid {flag}: {rawFactor!r}. "
                     "Expected a whole number: 2, 3, or 4."
                 )
         except ValueError:
-            args.upscale_factor = 2
-            return "Invalid upscale_factor provided; defaulting to 2"
+            return (
+                2,
+                f"{_prefix(label)}Invalid upscale_factor provided; defaulting to 2",
+            )
 
     if coerced >= 2:
-        args.upscale_factor = coerced
-        return None
+        return coerced, None
 
-    oldFactor = args.upscale_factor
-    args.upscale_factor = 2
-    return (
-        "Upscale factor must be at least 2 when --upscale is enabled; "
-        f"defaulting to 2 (was {oldFactor})"
+    return 2, (
+        f"{_prefix(label)}Upscale factor must be at least 2 when --upscale is "
+        f"enabled; defaulting to 2 (was {rawFactor})"
     )
+
+
+def normalizeUpscaleFactor(args):
+    if not args.upscale or not hasattr(args, "upscale_factor"):
+        return None
+    args.upscale_factor, warning = upscaleFactorValue(args.upscale_factor)
+    return warning
 
 
 def validatePreviewPort(args):
@@ -149,7 +131,7 @@ def validatePreviewPort(args):
         )
 
 
-def validateInterpolateFactor(args):
+def interpolateFactorWarning(rawFactor, smooth, label=None):
     """Reject an interpolation factor below 1; leave 1 and above alone.
 
     Nothing bounded this flag. ``gapPlan`` owes 0 frames for any factor <= 1
@@ -158,39 +140,49 @@ def validateInterpolateFactor(args):
     a video twice as long as its untouched audio, exit 0, no warning. 0 and
     negatives reach the encoder as ``-r 0.0`` / ``-r -47.95``.
 
-    Factor 1 is deliberately left enabled: with ``--smooth_dedup`` it is the
+    Factor 1 is deliberately left enabled: on the smooth-dedup stage it is the
     supported path that regenerates each duplicated slot as a true in-between
-    at unchanged duration and fps. Disabling ``--interpolate`` here would
-    silently switch that feature off.
+    at unchanged duration and fps. Disabling interpolation here would silently
+    switch that feature off.
     """
-    if not getattr(args, "interpolate", False):
-        return None
-
+    flag = "the interpolation factor" if label else "--interpolate_factor"
     try:
-        factor = float(getattr(args, "interpolate_factor", 2))
+        factor = float(rawFactor)
     except TypeError, ValueError:
         raise CliValidationError(
-            f"Invalid --interpolate_factor: {args.interpolate_factor!r}. "
+            f"{_prefix(label)}Invalid {flag}: {rawFactor!r}. "
             "Expected a number of at least 1."
         ) from None
 
+    if not math.isfinite(factor):
+        raise CliValidationError(
+            f"{_prefix(label)}{flag} must be a finite number (got {rawFactor!r})."
+        )
     if factor <= 0:
         raise CliValidationError(
-            f"--interpolate_factor must be greater than 0 (got {factor:g})."
+            f"{_prefix(label)}{flag} must be greater than 0 (got {factor:g})."
         )
     if factor < 1:
         raise CliValidationError(
-            f"--interpolate_factor must be at least 1 (got {factor:g}). "
+            f"{_prefix(label)}{flag} must be at least 1 (got {factor:g}). "
             "A factor below 1 inserts no frames and only lowers the output "
             "frame rate, which desynchronizes the audio. To slow footage down "
             "use --slowmo, which keeps the source frame rate."
         )
-    if factor == 1 and not getattr(args, "smooth_dedup", False):
+    if factor == 1 and not smooth:
         return (
-            "--interpolate_factor 1 without --smooth_dedup writes the source "
+            f"{_prefix(label)}{flag} 1 without --smooth_dedup writes the source "
             "frames unchanged; the interpolation model is still loaded."
         )
     return None
+
+
+def validateInterpolateFactor(args):
+    if not getattr(args, "interpolate", False):
+        return None
+    return interpolateFactorWarning(
+        getattr(args, "interpolate_factor", 2), getattr(args, "smooth_dedup", False)
+    )
 
 
 def selectedUpscaleBackend(upscaleMethod):
@@ -201,45 +193,99 @@ def selectedUpscaleBackend(upscaleMethod):
     return "pytorch", upscaleMethod
 
 
-def validateCustomUpscaleModel(args):
-    if not args.custom_model:
-        return
+def validateCustomModelPath(customModel, upscaleMethod, label=None):
+    """The absolute path of an existing custom model that ``upscaleMethod``'s
+    backend can load. Raises :class:`CliValidationError`."""
+    customModel = os.path.abspath(customModel)
+    if not os.path.isfile(customModel):
+        raise CliValidationError(
+            f"{_prefix(label)}Custom model file not found: {customModel}"
+        )
 
-    args.custom_model = os.path.abspath(args.custom_model)
-    if not os.path.isfile(args.custom_model):
-        raise CliValidationError(f"Custom model file not found: {args.custom_model}")
-
-    extension = os.path.splitext(args.custom_model)[1].lower()
+    extension = os.path.splitext(customModel)[1].lower()
     pytorchExtensions = {".pt", ".pth", ".ckpt", ".safetensors"}
     onnxExtensions = {".onnx"}
-    selectedBackend, baseMethod = selectedUpscaleBackend(args.upscale_method)
+    selectedBackend, baseMethod = selectedUpscaleBackend(upscaleMethod)
 
     if extension in onnxExtensions:
         if selectedBackend not in {"directml", "openvino", "tensorrt"}:
             raise CliValidationError(
-                "Custom ONNX upscale models require an ONNX backend. Use an upscale method ending in -directml, -openvino, or -tensorrt, for example "
-                f"{baseMethod}-directml."
+                f"{_prefix(label)}Custom ONNX upscale models require an ONNX "
+                "backend. Use an upscale method ending in -directml, -openvino, "
+                f"or -tensorrt, for example {baseMethod}-directml."
             )
-        return
+        return customModel
 
     if extension in pytorchExtensions:
         if selectedBackend != "pytorch":
             raise CliValidationError(
-                "Custom PyTorch upscale models require a CUDA/PyTorch upscale method without a backend suffix. "
+                f"{_prefix(label)}Custom PyTorch upscale models require a "
+                "CUDA/PyTorch upscale method without a backend suffix. "
                 f"Use {baseMethod} for .pt/.pth/.ckpt/.safetensors files."
             )
-        return
+        return customModel
 
     raise CliValidationError(
-        "Unsupported custom upscale model format. Supported extensions are .pt, .pth, .ckpt, .safetensors, and .onnx."
+        f"{_prefix(label)}Unsupported custom upscale model format. Supported "
+        "extensions are .pt, .pth, .ckpt, .safetensors, and .onnx."
     )
 
 
+def validateCustomUpscaleModel(args):
+    if not args.custom_model:
+        return
+    args.custom_model = validateCustomModelPath(args.custom_model, args.upscale_method)
+
+
+def _repeated(drafts, draft):
+    """True when ``draft``'s kind appears more than once, so messages must
+    say which stage they mean."""
+    return sum(1 for other in drafts if other.kind == draft.kind) > 1
+
+
+def validateStageFactors(drafts):
+    """Per-stage factor checks on the resolved drafts. Returns the warnings.
+
+    Every message names its stage, ``interpolate #2 (rife4.26)``, when its
+    kind repeats; a kind typed once keeps the wording it had before stages
+    could repeat.
+    """
+    warnings = []
+    for draft in drafts:
+        label = draft.label if _repeated(drafts, draft) else None
+        settings = draft.settings
+        if draft.kind == "upscale":
+            settings["factor"], warning = upscaleFactorValue(settings["factor"], label)
+            warnings.append(warning)
+    for draft in drafts:
+        label = draft.label if _repeated(drafts, draft) else None
+        if draft.kind == "interpolate":
+            warnings.append(
+                interpolateFactorWarning(draft.settings["factor"], draft.smooth, label)
+            )
+    return [warning for warning in warnings if warning]
+
+
 def applyRuntimeValidation(args):
-    validateCustomUpscaleModel(args)
-    applyOutputScale(args)
+    from src.cli.stageOrder import stageDrafts, syncStageGlobals
+
+    drafts = stageDrafts(args)
+    if drafts is None:
+        validateCustomUpscaleModel(args)
+    else:
+        for draft in drafts:
+            if draft.kind == "upscale" and draft.settings.get("customModel"):
+                draft.settings["customModel"] = validateCustomModelPath(
+                    draft.settings["customModel"],
+                    draft.settings["method"],
+                    draft.label if _repeated(drafts, draft) else None,
+                )
     validateTrimRange(args)
     validatePreviewPort(args)
     # Both normalizers can warn; join rather than let one shadow the other.
-    warnings = [normalizeUpscaleFactor(args), validateInterpolateFactor(args)]
+    if drafts is None:
+        warnings = [normalizeUpscaleFactor(args), validateInterpolateFactor(args)]
+    else:
+        warnings = validateStageFactors(drafts)
+        syncStageGlobals(args, drafts)
     return "\n".join(w for w in warnings if w) or None

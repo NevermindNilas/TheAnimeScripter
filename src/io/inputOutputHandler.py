@@ -210,25 +210,77 @@ def _resolveExtension(args, videoInput):
     return ".mp4"
 
 
-def generateOutputName(args, videoInput):
-    """Generates output filename based on input and processing arguments."""
-    baseName = _baseName(videoInput)
+def _number(value):
+    """Integral floats print as ints (35.0 -> "35", not "35.0")."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
 
-    features = [
-        ("resize", "Resize", "resize_factor"),
+
+def _resizeSuffix(target):
+    if target[0] == "size":
+        return f"{target[1]}x{target[2]}"
+    if target[0] == "height":
+        return f"{target[1]}p"
+    return str(_number(target[1]))
+
+
+def _chainSuffixes(chain):
+    """One suffix per stage, kinds in the fixed order below and stages of a
+    kind in chain order, so a chain without repeats or resize names its output
+    exactly as before stages could repeat. Every value is what the user typed
+    (sensitivity before mapping)."""
+    suffixes = []
+    for spec in chain:
+        if spec.kind == "resize":
+            suffixes.append(f"-Resize{_sanitize(_resizeSuffix(spec['target']))}")
+    for spec in chain:
+        if spec.kind == "dedup":
+            suffixes.append(f"-Dedup{_sanitize(_number(spec['sens']))}")
+    for spec in chain:
+        if spec.kind == "interpolate" and spec.smooth:
+            suffixes.append(f"-SmoothDedup{_sanitize(_number(spec['sens']))}")
+    for spec in chain:
+        if spec.kind == "interpolate":
+            suffixes.append(f"-Int{_sanitize(_number(spec['factor']))}")
+    for spec in chain:
+        if spec.kind == "upscale":
+            suffixes.append(f"-Up{_sanitize(_number(spec['factor']))}")
+    for spec in chain:
+        if spec.kind == "restore":
+            # list(), not the tuple: the name has always carried the list repr.
+            suffixes.append(f"-Restore{_sanitize(list(spec['methods']))}")
+    return suffixes
+
+
+def generateOutputName(args, videoInput):
+    """Generates output filename based on input and processing arguments.
+
+    With ``args.chain`` (every CLI run) the stage suffixes come from the chain;
+    a namespace without one (other entrypoints, tests) still names its output
+    from the global flags.
+    """
+    baseName = _baseName(videoInput)
+    chain = getattr(args, "chain", None)
+
+    stageFeatures = [
         ("dedup", "Dedup", "dedup_sens"),
         ("smooth_dedup", "SmoothDedup", "smooth_dedup_sens"),
         ("interpolate", "Int", "interpolate_factor"),
         ("upscale", "Up", "upscale_factor"),
         ("restore", "Restore", "restore_method"),
+    ]
+    features = [
         ("segment", "Segment", None),
         ("depth", "Depth", None),
         ("autoclip", "Autoclip", None),
         ("ytdlp", "YTDLP", None),
     ]
+    if chain is None:
+        features = stageFeatures + features
 
     isUrl = _isURL(videoInput)
-    suffixes = []
+    suffixes = [] if chain is None else _chainSuffixes(chain)
     for arg, label, valAttr in features:
         # URL base name already carries the YTDLP tag; don't duplicate it.
         if arg == "ytdlp" and isUrl:

@@ -4,7 +4,11 @@ import sys
 
 import src.constants as cs
 from src.cli.config import CliConfig
-from src.cli.stageOrder import resolveStageOrder, stageOrderWarning
+from src.cli.stageOrder import (
+    stageDrafts,
+    stageOrderWarning,
+    syncStageGlobals,
+)
 from src.cli.startup import _handleDependencies, _resolveRequestedProfile
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
@@ -26,11 +30,6 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.autoclip,
             args.obj_detect,
             args.moblur,
-            # --output_scale is a real request even though it is applied by the
-            # encoder rather than a model. It used to count by auto-enabling
-            # --resize, which also dragged in --resize_factor's default of 2 and
-            # doubled the decode resolution (see src/cli/config.py).
-            bool(getattr(args, "output_scale", "")),
         ]
     )
 
@@ -119,7 +118,23 @@ _NON_TORCH_INTERP_BACKENDS = frozenset({"tensorrt", "directml", "openvino", "ncn
 
 
 def _normalizeMethodAliases(args):
-    for attribute in ("interpolate_method", "moblur_method"):
+    drafts = stageDrafts(args)
+    attributes = ("moblur_method",)
+    if drafts is None:
+        attributes = ("interpolate_method", "moblur_method")
+    else:
+        for draft in drafts:
+            if draft.kind != "interpolate":
+                continue
+            current = draft.settings["method"]
+            canonical = _BARE_RIFE_ALIASES.get(current)
+            if canonical is not None:
+                logging.info(
+                    f"{draft.label}: '{current}' is an alias for '{canonical}'"
+                )
+                draft.settings["method"] = canonical
+        syncStageGlobals(args, drafts)
+    for attribute in attributes:
         current = getattr(args, attribute, None)
         canonical = _BARE_RIFE_ALIASES.get(current)
         if canonical is not None:
@@ -211,6 +226,20 @@ def _applyImpliedFlags(args):
     if not getattr(args, "smooth_dedup", False):
         return
 
+    drafts = stageDrafts(args)
+    if drafts is not None:
+        # Every dedup stage goes, wherever it was typed; it gets no place in
+        # the chain. The smooth stage is an interpolate stage, so syncing
+        # turns --interpolate on.
+        if any(draft.kind == "dedup" for draft in drafts):
+            logAndPrint(
+                "--smooth_dedup handles duplicate frames itself, disabling --dedup",
+                "yellow",
+            )
+            drafts[:] = [draft for draft in drafts if draft.kind != "dedup"]
+        syncStageGlobals(args, drafts)
+        return
+
     # --smooth_dedup runs the duplicate detector itself and turns each dropped
     # frame into extra interpolation slots instead of shortening the video, so
     # the frame-dropping --dedup path must not also run.
@@ -226,18 +255,57 @@ def _applyImpliedFlags(args):
         args.interpolate = True
 
 
-def _resolveRuntimeStageOrder(args):
-    """Set ``args.stageOrder`` from the final enabled set and the typed flag order.
+# Capabilities that run outside the frame loop, in the order main.py picks
+# them (VideoProcessor._selectProcessingMethod).
+_STANDALONE_CAPABILITIES = (
+    "autoclip",
+    "depth",
+    "segment",
+    "obj_detect",
+    "stabilize",
+    "moblur",
+)
+
+
+def _finalizeChain(args):
+    """Set ``args.chain``, the per-kind booleans and the first-instance globals.
 
     Must run after :func:`_applyImpliedFlags` and every other enable/disable
     step, because it reads the final state. Also prints the one order warning
-    (``--dedup`` after ``--interpolate``).
+    (a dedup stage after an interpolate stage). Raises
+    :class:`CliValidationError` for a standalone capability given more than
+    one ``--resize``.
     """
-    order = resolveStageOrder(args)
-    warning = stageOrderWarning(order)
+    drafts = stageDrafts(args)
+    if drafts is None:
+        args.chain = ()
+        return args.chain
+    syncStageGlobals(args, drafts)
+
+    standalone = next(
+        (name for name in _STANDALONE_CAPABILITIES if getattr(args, name, False)),
+        None,
+    )
+    resizes = [spec for spec in args.chain if spec.kind == "resize"]
+    if standalone and len(resizes) > 1:
+        raise CliValidationError(
+            f"--{standalone} runs outside the frame loop and takes at most one "
+            f"--resize (the decoder applies it); got {len(resizes)}."
+        )
+
+    # A backend that cannot run as two live instances: refused here, naming
+    # the stages, rather than when the second driver is built.
+    from src.pipeline.instances import checkChainInstances
+
+    try:
+        checkChainInstances(args.chain)
+    except ValueError as error:
+        raise CliValidationError(str(error)) from None
+
+    warning = stageOrderWarning(args.chain)
     if warning:
         logAndPrint(warning, "yellow")
-    return order
+    return args.chain
 
 
 def _mapDedupSensitivity(method, sensitivity):
@@ -281,41 +349,137 @@ def _mapAutoclipSensitivity(method, sensitivity):
     return float(1.0 - (float(sensitivity) / 100.0))
 
 
+class _LegacyStage:
+    """A namespace's global settings dressed as one stage, for callers that
+    hand ``_configureProcessingSettings`` a namespace with no chain (tests,
+    other entrypoints). The real run always has drafts."""
+
+    def __init__(self, kind, settings, smooth=False):
+        self.kind = kind
+        self.settings = settings
+        self.smooth = smooth
+        self.label = "smooth_dedup" if smooth else kind
+        self.repeated = False
+
+    def flagName(self, legacy):
+        return legacy
+
+
+def _legacyStages(args):
+    stages = []
+    if getattr(args, "smooth_dedup", False):
+        stages.append(
+            _LegacyStage(
+                "interpolate",
+                {
+                    "method": getattr(args, "interpolate_method", "rife4.6"),
+                    "factor": getattr(args, "interpolate_factor", 2),
+                    "staticStep": getattr(args, "static_step", False),
+                    "dynamicScale": getattr(args, "dynamic_scale", False),
+                    "detector": args.smooth_dedup_method,
+                    "sens": args.smooth_dedup_sens,
+                    "maxSpan": getattr(args, "smooth_dedup_max_span", 6),
+                },
+                smooth=True,
+            )
+        )
+    elif getattr(args, "interpolate", False):
+        stages.append(
+            _LegacyStage(
+                "interpolate",
+                {
+                    "method": getattr(args, "interpolate_method", "rife4.6"),
+                    "factor": getattr(args, "interpolate_factor", 2),
+                    "staticStep": getattr(args, "static_step", False),
+                    "dynamicScale": getattr(args, "dynamic_scale", False),
+                },
+            )
+        )
+    if getattr(args, "dedup", False):
+        stages.append(
+            _LegacyStage(
+                "dedup", {"method": args.dedup_method, "sens": args.dedup_sens}
+            )
+        )
+    return stages
+
+
+def _writeLegacyStages(args, stages):
+    for stage in stages:
+        settings = stage.settings
+        if stage.kind == "interpolate":
+            if hasattr(args, "static_step"):
+                args.static_step = settings["staticStep"]
+            if hasattr(args, "dynamic_scale"):
+                args.dynamic_scale = settings["dynamicScale"]
+        if stage.smooth:
+            args.smooth_dedup_max_span = settings["maxSpan"]
+            args.smooth_dedup_method = settings["detector"]
+            args.smooth_dedup_sens_raw = settings["sens"]
+            args.smooth_dedup_sens = settings["threshold"]
+        if stage.kind == "dedup":
+            args.dedup_method = settings["method"]
+            args.dedup_sens_raw = settings["sens"]
+            args.dedup_sens = settings["threshold"]
+
+
+def _resolveStaticStep(stage):
+    settings = stage.settings
+    if settings.get("staticStep") and isinstance(settings["factor"], float):
+        where = f" ({stage.label})" if stage.repeated else ""
+        logging.info(
+            f"Interpolate Factor is a float, static step will be disabled{where}"
+        )
+        settings["staticStep"] = False
+
+
+def _resolveDynamicScale(stage):
+    """--dynamic_scale is read by the RIFE torch arches only (src/rifearches/),
+    i.e. by RifeCuda, RifeMPS and RifeROCm. The TensorRT / DirectML / OpenVINO
+    / NCNN classes and the gmfss / distildrba families never receive the flag,
+    so leaving it set there was a silent no-op instead of an error. rife_elexor
+    is caught later, in RifeCuda.handleModel -- its arch takes no such argument.
+    """
+    settings = stage.settings
+    if not settings.get("dynamicScale"):
+        return
+    method = settings["method"]
+    backend = method.rsplit("-", 1)[-1]
+    where = f" on {stage.label}" if stage.repeated else ""
+    if backend in _NON_TORCH_INTERP_BACKENDS:
+        logAndPrint(
+            f"--dynamic_scale is not supported by the {backend} interpolation "
+            f"backend (CUDA, ROCm and MPS only), disabling it{where}",
+            "yellow",
+        )
+        settings["dynamicScale"] = False
+    elif not method.startswith("rife"):
+        logAndPrint(
+            f"--dynamic_scale is not supported by {method}, disabling it{where}",
+            "yellow",
+        )
+        settings["dynamicScale"] = False
+
+
 def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
     if args.slowmo:
         cs.AUDIO = False
         logging.info("Slow motion enabled, audio processing disabled")
 
-    if args.static_step and isinstance(args.interpolate_factor, float):
-        logging.info("Interpolate Factor is a float, static step will be disabled")
-        args.static_step = False
+    drafts = stageDrafts(args)
+    stages = drafts if drafts is not None else _legacyStages(args)
 
-    # --dynamic_scale is read by the RIFE torch arches only (src/rifearches/),
-    # i.e. by RifeCuda, RifeMPS and RifeROCm. The TensorRT / DirectML / OpenVINO
-    # / NCNN classes and the gmfss / distildrba families never receive the flag,
-    # so leaving it set there was a silent no-op instead of an error. rife_elexor
-    # is caught later, in RifeCuda.handleModel -- its arch takes no such argument.
-    if getattr(args, "dynamic_scale", False):
-        backend = args.interpolate_method.rsplit("-", 1)[-1]
-        if not args.interpolate:
-            logging.warning("--dynamic_scale has no effect without --interpolate")
-            args.dynamic_scale = False
-        elif backend in _NON_TORCH_INTERP_BACKENDS:
-            logAndPrint(
-                f"--dynamic_scale is not supported by the {backend} interpolation "
-                "backend (CUDA, ROCm and MPS only), disabling it",
-                "yellow",
-            )
-            args.dynamic_scale = False
-        elif not args.interpolate_method.startswith("rife"):
-            logAndPrint(
-                f"--dynamic_scale is not supported by {args.interpolate_method}, "
-                "disabling it",
-                "yellow",
-            )
-            args.dynamic_scale = False
+    for stage in stages:
+        if stage.kind == "interpolate":
+            _resolveStaticStep(stage)
+            _resolveDynamicScale(stage)
+    if getattr(args, "dynamic_scale", False) and not args.interpolate:
+        logging.warning("--dynamic_scale has no effect without --interpolate")
+        args.dynamic_scale = False
 
-    if getattr(args, "smooth_dedup", False):
+    for stage in stages:
+        if not stage.smooth:
+            continue
         # --dedup is already forced off and --interpolate on, in
         # _applyImpliedFlags, ahead of every guard that reads them.
         #
@@ -326,43 +490,49 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         # hold from holding the whole gap at once. 0 disables the cap (every run is
         # interpolated, however long); negatives normalize to 0 rather than
         # inverting the span comparison into "hold everything".
-        args.smooth_dedup_max_span = max(
-            0, int(getattr(args, "smooth_dedup_max_span", 6))
-        )
+        settings = stage.settings
+        settings["maxSpan"] = max(0, int(settings["maxSpan"]))
 
         # First CUDA guard in this function resolves the shared probe; every
         # later guard below reuses it instead of constructing its own checker.
         if cudaAvailable is _UNPROBED:
             cudaAvailable = _probeCudaAvailability()
-        args.smooth_dedup_method = _downgradeCudaDetector(
-            args.smooth_dedup_method, "smooth_dedup_method", cudaAvailable
+        settings["detector"] = _downgradeCudaDetector(
+            settings["detector"], stage.flagName("smooth_dedup_method"), cudaAvailable
         )
 
         # Duration is preserved, so audio stays in sync and is left enabled.
-        args.smooth_dedup_sens_raw = args.smooth_dedup_sens
-        args.smooth_dedup_sens = _mapDedupSensitivity(
-            args.smooth_dedup_method, args.smooth_dedup_sens
+        settings["threshold"] = _mapDedupSensitivity(
+            settings["detector"], settings["sens"]
         )
         logging.info(
-            f"New smooth_dedup sensitivity for {args.smooth_dedup_method} is: {args.smooth_dedup_sens}"
+            f"New smooth_dedup sensitivity for {settings['detector']} is: {settings['threshold']}"
         )
 
-    if args.dedup:
+    dedupStages = [stage for stage in stages if stage.kind == "dedup"]
+    if dedupStages:
         cs.AUDIO = False
         logging.info("Deduplication enabled, audio processing disabled")
-
+    for stage in dedupStages:
         # Before the sensitivity mapping, which is grouped by metric and so
         # unaffected by the swap.
+        settings = stage.settings
         if cudaAvailable is _UNPROBED:
             cudaAvailable = _probeCudaAvailability()
-        args.dedup_method = _downgradeCudaDetector(
-            args.dedup_method, "dedup_method", cudaAvailable
+        settings["method"] = _downgradeCudaDetector(
+            settings["method"], stage.flagName("dedup_method"), cudaAvailable
         )
-        args.dedup_sens_raw = args.dedup_sens
-        args.dedup_sens = _mapDedupSensitivity(args.dedup_method, args.dedup_sens)
+        settings["threshold"] = _mapDedupSensitivity(
+            settings["method"], settings["sens"]
+        )
         logging.info(
-            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
+            f"New dedup sensitivity for {settings['method']} is: {settings['threshold']}"
         )
+
+    if drafts is not None:
+        syncStageGlobals(args, drafts)
+    else:
+        _writeLegacyStages(args, stages)
 
     if getattr(args, "stabilize", False) and args.stabilize_method in (
         "dut",
@@ -534,13 +704,17 @@ def _adjustMethodsBasedOnCuda(
 
                 methodChoices = capabilityMethods(_buildParser("."))
 
+        drafts = stageDrafts(args)
         applyBackendFallbacks(
             args,
             availableModels,
             preferMps=cs.SYSTEM == "Darwin",
             methodChoices=methodChoices,
             preferRocm=preferRocm,
+            stages=drafts,
         )
+        if drafts is not None:
+            syncStageGlobals(args, drafts)
 
 
 def prepareRuntimeArgs(args, outputPath, parser):
@@ -745,24 +919,16 @@ def prepareRuntimeArgs(args, outputPath, parser):
         logAndPrint(str(e), "red")
         sys.exit(1)
 
-    if args.output_scale_width and args.output_scale_height:
-        # Latch it run-wide so every writer honours it, not just the one
-        # main.py builds: the standalone drivers never passed it through, so
-        # this log used to assert a scale that --depth/--segment/--stabilize/
-        # --moblur/--obj_detect then threw away. See
-        # src/io/ffmpegSettings.py:_resolveOutputScale.
-        cs.OUTPUT_SCALE_WIDTH = args.output_scale_width
-        cs.OUTPUT_SCALE_HEIGHT = args.output_scale_height
-        logging.info(
-            f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
-        )
-
     if warning:
         logAndPrint(warning, "yellow")
         logging.info(warning)
 
-    # Last enable/disable step is done: the order reads the final enabled set.
-    _resolveRuntimeStageOrder(args)
+    # Last enable/disable step is done: the chain reads the final enabled set.
+    try:
+        _finalizeChain(args)
+    except CliValidationError as e:
+        logAndPrint(str(e), "red")
+        sys.exit(1)
 
     logging.info(
         f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"

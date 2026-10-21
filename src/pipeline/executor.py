@@ -18,15 +18,26 @@ into the next admitted slot. An interpolation gap across a cut is held: the
 slots before the cut's final source step are copies of the previous frame, the
 rest are copies of the new one, and the first copy of the new shot carries
 ``isCut`` so a downstream temporal stage gets no neighbour across it.
+
+Several expanders. Each interpolate stage is its own ``ExpandNode`` with its own
+source position, gap plan, cut holds, ``MaskedSink`` and stream pin. A later
+expander's "source" is the stream the stages before it hand on, so its gaps are
+measured in those frames; only the smooth-dedup expander (always the first)
+widens gaps by dropped duplicates.
 """
 
 import torch
 
 from src.interpolate._timesteps import cutHoldSplit, gapPlan
 from src.io.frameWindow import FrameSlot, LagRing, Window, temporalDemand
+from src.pipeline.planner import factorFraction
 from src.pipeline.stages import DROP, isStatelessUpscale
 
 _DEDUP_LIKE = ("dedup", "smooth-dedup")
+# Stages that hand a slot's cacheKey on: what they emit for two copies of one
+# held frame is identical, so a stateless upscaler after them may still serve
+# both copies from one computation.
+_KEY_FORWARDING = ("dedup", "smooth-dedup", "scenechange", "resize")
 
 
 def _syncAfter(frame) -> None:
@@ -60,12 +71,82 @@ def _toDevice(device: str):
     return move
 
 
+# (device type, dtype, antialias) -> whether bicubic F.interpolate runs natively.
+# A fact about the installed torch, the same for every instance.
+_NATIVE_BICUBIC: dict = {}
+
+
+def _bicubicRunsNatively(device, dtype, antialias: bool) -> bool:
+    """Whether bicubic resampling exists for ``dtype`` on ``device``.
+
+    Probed once per combination on a tiny tensor. torch 2.14's CPU kernel has no
+    fp16 antialias path ("compute_index_ranges_weights" not implemented for
+    'Half'), while plain fp16 bicubic works; the probe keeps that knowledge out
+    of the code, so a future torch that adds it is used as is.
+    """
+    key = (device.type, dtype, antialias)
+    native = _NATIVE_BICUBIC.get(key)
+    if native is None:
+        probe = torch.zeros((1, 1, 4, 4), device=device, dtype=dtype)
+        try:
+            torch.nn.functional.interpolate(
+                probe,
+                size=(2, 2) if antialias else (8, 8),
+                mode="bicubic",
+                align_corners=False,
+                antialias=antialias,
+            )
+            native = True
+        except NotImplementedError, RuntimeError:
+            native = False
+        _NATIVE_BICUBIC[key] = native
+    return native
+
+
+class Resize:
+    """The ``resize`` stage: bicubic to a fixed size, stateless.
+
+    Antialiased when either axis shrinks, plain bicubic otherwise, then clamped
+    to [0, 1]. Out-of-place, so the input frame (which a held-copy memo, a mask
+    anchor or a ring slot may still hold) is never written. Keeps the frame's
+    dtype and device; where the device has no kernel for that dtype the
+    resample runs in float32 and is cast back. The result is synchronized
+    before it leaves (stream contract: the writer never waits on our stream).
+    """
+
+    temporalWindow = (0, 0)
+
+    def __init__(self, width: int, height: int):
+        self.width = int(width)
+        self.height = int(height)
+
+    def __call__(self, frame):
+        inHeight, inWidth = frame.shape[-2], frame.shape[-1]
+        antialias = self.width < inWidth or self.height < inHeight
+        source = frame
+        if not _bicubicRunsNatively(frame.device, frame.dtype, antialias):
+            source = frame.float()
+        out = torch.nn.functional.interpolate(
+            source,
+            size=(self.height, self.width),
+            mode="bicubic",
+            align_corners=False,
+            antialias=antialias,
+        ).clamp(0, 1)
+        if out.dtype != frame.dtype:
+            out = out.to(frame.dtype)
+        _syncAfter(out)
+        return out
+
+
 class _Node:
     """A stage of the chain: owns its input ring and forwards what it produces."""
 
     def __init__(self, name: str, window, downstream, outShape=(0, 0), inShape=None):
         past, future = window
         self.name = name
+        # The stage kind; Pipeline sets it from the plan unit.
+        self.kind = name
         self.ring = LagRing(past, future)
         self.downstream = downstream
         self.outShape = outShape
@@ -143,12 +224,23 @@ class MapNode(_Node):
     """
 
     def __init__(
-        self, name, fn, window, downstream, *, takesNext=False, outShape=(0, 0)
+        self,
+        name,
+        fn,
+        window,
+        downstream,
+        *,
+        takesNext=False,
+        outShape=(0, 0),
+        forwardsKey=False,
     ):
         super().__init__(name, window, downstream, outShape)
         self.fn = fn
         self.takesNext = takesNext
         self.memo = None
+        # A stateless function of the frame alone (resize): two copies of one
+        # held frame stay identical through it, so their cacheKey is kept.
+        self.forwardsKey = forwardsKey
 
     def _run(self, window) -> None:
         slot = window.centre
@@ -160,7 +252,14 @@ class MapNode(_Node):
         else:
             frame = self._apply(slot.frame, nextFrame)
         self.downstream.put(
-            FrameSlot(frame, slot.isCut, slot.dupsBefore, slot.sourcePos, slot.isCentre)
+            FrameSlot(
+                frame,
+                slot.isCut,
+                slot.dupsBefore,
+                slot.sourcePos,
+                slot.isCentre,
+                slot.cacheKey if self.forwardsKey else None,
+            )
         )
 
     def _apply(self, frame, nextFrame):
@@ -444,7 +543,14 @@ def _frameBytes(shape, half: bool) -> int:
 
 
 class Pipeline:
-    """The chain of nodes for one plan, fed one decoded frame at a time."""
+    """The chain of nodes for one plan, fed one decoded frame at a time.
+
+    Every per-stage setting (interpolation factor, smooth-dedup span, upscale
+    method and custom model) is read from the plan's units, never from the
+    processor. ``maskedSinkFactory`` returns a fresh ``MaskedSink`` (or a
+    stand-in); every expander gets its own, because a sink is bound to one
+    expander's gap while that gap runs, and a later expander runs inside it.
+    """
 
     def __init__(
         self,
@@ -452,12 +558,7 @@ class Pipeline:
         drivers,
         writer,
         *,
-        factorNum: int = 1,
-        factorDen: int = 1,
-        smoothDedup: bool = False,
-        smoothDedupMaxSpan: int = 0,
-        maskedSink=None,
-        customModel=None,
+        maskedSinkFactory=None,
         half: bool = False,
         collectLimit: int = 32,
     ):
@@ -465,27 +566,23 @@ class Pipeline:
         self.half = half
         self.consumed = 0
         self.terminal = _Terminal(writer)
-        self.smoothDedup = smoothDedup
+        self.smoothDedup = any(
+            unit.kind == "interpolate" and unit.spec is not None and unit.spec.smooth
+            for unit in plan.units
+        )
 
         downstream = self.terminal
         nodes = []
         for index in range(len(plan.units) - 1, -1, -1):
             unit = plan.units[index]
             precedingDetector = None
-            if index > 0 and plan.units[index - 1].name in _DEDUP_LIKE:
+            if index > 0 and plan.units[index - 1].kind in _DEDUP_LIKE:
                 precedingDetector = drivers.get(plan.units[index - 1].name)
             node = self._build(
-                unit,
-                drivers,
-                downstream,
-                factorNum,
-                factorDen,
-                smoothDedup,
-                smoothDedupMaxSpan,
-                maskedSink,
-                precedingDetector,
+                unit, drivers, downstream, maskedSinkFactory, precedingDetector
             )
             node.inShape = (unit.inWidth, unit.inHeight)
+            node.kind = unit.kind
             nodes.append(node)
             downstream = node
         self.head = downstream
@@ -495,38 +592,29 @@ class Pipeline:
             if isinstance(node, ExpandNode):
                 node.defaultStream = defaultStream
                 node.collectLimit = max(1, int(collectLimit))
-                if plan.upscaleBefore("interpolate"):
-                    # On upscaled frames the opposite wins: the writer's copy
+                if plan.enlargedBefore(node.name):
+                    # On enlarged frames the opposite wins: the writer's copy
                     # of each large frame overlaps the driver's next timestep
                     # only if it is handed on at once (the old interpolate-last
                     # path wrote straight to the writer; collecting there cost
                     # 0.4% at 720p->1440p).
                     node.collectLimit = 1
-        self._wireReuse(drivers, customModel)
+        self._wireReuse(drivers)
 
     @staticmethod
-    def _build(
-        unit,
-        drivers,
-        downstream,
-        factorNum,
-        factorDen,
-        smoothDedup,
-        smoothDedupMaxSpan,
-        maskedSink,
-        precedingDetector,
-    ):
+    def _build(unit, drivers, downstream, maskedSinkFactory, precedingDetector):
         name = unit.name
+        kind = unit.kind
         outShape = (unit.outWidth, unit.outHeight)
-        if name in _DEDUP_LIKE:
+        if kind in _DEDUP_LIKE:
             return FilterNode(
                 name,
                 drivers[name],
                 downstream,
-                carriesDups=(name == "smooth-dedup"),
+                carriesDups=(kind == "smooth-dedup"),
                 outShape=outShape,
             )
-        if name == "scenechange":
+        if kind == "scenechange":
             return AnnotateNode(
                 name,
                 drivers[name],
@@ -534,19 +622,22 @@ class Pipeline:
                 scoreSource=precedingDetector,
                 outShape=outShape,
             )
-        if name == "interpolate":
+        if kind == "interpolate":
+            spec = unit.spec
+            factor = factorFraction(spec["factor"])
+            smooth = bool(spec.smooth)
             return ExpandNode(
                 name,
                 drivers[name],
-                factorNum,
-                factorDen,
+                factor.numerator,
+                factor.denominator,
                 downstream,
-                smoothDedup=smoothDedup,
-                smoothDedupMaxSpan=smoothDedupMaxSpan,
-                maskedSink=maskedSink,
+                smoothDedup=smooth,
+                smoothDedupMaxSpan=int(spec["maxSpan"]) if smooth else 0,
+                maskedSink=maskedSinkFactory() if maskedSinkFactory else None,
                 outShape=outShape,
             )
-        if name == "hop":
+        if kind == "hop":
             return MapNode(
                 name,
                 _toDevice(unit.method),
@@ -554,8 +645,13 @@ class Pipeline:
                 downstream,
                 outShape=outShape,
             )
+        if kind == "resize":
+            resize = drivers.get(name) or Resize(unit.outWidth, unit.outHeight)
+            return MapNode(
+                name, resize, (0, 0), downstream, outShape=outShape, forwardsKey=True
+            )
         driver = drivers[name]
-        if name == "upscale":
+        if kind == "upscale":
             return MapNode(
                 name,
                 driver,
@@ -573,22 +669,32 @@ class Pipeline:
             outShape=outShape,
         )
 
-    def _wireReuse(self, drivers, customModel) -> None:
-        """Let the first stateless upscaler after interpolation serve held copies once."""
-        expander = None
-        for node in self.nodes:
-            if isinstance(node, ExpandNode):
-                expander = node
+    def _wireReuse(self, drivers) -> None:
+        """Give each expander's first stateless upscaler a memo that expander clears.
+
+        The memo serves every copy of one held source frame from one upscale.
+        Only stages that forward the copies' cacheKey (filters, the scene-cut
+        detector, resize) may sit between the two; any other stage ends the
+        search for that expander. Statelessness is decided per stage, from that
+        stage's own method and custom model.
+        """
+        for index, node in enumerate(self.nodes):
+            if not isinstance(node, ExpandNode):
                 continue
-            if expander is None or node.name != "upscale" or node.memo is not None:
-                continue
-            unit = self.plan.unit("upscale")
-            if unit is None or not isStatelessUpscale(
-                drivers["upscale"], unit.method, customModel
-            ):
-                continue
-            node.memo = {}
-            expander.memos.append(node.memo)
+            for later in self.nodes[index + 1 :]:
+                if later.kind in _KEY_FORWARDING:
+                    continue
+                if later.kind == "upscale" and later.memo is None:
+                    unit = self.plan.unit(later.name)
+                    settings = unit.settings if unit is not None else {}
+                    if isStatelessUpscale(
+                        drivers[later.name],
+                        settings.get("method", ""),
+                        settings.get("customModel") or None,
+                    ):
+                        later.memo = {}
+                        node.memos.append(later.memo)
+                break
 
     # Counters ----------------------------------------------------------
 
@@ -646,13 +752,17 @@ class Pipeline:
         if not self.smoothDedup or not self.nodes:
             return
         smooth = self.nodes[0]
-        expander = next((n for n in self.nodes if isinstance(n, ExpandNode)), None)
-        if expander is None or not isinstance(smooth, FilterNode):
+        expanders = [node for node in self.nodes if isinstance(node, ExpandNode)]
+        if not expanders or not isinstance(smooth, FilterNode):
             return
         trailing = smooth.pendingDups
         if not trailing or self.terminal.lastCentre is None:
             return
-        owed = expander.trailingOwed(trailing)
+        # The smooth expander owes slots for the duplicates; each later expander
+        # then owes its own factor's share of the slots the one before it owed.
+        owed = trailing
+        for expander in expanders:
+            owed = expander.trailingOwed(owed)
         smooth.pendingDups = 0
         self.terminal.payout(owed)
 
@@ -664,4 +774,5 @@ __all__ = [
     "MapNode",
     "AnnotateNode",
     "Pipeline",
+    "Resize",
 ]

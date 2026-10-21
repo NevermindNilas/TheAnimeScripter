@@ -3,7 +3,7 @@ import os
 import sys
 from difflib import get_close_matches
 
-from src.cli.stageOrder import orderedFlag
+from src.cli.stageOrder import childFlag, removedFlag, stageFlag
 from src.io.getVideoMetadata import parseTrimArg
 from src.version import __version__
 
@@ -553,30 +553,22 @@ def createParser(outputPath):
     return prepareRuntimeArgs(args, outputPath, argParser)
 
 
-def _childOrder(dest):
-    """Order keywords for a child flag of an orderable unit.
-
-    The unit a child belongs to comes from ``PARENT_FLAG_DEFAULTS``, the same
-    table that auto-enables the parent, so the two cannot drift apart.
-    """
-    from src.cli.config import PARENT_FLAG_DEFAULTS
-
-    return orderedFlag(PARENT_FLAG_DEFAULTS[dest][0], enabling=False)
-
-
 def _addInterpolationOptions(argParser):
     interpolationGroup = argParser.add_argument_group("Interpolation")
     interpolationGroup.add_argument(
         "--interpolate",
-        help="Interpolate the video",
-        **orderedFlag("interpolate", enabling=True, flag=True),
+        help="Interpolate. Values: a method (rife4.26), a factor (2x, 2.5x or 2), "
+        "ensemble, dynamic_scale, static_step, or method=/factor=. Repeat it to "
+        "interpolate again; a repeat without values reuses the previous one's "
+        "settings. Where it is typed is where it runs",
+        **stageFlag("interpolate"),
     )
     interpolationGroup.add_argument(
         "--interpolate_factor",
         type=float,
         default=2,
-        help="Interpolation factor",
-        **_childOrder("interpolate_factor"),
+        help="Interpolation factor. Binds to the last --interpolate/--smooth_dedup typed before it; typed before all of them it is their default",
+        **childFlag(),
     )
 
     interpolationMethods = [
@@ -694,8 +686,8 @@ def _addInterpolationOptions(argParser):
         type=str,
         choices=interpolationMethods,
         default="rife4.6",
-        help="Interpolation method",
-        **_childOrder("interpolate_method"),
+        help="Interpolation method. Binds to the last --interpolate/--smooth_dedup typed before it; typed before all of them it is their default",
+        **childFlag(),
     )
     interpolationGroup.add_argument(
         "--slowmo",
@@ -704,18 +696,18 @@ def _addInterpolationOptions(argParser):
     )
     interpolationGroup.add_argument(
         "--ensemble",
-        action="store_true",
-        help="Use the ensemble model for interpolation",
+        help="Use the ensemble model for interpolation (inline: ensemble)",
+        **childFlag(flag=True),
     )
     interpolationGroup.add_argument(
         "--dynamic_scale",
-        action="store_true",
+        **childFlag(flag=True),
         help="Pick the RIFE pyramid scale per frame pair instead of using a fixed one: near-duplicate pairs get a finer pyramid, heavily changed pairs a coarser one. Costs some performance, RIFE CUDA, ROCm and MPS only",
     )
     interpolationGroup.add_argument(
         "--static_step",
-        action="store_true",
         help="Force Static Timestep generation for Rife CUDA",
+        **childFlag(flag=True),
     )
 
 
@@ -723,16 +715,18 @@ def _addUpscalingOptions(argParser):
     upscaleGroup = argParser.add_argument_group("Upscaling")
     upscaleGroup.add_argument(
         "--upscale",
-        help="Upscale the video",
-        **orderedFlag("upscale", enabling=True, flag=True),
+        help="Upscale. Values: a method (span), a factor (2x, 3x, 4x), a custom "
+        "model path, or method=/factor=/model=. Repeat it to upscale again; a "
+        "repeat without values reuses the previous one's settings",
+        **stageFlag("upscale"),
     )
     upscaleGroup.add_argument(
         "--upscale_factor",
         type=int,
         choices=[2, 3, 4],
         default=2,
-        help="Upscaling factor (minimum 2)",
-        **_childOrder("upscale_factor"),
+        help="Upscaling factor (minimum 2). Binds to the last --upscale typed before it; typed before every --upscale it is their default",
+        **childFlag(),
     )
 
     upscaleMethods = [
@@ -858,14 +852,15 @@ def _addUpscalingOptions(argParser):
         type=str,
         choices=upscaleMethods,
         default="shufflecugan",
-        help="Upscaling method",
-        **_childOrder("upscale_method"),
+        help="Upscaling method. Binds to the last --upscale typed before it; typed before every --upscale it is their default",
+        **childFlag(),
     )
     upscaleGroup.add_argument(
         "--custom_model",
         type=str,
         default="",
-        help="Path to a custom upscale model. Use .pt/.pth/.ckpt/.safetensors with CUDA/-rocm methods and .onnx with -directml, -openvino, or -tensorrt methods",
+        **childFlag(),
+        help="Path to a custom upscale model. Use .pt/.pth/.ckpt/.safetensors with CUDA/-rocm methods and .onnx with -directml, -openvino, or -tensorrt methods. Binds to the last --upscale typed before it; typed before every --upscale it is their default; it does not enable upscaling itself",
     )
 
 
@@ -873,8 +868,9 @@ def _addDedupOptions(argParser):
     dedupGroup = argParser.add_argument_group("Deduplication")
     dedupGroup.add_argument(
         "--dedup",
-        help="Deduplicate the video",
-        **orderedFlag("dedup", enabling=True, flag=True),
+        help="Deduplicate. Values: a method (ssim), a sensitivity 0-100 (40 or "
+        "40%%), or method=/sens=. Repeatable",
+        **stageFlag("dedup"),
     )
     dedupGroup.add_argument(
         "--dedup_method",
@@ -893,15 +889,15 @@ def _addDedupOptions(argParser):
             "vmaf-cuda",
             "vmaf-rocm",
         ],
-        help="Deduplication method",
-        **_childOrder("dedup_method"),
+        help="Deduplication method. Binds to the last --dedup typed before it; typed before every --dedup it is their default",
+        **childFlag(),
     )
     dedupGroup.add_argument(
         "--dedup_sens",
         type=float,
         default=35,
-        help="Deduplication sensitivity",
-        **_childOrder("dedup_sens"),
+        help="Deduplication sensitivity. Binds to the last --dedup typed before it; typed before every --dedup it is their default",
+        **childFlag(),
     )
 
 
@@ -909,8 +905,8 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup = argParser.add_argument_group("Smooth Deduplication")
     smoothDedupGroup.add_argument(
         "--smooth_dedup",
-        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. Implies --interpolate and disables --dedup. Its position in the command line sets where interpolation runs in the processing order",
-        **orderedFlag("smooth_dedup", enabling=True, flag=True),
+        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. It is an interpolate stage of its own (at most one, and the first interpolation) and disables every --dedup. Values: an interpolation method, a detection method, a factor (2x), a sensitivity (40%% or sens=40), ensemble, dynamic_scale, static_step, detector=, max_span=. Without interpolation values it takes over a single --interpolate",
+        **stageFlag("smooth_dedup"),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_method",
@@ -929,22 +925,22 @@ def _addSmoothDedupOptions(argParser):
             "vmaf-cuda",
             "vmaf-rocm",
         ],
-        help="Duplicate detection method used by --smooth_dedup",
-        **_childOrder("smooth_dedup_method"),
+        help="Duplicate detection method used by --smooth_dedup. Binds to --smooth_dedup (and enables it when it is not typed)",
+        **childFlag(),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_sens",
         type=float,
         default=35,
-        help="Duplicate detection sensitivity for --smooth_dedup",
-        **_childOrder("smooth_dedup_sens"),
+        help="Duplicate detection sensitivity for --smooth_dedup. Binds to --smooth_dedup (and enables it when it is not typed)",
+        **childFlag(),
     )
     smoothDedupGroup.add_argument(
         "--smooth_dedup_max_span",
         type=int,
         default=6,
         help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. 0 removes the cap so every run is interpolated. Raising it costs inference time, not memory",
-        **_childOrder("smooth_dedup_max_span"),
+        **childFlag(),
     )
 
 
@@ -952,8 +948,10 @@ def _addVideoProcessingOptions(argParser):
     processingGroup = argParser.add_argument_group("Video Processing")
     processingGroup.add_argument(
         "--restore",
-        help="Restore the video",
-        **orderedFlag("restore", enabling=True, flag=True),
+        help="Restore. Values: one or more restore methods, run in the order "
+        "given (scunet nafnet). Repeat it to restore again; a repeat without "
+        "values reuses the previous one's methods",
+        **stageFlag("restore"),
     )
     processingGroup.add_argument(
         "--stabilize", action="store_true", help="Stabilize the video"
@@ -1054,24 +1052,20 @@ def _addVideoProcessingOptions(argParser):
         nargs="+",
         default=["anime1080fixer"],
         choices=restoreMethods,
-        help="Denoising method(s), can specify multiple for chaining",
-        **_childOrder("restore_method"),
+        help="Denoising method(s), can specify multiple for chaining. Binds to the last --restore typed before it; typed before every --restore it is their default",
+        **childFlag(),
     )
     processingGroup.add_argument(
-        "--resize", action="store_true", help="Resize the video"
+        "--resize",
+        help="Resize, wherever it is typed in the chain. One target: a size "
+        "(1920x1080, 1440p, 4k, 8k; even, at least 16) or a scale (0.5, 0.5x, "
+        "50%%), or size=/scale=. Np keeps the aspect ratio. Repeatable; a "
+        "leading --resize is done by the decoder",
+        **stageFlag("resize"),
     )
-    processingGroup.add_argument(
-        "--resize_factor",
-        type=float,
-        default=2,
-        help="Resize factor (can be between 0 and 1 for downscaling)",
-    )
-    processingGroup.add_argument(
-        "--output_scale",
-        type=str,
-        default="",
-        help="Output resolution in WIDTHxHEIGHT format (e.g., 2560x1440)",
-    )
+    # Removed: a migration error instead of "unrecognized arguments".
+    processingGroup.add_argument("--resize_factor", **removedFlag())
+    processingGroup.add_argument("--output_scale", **removedFlag())
 
 
 def _addMotionBlurOptions(argParser):

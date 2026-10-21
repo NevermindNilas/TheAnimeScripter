@@ -92,20 +92,23 @@ Then run it. Without the installer, use `python main.py` in place of `tas`:
 # 2x interpolation, then 2x upscale, anime defaults
 tas --input episode.mp4 --interpolate --upscale
 
-# Picking a method enables its step: RIFE 4.25 + TensorRT upscale, scaled to 4K
-tas --input episode.mp4 --interpolate_method rife4.25-tensorrt --upscale_method shufflecugan-tensorrt --output_scale 3840x2160
+# Values pick the model: RIFE 4.25 + TensorRT upscale, then resized to 4K
+tas --input episode.mp4 --interpolate rife4.25-tensorrt --upscale shufflecugan-tensorrt --resize 4k
+
+# Stages repeat, in the order typed: 720p → span → RIFE 4.26 2x → RIFE 4.26 3x (6x in total)
+tas --input episode.mp4 --resize 720p --upscale span --interpolate rife4.26 --interpolate 3x
 
 # Anime on twos → smooth motion, same length, cuts left untouched
 tas --input episode.mp4 --smooth_dedup --scenechange
 
 # Chain restorers, encode 10-bit
-tas --input old_show.mkv --restore_method deh264_real anime1080fixer --encode_method x265_10bit
+tas --input old_show.mkv --restore deh264_real anime1080fixer --encode_method x265_10bit
 
 # Temporally stable depth map
 tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Flags run in the order you type them: `--upscale --interpolate` upscales first, `--interpolate --upscale` interpolates first (see PARAMETERS.MD, Processing Order).
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 4x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
 
 <details>
 <summary><b>Run from source</b></summary>
