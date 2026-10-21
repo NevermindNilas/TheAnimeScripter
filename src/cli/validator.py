@@ -830,13 +830,16 @@ def prepareRuntimeArgs(args, outputPath, parser):
         cs.ADOBE = True
         from src.server.aeComms import startServerInThread
 
+        def reportAeServerFailure(error):
+            logging.error(f"Failed to start AE comms server: {error}")
+            logAndPrint(f"Failed to start AE comms server: {error}", "red")
+
+        # The bind is checked in the background: startup does not wait the
+        # ~0.1 s the server child needs to boot and report.
         try:
-            startServerInThread(
-                host=args.ae,
-            )
+            startServerInThread(host=args.ae, onFailure=reportAeServerFailure)
         except Exception as e:
-            logging.error(f"Failed to start AE comms server: {e}")
-            logAndPrint(f"Failed to start AE comms server: {e}", "red")
+            reportAeServerFailure(e)
 
     logging.info("\n============== Arguments Checker ==============")
     _handleDependencies(args)

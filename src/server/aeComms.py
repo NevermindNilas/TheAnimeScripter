@@ -1,7 +1,7 @@
 import logging
 from multiprocessing import get_context
 from queue import Empty
-from threading import Lock
+from threading import Lock, Thread
 from time import time
 from urllib.parse import urlparse
 
@@ -299,7 +299,40 @@ def runServer(host, queue=None, bindStatus=None):
     httpd.serve_forever()
 
 
-def startServerInThread(host, bindTimeout=15.0):
+def _awaitBind(process, bindStatus, bindTimeout):
+    """Wait for ``process`` to report its bind. None if it bound, else why not.
+
+    A child that did not bind is stopped, and no longer counts as the server.
+    """
+    global serverProcess
+
+    try:
+        status, detail = bindStatus.get(timeout=bindTimeout)
+    except Empty:
+        status = "error"
+        detail = f"server process did not report readiness within {bindTimeout:.0f}s"
+
+    if status == "ok":
+        return None
+    if serverProcess is process:
+        serverProcess = None  # don't let the dead child mask a later retry
+    try:
+        process.terminate()
+    except Exception:
+        pass
+    return f"AE comms server failed to start: {detail}"
+
+
+def startServerInThread(host, bindTimeout=15.0, onFailure=None):
+    """Start the AE comms server in a child process.
+
+    The bind happens in the child, so a busy port used to be invisible to the
+    caller's try/except: the panel just never received an event. Without
+    ``onFailure`` this waits for the child's report and raises if it did not
+    bind. With it, this returns at once and a daemon thread waits instead,
+    calling ``onFailure(message)`` on a failed bind: the child takes ~0.1 s to
+    boot and report, which startup no longer sits through.
+    """
     global progressQueue
     global serverProcess
 
@@ -314,23 +347,18 @@ def startServerInThread(host, bindTimeout=15.0):
     )
     serverProcess.daemon = True
     serverProcess.start()
+    process = serverProcess
 
-    # The bind happens in the child, so a busy port used to be invisible to
-    # the caller's try/except: the panel just never received an event. Wait
-    # for the child to report; raise so the failure is loud and actionable.
-    try:
-        status, detail = bindStatus.get(timeout=bindTimeout)
-    except Empty:
-        status = "error"
-        detail = f"server process did not report readiness within {bindTimeout:.0f}s"
+    if onFailure is None:
+        failure = _awaitBind(process, bindStatus, bindTimeout)
+        if failure is not None:
+            raise RuntimeError(failure)
+        return process
 
-    if status != "ok":
-        failed = serverProcess
-        serverProcess = None  # don't let the dead child mask a later retry
-        try:
-            failed.terminate()
-        except Exception:
-            pass
-        raise RuntimeError(f"AE comms server failed to start: {detail}")
+    def watchBind():
+        failure = _awaitBind(process, bindStatus, bindTimeout)
+        if failure is not None:
+            onFailure(failure)
 
-    return serverProcess
+    Thread(target=watchBind, name="ae-bind-check", daemon=True).start()
+    return process
