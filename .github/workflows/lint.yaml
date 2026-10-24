@@ -84,3 +84,43 @@ jobs:
             echo "::error::ty found a first-party name that does not exist (see above)"
             exit 1
           fi
+
+  py315:
+    # TAS ships on 3.14, but the move to 3.15 is blocked only on native wheels
+    # (nelux, rife_ncnn, onnxruntime, tensorrt, ...), not on our code. This job
+    # keeps it that way, so the switch is a pin bump once those wheels exist.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.28"
+          python-version: "3.15"
+          enable-cache: true
+
+      - name: Create lint environment
+        run: uv venv
+
+      - name: Install ty
+        run: uv pip install ty==0.0.63
+
+      # -W error turns SyntaxWarnings (invalid escapes, return in finally, ...)
+      # into failures. Vendored trees are included on purpose: they run on 3.15 too.
+      - name: Compile under 3.15
+        run: uv run python -W error -m compileall -q -x '(^|/)\.venv/' .
+
+      # Same bare venv as the ty job, so third-party imports are unresolvable on
+      # both versions. Diffing a 3.14 run against a 3.15 run cancels that noise
+      # and leaves only what 3.15 itself breaks, e.g. a removed stdlib module or
+      # member ("Module `typing` has no member `no_type_check_decorator`").
+      - name: Type check against 3.15 stdlib
+        run: |
+          uv run ty check --python-version 3.14 --output-format=concise --exit-zero | grep -F ': error[' | sort > ty-314.log || true
+          uv run ty check --python-version 3.15 --output-format=concise --exit-zero | grep -F ': error[' | sort > ty-315.log || true
+          if comm -13 ty-314.log ty-315.log | grep .; then
+            echo "::error::ty reports errors under Python 3.15 that 3.14 does not (see above)"
+            exit 1
+          fi
