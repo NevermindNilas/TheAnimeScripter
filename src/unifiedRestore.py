@@ -470,7 +470,9 @@ class UnifiedRestoreMPS:
         if self.padMultiple > 1:
             output = _cropTo(output, height, width, self.CHANNELSLAST)
         torch.mps.synchronize()
-        return output
+        # The writer's non-CUDA path expects host tensors (it calls .numpy()),
+        # same as the MPS upscaler's return.
+        return output.cpu()
 
 
 class UnifiedRestoreTensorRT:
