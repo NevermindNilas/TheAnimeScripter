@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--smooth_dedup` takes values and can be followed by a second interpolation: `--smooth_dedup 1x --interpolate 2x`. Without values of its own it still takes over a single `--interpolate`, whatever long flags surround them.
 - `--json` takes a `"chain"` list (`["resize 1440p", "upscale span", "interpolate rife4.26 3x"]`) with the command line's value grammar.
 - Added NVIDIA Maxine Video Frame Generation interpolation (`--interpolate_method maxine-low`, `maxine-medium`, `maxine-high`) from `nvidia-vfx` 0.2.0.0. Requires an RTX 40/50 (Ada/Blackwell) GPU; older GPUs now fail with that requirement named instead of `code -1999`.
+- Added `rife4.26-ultra` interpolation (also `-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): rife4.26-heavy's weights run as four flipped views averaged after every block, finished with a Catmull-Rom warp. On 442 held-out anime frames LPIPS 0.0842 → 0.0819 (closer on 87%), and on a panning fence the generated frames no longer lose 17% of their detail; it costs about 3–4× rife4.26-heavy's time and 4× its working VRAM (RTX 3090).
 - Added RIFE 4.26 and 4.26-heavy interpolation (`rife4.26`, `rife4.26-heavy`, each also `-tensorrt`, `-directml`, `-openvino`, `-mps`). 4.26 reuses the 4.25 architecture; 4.26-heavy keeps 4.25's block widths and widens the feature encoder to 16 channels.
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
@@ -53,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed the unimplemented `--segment_method cartoon` choice; argparse now rejects it with the list of supported methods.
 
 ### Fixed
+- RIFE `-rocm` interpolated the first frame pair of every video against the encoder features of its all-zero warmup frames (every RIFE except `rife4.6`, which has no encoder), so the first generated frame was wrong. It now encodes the real first frame.
 - `scunet`, `scunet-rocm`, `scunet-mps` and `scunet-openvino` crashed on any frame whose width or height is not a multiple of 64, 1080p included (`EinopsError` / ONNX `Reshape` failure). They now reflect-pad to the multiple and crop back.
 - `scunet-tensorrt` stretched any frame whose width or height was not a multiple of 64 to the engine size, then cropped the top-left, so output was magnified and lost its right and bottom edges (22 dB on a real 640×360 frame, 63 dB after). It now reflect-pads and crops.
 - Upscalers that pad their input (`adore`, `fallin_*`, `shufflecugan` on CUDA, TensorRT and ROCm, e.g. at 854×480) could hand the writer a frame before its crop finished, writing stale or garbage frames. The crop now completes before the frame is returned.

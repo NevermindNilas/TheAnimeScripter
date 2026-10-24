@@ -1,7 +1,14 @@
 # Arches whose coarsest IFBlock runs at scale_list[0] = 16 / scale. Everything
 # else in _RIFE_V1 starts at 8 / scale.
 _RIFE_SCALE16 = frozenset(
-    {"rife4.25", "rife4.25-heavy", "rife4.25-lite", "rife4.26", "rife4.26-heavy"}
+    {
+        "rife4.25",
+        "rife4.25-heavy",
+        "rife4.25-lite",
+        "rife4.26",
+        "rife4.26-heavy",
+        "rife4.26-ultra",
+    }
 )
 
 

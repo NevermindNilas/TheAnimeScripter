@@ -1,6 +1,7 @@
 """
 The one RIFE 4.x implementation (4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20,
-4.21, 4.22, 4.22-lite, 4.25, 4.25-lite, 4.25-heavy, 4.26, 4.26-heavy).
+4.21, 4.22, 4.22-lite, 4.25, 4.25-lite, 4.25-heavy, 4.26, 4.26-heavy,
+4.26-ultra).
 
 - CUDA / ROCm / MPS, fp16 and fp32: the variant classes below (_FastIFNet),
   v1 API: cache(), cacheReset(frame), forward(img0, img1, timestep).
@@ -295,6 +296,12 @@ class _FastIFNet(nn.Module):
         headOutC:     4 or 8 (ignored if not hasHead)
         scaleBase:    [16,8,4,2,1] (5 blocks) or [8,4,2,1] (4 blocks)
         maskMode:     "replace" (most) or "add" (rife4.6 only)
+        flipViews:    run the pair as four views (as-is, flipped left-right,
+                      top-bottom, both) in the batch dimension and average their
+                      flows and masks after every block (rife4.26-ultra). Callers
+                      still pass one frame pair; the views are made inside.
+        finalWarp:    "bilinear" (all others) or "catrom": the last warp of the
+                      two frames uses Catmull-Rom on an fp32 grid (rife4.26-ultra)
     """
 
     alignIn = 8
@@ -322,6 +329,8 @@ class _FastIFNet(nn.Module):
         rescueAt=None,
         rescueMag=40,
         rescueCount=1036800,
+        flipViews=False,
+        finalWarp="bilinear",
         ensemble=False,
         dynamicScale=False,
         scale=1,
@@ -330,6 +339,23 @@ class _FastIFNet(nn.Module):
     ):
         super().__init__()
         assert len(channels) == len(inPlanesList)
+        if flipViews and ensemble:
+            raise ValueError(
+                "rife4.26-ultra already averages four flipped views; "
+                "--ensemble is not supported with it"
+            )
+        self.numViews = 4 if flipViews else 1
+        self._catrom = finalWarp == "catrom"
+        if flipViews:
+            dynamicScale = False  # the views are captured at one fixed scale
+            # per-view sign of (x0, y0, x1, y1) after the view's flip: identity,
+            # left-right (x negated), top-bottom (y negated), both
+            signs = torch.tensor(
+                [[1, 1, 1, 1], [-1, 1, -1, 1], [1, -1, 1, -1], [-1, -1, -1, -1]],
+                dtype=torch.float32,
+            ).view(4, 4, 1, 1)
+            self.register_buffer("_viewSigns", signs, persistent=False)
+        self._pixGrid = None
         # pass i runs blocks[schedule[i]] at scale_list[i]; every variant but
         # rife_elexor runs each block once, coarse to fine
         self.schedule = (
@@ -540,13 +566,130 @@ class _FastIFNet(nn.Module):
             inp, grid, mode="bilinear", padding_mode="border", align_corners=True
         )
 
+    # ---- flip views (flipViews) ---------------------------------------------
+
+    @staticmethod
+    def _flip(x, dims):
+        """torch.flip, exported as a reversed-index Gather: the negative-step
+        Slice torch.flip exports to breaks OpenVINO's shape inference on the
+        dynamic height/width axes. Same values either way."""
+        if not torch.onnx.is_in_onnx_export():
+            return torch.flip(x, dims)
+        for d in dims:
+            n = x.shape[d]
+            x = torch.index_select(x, d, torch.arange(n - 1, -1, -1, device=x.device))
+        return x
+
+    def _views(self, x):
+        """[1,C,H,W] frame -> its views in the batch: as-is, flipped
+        left-right, top-bottom, both. Identity when flipViews is off."""
+        if self.numViews == 1:
+            return x
+        f = self._flip
+        return torch.cat((x, f(x, (3,)), f(x, (2,)), f(x, (2, 3))))
+
+    def _flipEach(self, x):
+        """Apply each view's own flip to its batch row (an involution: it maps
+        a view into the identity frame and back)."""
+        f = self._flip
+        return torch.cat((x[0:1], f(x[1:2], (3,)), f(x[2:3], (2,)), f(x[3:4], (2, 3))))
+
+    def _consensus(self, flow, mask, maskHasFeat):
+        """Average the views' flows and blend masks in the identity frame and
+        hand every view the average, mapped back into its own frame.
+
+        A flipped view's flow is flipped back and its mirrored components
+        negated (_viewSigns). Only mask channel 0 is averaged: when the low-res
+        tail keeps mask|feat together, each view keeps its own feature. No-op
+        unless flipViews."""
+        if self.numViews == 1:
+            return flow, mask
+        signs = self._viewSigns.to(flow.dtype)
+        avg = (self._flipEach(flow) * signs).mean(0, keepdim=True)
+        flow = self._flipEach(avg.expand_as(flow)) * signs
+        m = mask[:, :1] if maskHasFeat else mask
+        mAvg = self._flipEach(m).mean(0, keepdim=True)
+        m = self._flipEach(mAvg.expand_as(m))
+        mask = torch.cat((m, mask[:, 1:]), 1) if maskHasFeat else m
+        return flow, mask
+
+    def _bilinear(self, inp, grid):
+        """Bilinear border sample for the Catmull-Rom taps (the export profile
+        routes it through its own sampler, decomposed for OpenVINO)."""
+        return F.grid_sample(
+            inp, grid, mode="bilinear", padding_mode="border", align_corners=True
+        )
+
+    def _ensurePixGrid(self, ph, pw, device):
+        """fp32 pixel coordinates (align_corners=True convention) for catrom."""
+        key = (ph, pw, device)
+        if self._pixGrid is None or self._pixGrid[0] != key:
+            xs = torch.arange(pw, device=device, dtype=torch.float32).view(1, 1, 1, pw)
+            ys = torch.arange(ph, device=device, dtype=torch.float32).view(1, 1, ph, 1)
+            self._pixGrid = (key, xs.expand(1, 1, ph, pw), ys.expand(1, 1, ph, pw))
+        return self._pixGrid[1], self._pixGrid[2]
+
+    def _catromWarp(self, img, flow2):
+        """Backward warp with Catmull-Rom (Keys a=-0.5), fp32, border clamp.
+
+        Exactly separable Catmull-Rom built from 9 bilinear grid_samples: per
+        axis the two inner taps (weights > 0) merge into one bilinear fetch at
+        their weighted offset, the two outer taps are fetched at integer
+        positions. Plain GridSample, so it exports to TensorRT/DirectML as is."""
+        ph, pw = img.shape[-2], img.shape[-1]
+        gx, gy = self._ensurePixGrid(ph, pw, img.device)
+        sx = gx + flow2[:, 0:1].float()
+        sy = gy + flow2[:, 1:2].float()
+
+        def taps(s, n):
+            i = torch.floor(s)
+            t = s - i
+            t2 = t * t
+            t3 = t2 * t
+            w0 = -0.5 * t3 + t2 - 0.5 * t
+            w1 = 1.5 * t3 - 2.5 * t2 + 1
+            w2 = -1.5 * t3 + 2 * t2 + 0.5 * t
+            w3 = 0.5 * t3 - 0.5 * t2
+            w12 = w1 + w2
+            pos = (i - 1, i + w2 / w12, i + 2)
+            return [p * (2.0 / (n - 1)) - 1.0 for p in pos], (w0, w12, w3)
+
+        xp, xw = taps(sx, pw)
+        yp, yw = taps(sy, ph)
+        src = img.float()
+        out = None
+        for py, wy in zip(yp, yw, strict=True):
+            # one row of three taps per grid_sample keeps the transient small
+            grid = torch.cat([torch.stack((px[:, 0], py[:, 0]), -1) for px in xp])
+            row = self._bilinear(src.expand(3, -1, -1, -1), grid)
+            acc = row[0:1] * xw[0] + row[1:2] * xw[1] + row[2:3] * xw[2]
+            out = acc * wy if out is None else out + acc * wy
+        return out
+
+    def _blend(self, img0, img1, flow, mask):
+        """Final warp of both frames with the last flow, blended by the mask."""
+        if not self._catrom:
+            wi0 = self._warp(img0[:, :3], flow[:, :2])
+            wi1 = self._warp(img1[:, :3], flow[:, 2:4])
+            return torch.lerp(wi1, wi0, torch.sigmoid(mask))
+        # Every view holds the same consensus; finish on the identity view.
+        wi0 = self._catromWarp(img0[0:1, :3], flow[0:1, :2]).clamp(0, 1)
+        wi1 = self._catromWarp(img1[0:1, :3], flow[0:1, 2:4]).clamp(0, 1)
+        out = torch.lerp(wi1, wi0, torch.sigmoid(mask[0:1].float()))
+        return out.to(img0.dtype)
+
+    def encodeFeatures(self, frame):
+        """Encoder features of one frame as the arch caches them (f0/f1): one
+        per view. Drivers that re-seed f0 themselves call this, not encode()."""
+        return self.encode(self._views(frame[:, :3]))
+
     def cache(self):
         if self._hasHead and self.f0 is not None and self.f1 is not None:
             self.f0.copy_(self.f1, non_blocking=True)
 
     def cacheReset(self, frame):
         if self._hasHead:
-            self.f0 = self.encode(frame[:, :3])
+            self.f0 = self.encodeFeatures(frame)
 
     # ---- forward -----------------------------------------------------------
 
@@ -560,6 +703,7 @@ class _FastIFNet(nn.Module):
         Everything here depends only on the frame pair, so a caller emitting
         several frames per pair (--interpolate_factor > 2, motion blur, wide
         --smooth_dedup gaps) runs it once and then flow() once per timestep."""
+        img0, img1 = self._views(img0), self._views(img1)
         self._refreshFeatures(img0, img1)
         if self._hasHead:
             src0, src1 = self._srcBufs(img0)
@@ -587,6 +731,7 @@ class _FastIFNet(nn.Module):
 
     def flow(self, img0, img1, timestep):
         """Per-timestep work; prepare() must have run for this pair."""
+        img0, img1 = self._views(img0), self._views(img1)
         ph, pw = img0.shape[-2], img0.shape[-1]
         self._ensureGrid(ph, pw, img0.dtype, img0.device)
 
@@ -793,6 +938,7 @@ class _FastIFNet(nn.Module):
                 feat = t[:, 5:] if self._usesFeat and not last else None
             maskLow = lowThis
             prevS = s
+            flow, mask = self._consensus(flow, mask, lowThis and self._usesFeat)
             if i == self.rescueAt and largeFlow is not None:
                 mag = torch.sqrt(largeFlow[:, 0] ** 2 + largeFlow[:, 1] ** 2)
                 flow = torch.where(
@@ -813,13 +959,15 @@ class _FastIFNet(nn.Module):
                 w0 = self._warp(src0, flow[:, :2])
                 w1 = self._warp(src1, flow[:, 2:4])
 
-        wi0 = self._warp(img0[:, :3], flow[:, :2])
-        wi1 = self._warp(img1[:, :3], flow[:, 2:4])
-        return torch.lerp(wi1, wi0, torch.sigmoid(mask))
+        return self._blend(img0, img1, flow, mask)
 
     # ---- generic path (ensemble, non-power-of-two dynamic scales) ------------
 
     def _forwardGeneric(self, img0, img1, timestep):
+        if self.numViews > 1:
+            raise NotImplementedError(
+                "flip views run on the fast path only (no ensemble / dynamic scale)"
+            )
         warped_img0 = img0
         warped_img1 = img1
         wf0 = self.f0
@@ -1169,6 +1317,11 @@ IFNet426Heavy = _make(
     maskMode="replace",
 )
 
+# rife4.26-ultra: rife4.26-heavy's network and weights, run as four flipped views
+# whose flows/masks are averaged after every block, finished with a Catmull-Rom
+# warp (~3-4x heavy's cost)
+IFNet426Ultra = _make(**{**IFNet426Heavy.cfg, "flipViews": True, "finalWarp": "catrom"})
+
 
 # rife_elexor: 4.7-style blocks and 4-ch features, 6 passes over 4 blocks
 # ([b0, b1] at 32/16, then the pyramid restarts: [b0, b1, b2, b3] at 8..1) with a
@@ -1257,8 +1410,13 @@ class _ExportIFNet(_FastIFNet):
             inp, grid, mode="bilinear", padding_mode="border", align_corners=True
         )
 
+    def _bilinear(self, inp, grid):
+        # the decomposed sampler flattens its input, so it needs real storage
+        return self._gs(inp.contiguous() if self._gsFn is not None else inp, grid)
+
     def _grid2(self, flow, ph, pw):
-        return (self._backWarp + flow.reshape(2, 2, ph, pw) * self._tenFlow).permute(
+        n = 2 * self.numViews
+        return (self._backWarp + flow.reshape(n, 2, ph, pw) * self._tenFlow).permute(
             0, 2, 3, 1
         )
 
@@ -1270,10 +1428,27 @@ class _ExportIFNet(_FastIFNet):
             self._latticeGrids[key] = bw
         f = self._lattice(flow, s)
         h2, w2 = f.shape[-2], f.shape[-1]
-        return (bw + f.reshape(2, 2, h2, w2) * self._tenFlow).permute(0, 2, 3, 1)
+        n = 2 * self.numViews
+        return (bw + f.reshape(n, 2, h2, w2) * self._tenFlow).permute(0, 2, 3, 1)
 
     def _src2(self, img0, img1, f0, f1):
-        """Batch-2 warp source [img|feat] for both frames, channel-padded."""
+        """Batch-2 warp source [img|feat] for both frames, channel-padded.
+
+        With flip views it is one row per (view, frame), view-major, so the
+        blocks' side-major input is still the batch folded into channels."""
+        if self.numViews > 1:
+            v0, v1 = self._views(img0[:, :3]), self._views(img1[:, :3])
+            if self._hasHead:
+                v0, v1 = torch.cat((v0, f0), 1), torch.cat((v1, f1), 1)
+            c = v0.size(1)
+            src2 = torch.stack((v0, v1), 1).reshape(
+                2 * self.numViews, c, *v0.shape[-2:]
+            )
+            imgs2 = src2[:, :3]
+            padC = (-src2.size(1)) % self.warpPad
+            if padC:
+                src2 = torch.cat((src2, imgs2[:, :1].expand(-1, padC, -1, -1) * 0), 1)
+            return src2
         imgs2 = torch.cat((img0[:, :3], img1[:, :3]), 0)
         src2 = torch.cat((imgs2, torch.cat((f0, f1), 0)), 1) if self._hasHead else imgs2
         padC = (-src2.size(1)) % self.warpPad
@@ -1298,9 +1473,9 @@ class _ExportIFNet(_FastIFNet):
         -> (src2, f1) for head-bearing variants, src2 alone for headless ones."""
         if not self._hasHead:
             return self._src2(img0, img1, None, None)
-        f1 = self.encode(img1[:, :3])
+        f1 = self.encodeFeatures(img1)
         if f0 is None:
-            f0 = self.encode(img0[:, :3])
+            f0 = self.encodeFeatures(img0)
         return self._src2(img0, img1, f0, f1), f1
 
     def stepForward(self, src2, timestep):
@@ -1318,6 +1493,7 @@ class _ExportIFNet(_FastIFNet):
         e = self.encodeChannels
         C = 3 + e
         imgs2 = src2[:, :3]
+        V = self.numViews
         addMask = self._maskMode == "add"
         lowRes = self.lowResTail and not addMask
         npass = len(self.schedule)
@@ -1339,10 +1515,10 @@ class _ExportIFNet(_FastIFNet):
             Side-major is just the batch folded into channels ([img0|f0, img1|f1])."""
             h, w = t.shape[-2], t.shape[-1]
             if self.sideMajor or not hasHead:
-                return [t[:, :C].reshape(1, 2 * C, h, w)]
+                return [t[:, :C].reshape(V, 2 * C, h, w)]
             return [
-                t[:, :3].reshape(1, 6, h, w),
-                t[:, 3:C].reshape(1, 2 * e, h, w),
+                t[:, :3].reshape(V, 6, h, w),
+                t[:, 3:C].reshape(V, 2 * e, h, w),
             ]
 
         flow = mask = feat = None
@@ -1355,6 +1531,8 @@ class _ExportIFNet(_FastIFNet):
             s = scales[i]
             h, w = ph // s, pw // s
             tsI = timestep if s == 1 else timestep[:, :, ::s, ::s]
+            if V > 1:
+                tsI = tsI.expand(V, -1, -1, -1)
             if flow is None:  # first pass of a pyramid
                 parts = split2(src2[:, :C] if s == 1 else ds(src2[:, :C], s))
                 parts.append(tsI)
@@ -1400,6 +1578,7 @@ class _ExportIFNet(_FastIFNet):
                 feat = t[:, 5:] if self._usesFeat and not last else None
             maskLow = lowThis
             prevS = s
+            flow, mask = self._consensus(flow, mask, lowThis and self._usesFeat)
             if i == self.rescueAt and largeFlow is not None:
                 mag = torch.sqrt(largeFlow[:, 0] ** 2 + largeFlow[:, 1] ** 2)
                 flow = torch.where(
@@ -1417,6 +1596,9 @@ class _ExportIFNet(_FastIFNet):
             else:
                 warps = self._gs(src2, self._grid2(flow, ph, pw))
 
+        if self._catrom:
+            # identity view: rows 0 and 1 of the (view, frame) stack
+            return self._blend(imgs2[0:1], imgs2[1:2], flow, mask)
         wi = self._gs(imgs2, self._grid2(flow, ph, pw))
         mask = torch.sigmoid(mask)
         return wi[0:1] * mask + wi[1:2] * (1 - mask)

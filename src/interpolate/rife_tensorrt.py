@@ -107,6 +107,7 @@ class RifeTensorRT:
             mul = 64
         elif self.interpolateMethod in [
             "rife4.26-heavy-tensorrt",
+            "rife4.26-ultra-tensorrt",
         ]:
             channels = 16
             mul = 64
@@ -441,19 +442,22 @@ class RifeTensorRT:
         self.pairEngine, self.pairContext = self.tensorRTEngineLoader(pairPath)
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
 
+        # f0/f1 hold one feature map per flip view: batch 4 for rife4.26-ultra.
+        views = 1
         if self.pairContext is not None and self.context is not None:
             src2Shape = tuple(self.engine.get_tensor_shape("src2"))
             if head:
-                channels = self.pairEngine.get_tensor_shape("f0")[1]
+                views, channels = tuple(self.pairEngine.get_tensor_shape("f0"))[:2]
         else:
             model = self._buildTorchModel(IFNet)
+            views = getattr(model, "numViews", 1)
             if head:
                 # f0 engine input width comes from the arch (16 for 4.26-heavy).
                 channels = getattr(model, "encodeChannels", channels)
             I0 = torch.zeros(1, 3, self.ph, self.pw, dtype=dt, device=dev)
             I1 = torch.zeros_like(I0)
             f0 = (
-                torch.zeros(1, channels, self.ph, self.pw, dtype=dt, device=dev)
+                torch.zeros(views, channels, self.ph, self.pw, dtype=dt, device=dev)
                 if head
                 else None
             )
@@ -511,7 +515,9 @@ class RifeTensorRT:
             1, 3, self.height, self.width, dtype=dt, device=dev
         )
         if head:
-            self.f0 = torch.zeros(1, channels, self.ph, self.pw, dtype=dt, device=dev)
+            self.f0 = torch.zeros(
+                views, channels, self.ph, self.pw, dtype=dt, device=dev
+            )
             self.f1 = torch.zeros_like(self.f0)
         pairBind = {"img0": self.I0, "img1": self.I1, "src2": self.src2}
         if head:

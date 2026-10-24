@@ -35,6 +35,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-heavy"
             | "rife4.26"
             | "rife4.26-heavy"
+            | "rife4.26-ultra"
         ):
             from src.interpolate.rife import RifeCuda
 
@@ -66,6 +67,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-heavy-mps"
             | "rife4.26-mps"
             | "rife4.26-heavy-mps"
+            | "rife4.26-ultra-mps"
             | "rife_elexor-mps"
         ):
             from src.interpolate.rife import RifeMPS
@@ -96,6 +98,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-rocm"
             | "rife4.25-lite-rocm"
             | "rife4.25-heavy-rocm"
+            | "rife4.26-ultra-rocm"
             | "rife_elexor-rocm"
         ):
             from src.interpolate.rife import RifeROCm
@@ -152,6 +155,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-heavy-tensorrt"
             | "rife4.26-tensorrt"
             | "rife4.26-heavy-tensorrt"
+            | "rife4.26-ultra-tensorrt"
         ):
             from src.interpolate.rife_tensorrt import RifeTensorRT
 
@@ -203,6 +207,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-heavy-directml"
             | "rife4.26-directml"
             | "rife4.26-heavy-directml"
+            | "rife4.26-ultra-directml"
             | "rife4.15-openvino"
             | "rife4.17-openvino"
             | "rife4.18-openvino"
@@ -215,6 +220,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-heavy-openvino"
             | "rife4.26-openvino"
             | "rife4.26-heavy-openvino"
+            | "rife4.26-ultra-openvino"
         ):
             from src.interpolate.rife_directml import RifeDirectML
 

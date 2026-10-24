@@ -18,6 +18,10 @@ _RIFE_V1 = {
     # 4.26 is 4.25's architecture with new weights; 4.26-heavy is not 4.25-heavy.
     "rife4.26": ("IFNet426", "IFNet_rife425"),
     "rife4.26-heavy": ("IFNet426Heavy", "IFNet_rife426heavy"),
+    # 4.26-heavy's weights run as four flipped views + a Catmull-Rom final warp;
+    # the views exist only in rife_fast, so --static_step's reference arch is
+    # plain 4.26-heavy (RifeCuda disables static_step for every 4.26 model).
+    "rife4.26-ultra": ("IFNet426Ultra", "IFNet_rife426heavy"),
     "rife4.22": ("IFNet422", "IFNet_rife422"),
     "rife4.22-lite": ("IFNet422Lite", "IFNet_rife422lite"),
     "rife4.21": ("IFNet421", "IFNet_rife421"),
@@ -48,7 +52,8 @@ def _loadV1(method, half, staticStep=False, ensemble=False):
 # TensorRT methods run the SAME arch as the CUDA path -- rife_fast's variant
 # table and blocks -- lowered for ONNX by rife_fast.exportArch. 4.15 (full)
 # shares 4.17's architecture. DirectML/OpenVINO still use Rife_directml
-# (_DML_LEGACY) for now.
+# (_DML_LEGACY), except rife4.26-ultra, whose flip views exist only in rife_fast:
+# its DirectML export is exportArch with both frames encoded in the graph.
 _EXPORT_FAST = {
     "rife": "IFNet422",
     "rife4.6": "IFNet46",
@@ -64,11 +69,14 @@ _EXPORT_FAST = {
     "rife4.25-heavy": "IFNet425Heavy",
     "rife4.26": "IFNet426",
     "rife4.26-heavy": "IFNet426Heavy",
+    "rife4.26-ultra": "IFNet426Ultra",
     "rife_elexor": "IFNetElexor",
 }
 # The wired set per backend (unchanged from the per-file arches this replaced).
 _EXPORT_WIRED = {
     "-tensorrt": frozenset(_EXPORT_FAST),
+    "-directml": frozenset({"rife4.26-ultra"}),
+    "-openvino": frozenset({"rife4.26-ultra"}),
 }
 # DirectML / OpenVINO arch class per base method (src/rifearches/Rife_directml.py).
 _DML_LEGACY = {
@@ -92,7 +100,12 @@ _DML_LEGACY = {
 # reproduced (4.22-lite@736: isolated build + 600 replays, no CUDA error).
 _EXPORT_PROFILE = {
     "-tensorrt": {"featureIO": True},
+    # RifeDirectML runs one ONNX graph that encodes both frames itself, for
+    # DirectML and OpenVINO alike (OpenVINO picks the decomposed warp at
+    # construction, so both suffixes share one class).
+    "-directml": {"featureIO": False},
 }
+_EXPORT_CLASS_SUFFIX = {"-openvino": "-directml"}
 
 
 def _tensorrtProfile():
@@ -138,13 +151,19 @@ def _loadExport(interpolateMethod, ensemble=False):
                 from src.rifearches import rife_fast
 
                 fastCls = getattr(rife_fast, _EXPORT_FAST[base])
-                key = (_EXPORT_FAST[base], suffix)
+                classSuffix = _EXPORT_CLASS_SUFFIX.get(suffix, suffix)
+                key = (_EXPORT_FAST[base], classSuffix)
                 cls = _EXPORT_CLASSES.get(key)
                 if cls is None:
+                    profile = (
+                        _tensorrtProfile()
+                        if classSuffix == "-tensorrt"
+                        else dict(_EXPORT_PROFILE[classSuffix])
+                    )
                     cls = rife_fast.exportArch(
                         fastCls,
                         name=f"Export{_EXPORT_FAST[base]}",
-                        **_tensorrtProfile(),
+                        **profile,
                     )
                     cls.archTag = EXPORT_ARCH_TAG
                     _EXPORT_CLASSES[key] = cls

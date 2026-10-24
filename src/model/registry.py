@@ -131,6 +131,7 @@ def modelsList() -> list[str]:
         "rife4.25-heavy",
         "rife4.26",
         "rife4.26-heavy",
+        "rife4.26-ultra",
         "rife_elexor",
         "distildrba",
         "distildrba-lite",
@@ -147,6 +148,7 @@ def modelsList() -> list[str]:
         "rife4.25-heavy-tensorrt",
         "rife4.26-tensorrt",
         "rife4.26-heavy-tensorrt",
+        "rife4.26-ultra-tensorrt",
         "rife_elexor-tensorrt",
         "rife4.6-ncnn",
         "rife4.15-lite-ncnn",
@@ -196,6 +198,7 @@ def modelsList() -> list[str]:
         "rife4.25-heavy-mps",
         "rife4.26-mps",
         "rife4.26-heavy-mps",
+        "rife4.26-ultra-mps",
         "rife_elexor-mps",
         "scunet-mps",
         "nafnet-mps",
@@ -237,6 +240,7 @@ def modelsList() -> list[str]:
         "rife4.25-rocm",
         "rife4.25-lite-rocm",
         "rife4.25-heavy-rocm",
+        "rife4.26-ultra-rocm",
         "rife_elexor-rocm",
         "scunet-rocm",
         "nafnet-rocm",
@@ -670,7 +674,13 @@ def modelsMap(
             | "rife4.26-heavy-tensorrt"
             | "rife4.26-heavy-directml"
             | "rife4.26-heavy-openvino"
+            | "rife4.26-ultra"
+            | "rife4.26-ultra-tensorrt"
+            | "rife4.26-ultra-directml"
+            | "rife4.26-ultra-openvino"
         ):
+            # rife4.26-ultra is 4.26-heavy's network and weights run as four flip
+            # views with a Catmull-Rom final warp, so it shares this file.
             if modelType in ("pth", "onnx"):
                 return "rife426_heavy.pth"
 

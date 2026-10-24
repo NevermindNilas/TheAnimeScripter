@@ -381,6 +381,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **rife4.26** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Newer weights on the rife4.25 architecture, same speed | CUDA, TRT, DML, OpenVINO, MPS |
 | **rife4.26-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Anime; 16-channel feature encoder (not a wider rife4.25-heavy) | CUDA, TRT, DML, OpenVINO, MPS |
+| **rife4.26-ultra** | ¼⚡ | ⭐⭐⭐⭐⭐ | ~4× heavy (≈4 GB at 1080p, ≈21 GB at 4K) | Final renders: rife4.26-heavy's weights run as four flipped views (as-is, left-right, top-bottom, both) averaged after every block, finished with a sharper Catmull-Rom warp. About 3–4× heavy's time. Cleaner thin moving shapes and no every-other-frame softness on pans; it cannot fix very large motion. Ignores `--ensemble` and `--dynamic_scale` | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
 | **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice (default) | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
 | **rife** | ⚡⚡ | ⭐⭐⭐ | 4GB | Alias for the current recommended RIFE build | TRT, NCNN, MPS |

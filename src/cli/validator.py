@@ -376,6 +376,7 @@ def _legacyStages(args):
                     "factor": getattr(args, "interpolate_factor", 2),
                     "staticStep": getattr(args, "static_step", False),
                     "dynamicScale": getattr(args, "dynamic_scale", False),
+                    "ensemble": getattr(args, "ensemble", False),
                     "detector": args.smooth_dedup_method,
                     "sens": args.smooth_dedup_sens,
                     "maxSpan": getattr(args, "smooth_dedup_max_span", 6),
@@ -392,6 +393,7 @@ def _legacyStages(args):
                     "factor": getattr(args, "interpolate_factor", 2),
                     "staticStep": getattr(args, "static_step", False),
                     "dynamicScale": getattr(args, "dynamic_scale", False),
+                    "ensemble": getattr(args, "ensemble", False),
                 },
             )
         )
@@ -412,6 +414,8 @@ def _writeLegacyStages(args, stages):
                 args.static_step = settings["staticStep"]
             if hasattr(args, "dynamic_scale"):
                 args.dynamic_scale = settings["dynamicScale"]
+            if hasattr(args, "ensemble"):
+                args.ensemble = settings["ensemble"]
         if stage.smooth:
             args.smooth_dedup_max_span = settings["maxSpan"]
             args.smooth_dedup_method = settings["detector"]
@@ -461,6 +465,24 @@ def _resolveDynamicScale(stage):
         settings["dynamicScale"] = False
 
 
+def _resolveFlipViews(stage):
+    """rife4.26-ultra already averages four flipped views at a fixed scale, so
+    --ensemble (a fifth, time-reversed pass) and --dynamic_scale have no place
+    in it; the arch refuses the first and ignores the second."""
+    settings = stage.settings
+    if not settings["method"].startswith("rife4.26-ultra"):
+        return
+    where = f" on {stage.label}" if stage.repeated else ""
+    for key, flag in (("ensemble", "--ensemble"), ("dynamicScale", "--dynamic_scale")):
+        if settings.get(key):
+            logAndPrint(
+                f"{flag} is not supported by rife4.26-ultra, which already averages "
+                f"four flipped views; disabling it{where}",
+                "yellow",
+            )
+            settings[key] = False
+
+
 def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
     if args.slowmo:
         cs.AUDIO = False
@@ -473,6 +495,7 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         if stage.kind == "interpolate":
             _resolveStaticStep(stage)
             _resolveDynamicScale(stage)
+            _resolveFlipViews(stage)
     if getattr(args, "dynamic_scale", False) and not args.interpolate:
         logging.warning("--dynamic_scale has no effect without --interpolate")
         args.dynamic_scale = False

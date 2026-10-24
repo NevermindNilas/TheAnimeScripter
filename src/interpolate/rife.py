@@ -22,6 +22,17 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
+def _encodeAnchor(model, frame):
+    """Encoder features of ``frame`` in the shape the arch caches them.
+
+    rife_fast arches expose ``encodeFeatures`` (one feature map per flip view
+    for rife4.26-ultra); the reference arches (--static_step) only ``encode``."""
+    encodeFeatures = getattr(model, "encodeFeatures", None)
+    if encodeFeatures is not None:
+        return encodeFeatures(frame)
+    return model.encode(frame[:, :3])
+
+
 class RifeCuda:
     def __init__(
         self,
@@ -471,7 +482,7 @@ class RifeCuda:
                 if getattr(self.model, "f0", None) is not None:
                     # In-place re-seed of the persistent (graph-captured) f0.
                     self.model.f0.copy_(
-                        self.model.encode(padded[:, :3]), non_blocking=True
+                        _encodeAnchor(self.model, padded), non_blocking=True
                     )
                 else:
                     # No forward has run yet (eager path, graph disabled): the
@@ -585,7 +596,7 @@ class RifeCuda:
         if f0 is None:
             return
         with torch.cuda.stream(self.normStream):
-            f0.copy_(self.model.encode(self.I0[:, :3]), non_blocking=True)
+            f0.copy_(_encodeAnchor(self.model, self.I0), non_blocking=True)
         self.normStream.synchronize()
 
     def _armEncoderRefresh(self):
@@ -1091,6 +1102,15 @@ class RifeROCm:
                 self.model(self.I0, self.I1, self._timestep_buffer)
         if self.device.type == "cuda":
             torch.cuda.synchronize()
+        # The warmup cached the encoder features of the all-zero frames, and the
+        # arch only encodes f0 while it is None: the first real pair was
+        # interpolated against a black anchor's features. Drop them so the
+        # first prepare() encodes the real anchor.
+        for name in ("f0", "f1"):
+            if hasattr(self.model, name):
+                setattr(self.model, name, None)
+        if hasattr(self.model, "counter"):
+            self.model.counter = 1
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
