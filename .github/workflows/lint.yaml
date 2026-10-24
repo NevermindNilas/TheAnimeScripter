@@ -97,8 +97,11 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          version: "0.11.28"
-          python-version: "3.15"
+          # Newer than the other jobs' uv: 0.11.28's download list predates the
+          # 3.15.0 release and silently resolves "3.15" to 3.15.0b3. The exact
+          # pin makes a uv that cannot provide 3.15.0 fail instead.
+          version: "0.13.1"
+          python-version: "3.15.0"
           enable-cache: true
 
       - name: Create lint environment
