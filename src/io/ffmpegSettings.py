@@ -1386,7 +1386,11 @@ class WriteBuffer:
             if ffmpegProc is not None:
                 rc = ffmpegProc.poll()
                 logging.error(f"FFmpeg exit code: {rc}")
-                if ffmpegProc.stderr:
+                # Only a dead ffmpeg has closed stderr. While it runs (stdin
+                # still open, rc None) read() waits for an EOF that never
+                # comes, and the upstream threads deadlock behind the writer.
+                # The finally block below closes stdin and reaps it.
+                if rc is not None and ffmpegProc.stderr:
                     try:
                         stderr_out = (
                             ffmpegProc.stderr.read().decode(errors="replace").strip()
