@@ -75,3 +75,10 @@ possibly-missing-submodule = "ignore"
 # `# type: ignore` comments in this tree target other checkers; ty policing them
 # would just churn vendored-adjacent arch files.
 unused-type-ignore-comment = "ignore"
+
+# uv stops at the first index that has a package, and the PyTorch index mirrors
+# setuptools/numpy/... at older versions than the PyPI pins. pip merges every
+# index, so this makes `uv pip install -r ...` resolve like pip. Safe because
+# torch/torchvision are pinned with their +cu local tag.
+[tool.uv.pip]
+index-strategy = "unsafe-best-match"
