@@ -1,7 +1,7 @@
 torch==2.14.1
 torchvision==0.29.1
 # Keep the native video wheel on the same PyTorch ABI during profile installs.
-nelux==0.20.0
+nelux==0.21.0
 opencv-python-headless==5.0.0.93
 timm==1.0.29
 einops==0.8.2
