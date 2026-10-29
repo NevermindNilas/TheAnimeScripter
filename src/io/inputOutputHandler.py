@@ -64,6 +64,14 @@ def _looksLikeMediaFile(path):
 # everywhere). Argument values get folded into output names, so scrub them.
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
+# A video title becomes a file name: path separators and pipes read as " - ",
+# the other unsafe characters are dropped. `%` (an image-sequence pattern to
+# getVideoFiles, a field to yt-dlp's outtmpl) and `;` (getVideoFiles' path
+# separator) would change how the downloaded file is read back as --input.
+_TITLE_SEPARATORS = re.compile(r"\s*[|/\\]+\s*")
+_TITLE_DROPPED = re.compile(r'[<>:"?*%;\x00-\x1f]')
+_TITLE_MAX = 100
+
 _SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
 
 # Image-sequence encoders and the per-frame extension each one writes. The
@@ -161,10 +169,18 @@ def detectImageSequence(folderPath):
     return (sequencePath, frameNumbers[0], frameNumbers[-1], len(frameNumbers))
 
 
-def _baseName(videoInput):
+def titleFileName(title):
+    """A video title as a file name stem, or "" when nothing usable is left."""
+    name = _TITLE_SEPARATORS.sub(" - ", str(title or ""))
+    name = " ".join(_TITLE_DROPPED.sub("", name).split())
+    # Windows drops trailing dots and spaces from a name.
+    return name[:_TITLE_MAX].strip(" .-")
+
+
+def _baseName(videoInput, title=None):
     """Derive the leading filename component from an input path/URL."""
     if _isURL(videoInput):
-        return "TAS-YTDLP"
+        return titleFileName(title) or "TAS-YTDLP"
     if not videoInput:
         return "TAS"
 
@@ -253,14 +269,15 @@ def _chainSuffixes(chain):
     return suffixes
 
 
-def generateOutputName(args, videoInput):
+def generateOutputName(args, videoInput, title=None):
     """Generates output filename based on input and processing arguments.
 
     With ``args.chain`` (every CLI run) the stage suffixes come from the chain;
     a namespace without one (other entrypoints, tests) still names its output
-    from the global flags.
+    from the global flags. ``title`` names a URL input's output after the
+    video instead of ``TAS-YTDLP``.
     """
-    baseName = _baseName(videoInput)
+    baseName = _baseName(videoInput, title)
     chain = getattr(args, "chain", None)
 
     stageFeatures = [
@@ -282,7 +299,7 @@ def generateOutputName(args, videoInput):
     isUrl = _isURL(videoInput)
     suffixes = [] if chain is None else _chainSuffixes(chain)
     for arg, label, valAttr in features:
-        # URL base name already carries the YTDLP tag; don't duplicate it.
+        # A URL's name is the video title or TAS-YTDLP; no YTDLP suffix.
         if arg == "ytdlp" and isUrl:
             continue
         if getattr(args, arg, False):

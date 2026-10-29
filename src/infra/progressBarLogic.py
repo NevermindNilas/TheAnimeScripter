@@ -611,6 +611,12 @@ class ProgressBarDownloadLogic:
         _unregister(self)
         self.progress.__exit__(exc_type, exc_value, traceback)
 
+    def updateTotal(self, newTotal: int):
+        """Revise the byte total mid-download, for sources that only estimate
+        their size (yt-dlp's fragmented streams)."""
+        self.totalData = max(1, int(newTotal))
+        self.progress.set_total(0, self.totalData)
+
     def advance(self, advance=1):
         self.progress.advance(advance)
 

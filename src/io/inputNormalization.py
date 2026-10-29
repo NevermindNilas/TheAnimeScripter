@@ -12,7 +12,7 @@ class InputNormalizationError(ValueError):
 
 def processUrlInput(args, outputPath, processingEnabled):
     from src.infra.logAndPrint import logAndPrint
-    from src.io.inputOutputHandler import generateOutputName
+    from src.io.inputOutputHandler import generateOutputName, titleFileName
     from src.ytdlp import VideoDownloader
 
     result = urlparse(args.input)
@@ -24,20 +24,39 @@ def processUrlInput(args, outputPath, processingEnabled):
 
     logging.info("URL is valid and will be used for processing")
 
+    downloader = VideoDownloader(args.input, args.encode_method)
+    title = downloader.title
+
     if args.output is None:
         outputFolder = os.path.join(outputPath, "output")
         os.makedirs(os.path.join(outputFolder), exist_ok=True)
-        args.output = os.path.join(outputFolder, generateOutputName(args, args.input))
+        args.output = os.path.join(
+            outputFolder, generateOutputName(args, args.input, title)
+        )
     elif os.path.isdir(args.output):
         outputFolder = args.output
         os.makedirs(os.path.join(outputFolder), exist_ok=True)
+        if not processingEnabled:
+            # The rename below needs a file in that folder, not the folder.
+            args.output = os.path.join(
+                outputFolder, generateOutputName(args, args.input, title)
+            )
     else:
         outputFolder = os.path.dirname(args.output)
         os.makedirs(os.path.join(outputFolder), exist_ok=True)
 
-    tempOutput = os.path.join(outputFolder, generateOutputName(args, args.input))
+    # The download is the processing run's input, so it is named after the
+    # video alone (always .mp4, yt-dlp's merge format): with the run's
+    # suffixes it was the same path as the output it is processed into.
+    stem = titleFileName(title) or "TAS-YTDLP"
+    tempOutput = os.path.join(outputFolder, f"{stem}.mp4")
+    if processingEnabled and os.path.abspath(tempOutput) == os.path.abspath(
+        args.output
+    ):
+        # Stages that add no suffix (stabilize, motion blur, ...).
+        tempOutput = os.path.join(outputFolder, f"{stem}-YTDLP.mp4")
 
-    VideoDownloader(args.input, tempOutput, args.encode_method)
+    downloader.download(tempOutput)
     logAndPrint(
         f"Video downloaded successfully to {tempOutput}",
         "green",

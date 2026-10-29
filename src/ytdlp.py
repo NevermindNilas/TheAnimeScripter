@@ -7,22 +7,39 @@ from yt_dlp import YoutubeDL
 from src.constants import ADOBE, FFMPEGPATH
 
 
+def _expectedBytes(d):
+    """Best size guess for a progress-hook dict.
+
+    Exact for a plain HTTP download. A fragmented (HLS/DASH) stream only has
+    yt-dlp's `total_bytes_estimate`, extrapolated from the fragments so far:
+    over the init segment (712 B) and the first media fragment it is wildly
+    low, so until two are done the download counts as one fragment of
+    `fragment_count`. `info_dict` sizes are no help: during a merged
+    video+audio download it is the whole video's info, whose
+    `filesize_approx` is the audio stream's.
+    """
+    downloaded = d.get("downloaded_bytes") or 0
+    if d.get("total_bytes"):
+        return max(d["total_bytes"], downloaded)
+    count = d.get("fragment_count")
+    if count and (d.get("fragment_index") or 0) < 2:
+        return downloaded * count
+    return max(d.get("total_bytes_estimate") or 0, downloaded)
+
+
 class VideoDownloader:
-    def __init__(
-        self,
-        video_link,
-        output,
-        encodeMethod,
-    ):
+    """Fetches the video's info on construction (so its `title` can name the
+    output), then `download(output)` asks for a quality and downloads."""
+
+    def __init__(self, video_link, encodeMethod):
         self.link = video_link
-        self.output = output
         self.encodeMethod = encodeMethod
 
         try:
-            videoInfo = self.getVideoInfo()
-            resolutions = self.listResolutions(videoInfo)
+            self.videoInfo = self.getVideoInfo()
+            self.resolutions = self.listResolutions(self.videoInfo)
 
-            if not resolutions:
+            if not self.resolutions:
                 logging.error("No valid resolutions found for this video")
                 exit(1)
 
@@ -30,7 +47,14 @@ class VideoDownloader:
             logging.error(f"Error while fetching video information: {e}")
             exit(1)
 
-        title = videoInfo.get("title", "Unknown")
+        self.title = self.videoInfo.get("title") or ""
+
+    def download(self, output):
+        self.output = output
+        videoInfo = self.videoInfo
+        resolutions = self.resolutions
+
+        title = self.title or "Unknown"
         duration = videoInfo.get("duration", 0)
         durationStr = f"{duration // 60}m {duration % 60}s" if duration else "Unknown"
 
@@ -141,30 +165,58 @@ class VideoDownloader:
         return sorted(uniqueResolutions.values(), key=lambda x: x[1], reverse=True)
 
     def downloadVideo(self):
+        from src.infra.progressBarLogic import ProgressBarDownloadLogic
+
         self.downloadedFile = None
+        # One bar per stream: bestvideo+bestaudio downloads video, then audio.
+        bar = None
+        done = 0
+
+        def closeBar():
+            nonlocal bar
+            if bar is not None:
+                bar.__exit__(None, None, None)
+                bar = None
 
         def hook(d):
+            nonlocal bar, done
             status = d.get("status")
+            downloaded = d.get("downloaded_bytes") or 0
+            total = _expectedBytes(d)
             if status == "downloading":
-                downloaded = d.get("downloaded_bytes", 0)
-                total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
-                speed = d.get("speed", 0)
-
-                if total > 0:
-                    percent = (downloaded / total) * 100
-                    speedStr = f"{speed / (1024**2):.1f}MB/s" if speed else "..."
-                    print(
-                        f"\rDownloading: {percent:.1f}% ({speedStr})",
-                        end="",
-                        flush=True,
-                    )
+                if bar is None:
+                    info = d.get("info_dict") or {}
+                    kind = "audio" if info.get("vcodec") == "none" else "video"
+                    bar = ProgressBarDownloadLogic(total, f"Downloading {kind}")
+                    bar.__enter__()
+                    done = 0
+                elif total > bar.totalData:
+                    # Never shrink: the fragment estimate swings ~30% either
+                    # way, which would walk the bar backwards. "finished"
+                    # settles the real size.
+                    bar.updateTotal(total)
+                if downloaded > done:
+                    bar.advance(downloaded - done)
+                    done = downloaded
 
             elif status == "finished":
                 self.downloadedFile = d.get("filename")
-                print("\r(*) Download complete!           ")
+                if bar is not None:
+                    # End on the real size so the bar closes at 100%.
+                    bar.updateTotal(max(done, downloaded))
+                    if downloaded > done:
+                        bar.advance(downloaded - done)
+                closeBar()
+
+            elif status == "error":
+                closeBar()
 
         options = self.getOptions()
+        # outtmpl is a template: a literal % in the path must be doubled.
+        options["outtmpl"] = self.output.replace("%", "%%")
         options["progress_hooks"] = [hook]
+        # `quiet` alone still draws yt-dlp's own [download] line under the bar.
+        options["noprogress"] = True
 
         try:
             with YoutubeDL(options) as ydl:
@@ -172,6 +224,8 @@ class VideoDownloader:
         except Exception as e:
             logging.error(f"Failed to download video: {e}")
             raise Exception(f"Error downloading video: {e}") from e
+        finally:
+            closeBar()
 
     def getOptions(self):
         if self.height > 1080 and ADOBE:
