@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 import weakref
+from contextlib import nullcontext
 from queue import Empty, Queue
 
 import torch  # this has to be always before nelux!
@@ -243,6 +244,16 @@ def closeWriterAndDrainReader(writeBuffer, readBuffer) -> None:
 # NVDEC returns 65535. Dividing by 65535 dimmed every CPU-decoded HDR frame by
 # 0.4% -- hidden on 16-bit output, where swscale's encode ran 0.4% bright.
 _NELUX_CPU_LIMITED_WHITE = 65283.0
+
+# 8-bit YUV formats into which nelux (>= 0.21.0) narrows a float [0, 1] RGB
+# frame itself, by the writer's own rule: (x * 255).clamp(0, 255).to(uint8),
+# in its CUDA kernels or CPU row loader, reading a CHW view through its
+# strides. Deeper formats scale float to 0-65535 instead (the writer wants
+# its own uint16 white there), and gray frames round, so those keep the
+# writer's conversion.
+_NELUX_FLOAT_NARROWED_FORMATS = frozenset(
+    {"yuv420p", "yuvj420p", "nv12", "yuv422p", "yuvj422p", "yuv444p", "yuvj444p"}
+)
 
 
 def neluxUint16White(decodeMethod: str, bitDepth: int, colorRange: str) -> float:
@@ -1606,6 +1617,14 @@ class NeluxWriteBuffer:
         self._uint16White = (
             _NELUX_CPU_LIMITED_WHITE if colourOptions and yuvOutput else 65535.0
         )
+        # Float RGB frames go to nelux as they are (a CHW view) where it
+        # narrows them as this writer would; see _NELUX_FLOAT_NARROWED_FORMATS.
+        self._floatToNelux = (
+            bitDepth != "16bit"
+            and not grayscale
+            and not transparent
+            and self.encoderKwargs.get("pixel_format") in _NELUX_FLOAT_NARROWED_FORMATS
+        )
         self.outputWidth = width
         self.outputHeight = height
         self.codec = self.encoderKwargs["codec"]
@@ -1791,8 +1810,8 @@ class NeluxWriteBuffer:
                     and (frame.dtype == torch.uint8 or frame.dtype == torch.uint16)
                     and frame.shape[2] == 3
                 ):
-                    if not frame.is_contiguous():
-                        frame = frame.contiguous()
+                    # nelux (>= 0.21.0) reads a strided frame (CHW view,
+                    # padded rows) where it lies, CPU or CUDA: no copy here.
                     self.encoder.encode_frame(frame)
                     self.writtenFrames += 1
                     if sampler is not None and sampler.wants():
@@ -1809,66 +1828,55 @@ class NeluxWriteBuffer:
                 # WriteBuffer's bicubic fallback for a frame that is not at
                 # the pipeline size; depth backends lean on it.
                 needsResize = tuple(frame.shape[-2:]) != (self.height, self.width)
-                if self.CudaStream is not None:
-                    # `frame` keeps the producer's tensor alive until the sync
-                    # below. It was allocated on the producer's stream, so
-                    # dropping it while this stream still had kernels reading
-                    # it handed its block straight back to that stream's pool,
-                    # and the producer's next frame could be written over it
-                    # mid-read -- a partly stale frame (~32 dB) every few
-                    # hundred frames on 1080p NVENC.
+                onStream = self.CudaStream is not None and frame.is_cuda
+                # On a CUDA host everything below, nelux's own convert
+                # included, is queued on this writer's stream: nothing waits
+                # for the GPU here, and the convert does not queue behind the
+                # inference on the default stream. CPU/DirectML/MPS hosts have
+                # no stream and run the same steps directly.
+                with torch.cuda.stream(self.CudaStream) if onStream else nullcontext():
                     converted = frame
-                    with torch.cuda.stream(self.CudaStream):
-                        if needsResize:
-                            converted = F.interpolate(
-                                converted,
-                                size=(self.height, self.width),
-                                mode="bicubic",
-                                align_corners=False,
-                            )
-                        converted = converted.squeeze(0).permute(1, 2, 0)
-                        if multiplier > 255 and converted.dtype == torch.float16:
-                            converted = converted.float()
-                        # contiguous() belongs on this stream too. The
-                        # permuted result is not contiguous, and copying it
-                        # after the sync below put the copy on the default
-                        # stream while its source block went straight back to
-                        # this stream's pool -- the next frame's conversion
-                        # could reuse it first. NVENC's encode_frame does not
-                        # wait for that copy, so one early frame came out as
-                        # garbage (1080p nvenc_h264_nelux: frame 2 at 13 dB).
-                        converted = (
-                            converted.mul(multiplier)
-                            .clamp(0, multiplier)
-                            .to(dtype=outDtype, non_blocking=True)
-                            .contiguous()
-                        )
-                    self.CudaStream.synchronize()
-                    frame = converted
-                else:
-                    # No CUDA stream on CPU/DirectML/MPS hosts; run the same
-                    # conversion directly (frame is already a CPU tensor here).
                     if needsResize:
-                        frame = F.interpolate(
-                            frame,
+                        converted = F.interpolate(
+                            converted,
                             size=(self.height, self.width),
                             mode="bicubic",
                             align_corners=False,
                         )
-                    frame = frame.squeeze(0).permute(1, 2, 0)
-                    if multiplier > 255 and frame.dtype == torch.float16:
-                        frame = frame.float()
-                    frame = (
-                        frame.mul(multiplier).clamp(0, multiplier).to(dtype=outDtype)
-                    )
-
-                if not frame.is_contiguous():
-                    frame = frame.contiguous()
-
-                self.encoder.encode_frame(frame)
-                self.writtenFrames += 1
-                if sampler is not None and sampler.wants():
-                    sampler.submit(frame)
+                    converted = converted.squeeze(0).permute(1, 2, 0)
+                    if self._floatToNelux and converted.is_floating_point():
+                        # nelux narrows it as the branch below would, reading
+                        # the CHW view in place (fp16 is widened to fp32 before
+                        # the multiply, so an fp16 frame can land 1 level away
+                        # from the fp16 multiply below).
+                        out = converted
+                    else:
+                        if multiplier > 255 and converted.dtype == torch.float16:
+                            converted = converted.float()
+                        out = (
+                            converted.mul(multiplier)
+                            .clamp(0, multiplier)
+                            .to(dtype=outDtype, non_blocking=True)
+                        )
+                        # Gray and RGBA destinations take a packed frame; nelux
+                        # reads an RGB CHW view where it lies.
+                        if out.shape[-1] != 3 and not out.is_contiguous():
+                            out = out.contiguous()
+                    if onStream:
+                        # This stream reads the producer's frame (the resize,
+                        # the conversion, or nelux's convert of the view). It
+                        # was made on the producer's stream, so without this,
+                        # dropping it hands its block straight back to that
+                        # stream's pool while the read is still queued, and the
+                        # next frame is written over it mid-read (a partly
+                        # stale frame every few hundred on 1080p NVENC).
+                        frame.record_stream(self.CudaStream)
+                    self.encoder.encode_frame(out)
+                    self.writtenFrames += 1
+                    if sampler is not None and sampler.wants():
+                        if out.dtype not in (torch.uint8, torch.uint16):
+                            out = (out.float() * 255).clamp(0, 255).to(torch.uint8)
+                        sampler.submit(out)
 
             logging.info(f"Nelux encoded {self.writtenFrames} frames")
 

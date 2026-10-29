@@ -358,7 +358,8 @@ def matchNeluxEncoder(
     or NVENC constqp `-qp` -- which is not NVENC's `-cq`, so those arms pass
     cq as an AVOption; `options` is an AVOption dict applied last, so it
     reaches anything the wrappers don't cover (tune, g, profile, and the
-    libvpx-vp9 knobs, which nelux's cq does not map). nelux >= 0.20.0 leaves
+    libvpx-vp9 knobs: nelux >= 0.21.0 maps cq/preset there too, but the twin's
+    preset is a libvpx no-op, so vp9 keeps its AVOptions). nelux >= 0.20.0 leaves
     GOP length and B-frames at each codec's defaults like the ffmpeg CLI
     (0.19.0 forced g=60/bf=2: -2.6 dB on x264). Measured against the FFmpeg
     twins through both writers (1080p, 600 frames, Y-PSNR vs the prores
@@ -529,11 +530,11 @@ def matchNeluxEncoder(
             )
         case "vp9_nelux":
             # ffmpeg `vp9`: libvpx-vp9 -crf 15 (-preset is not a libvpx option
-            # -- the twin's veryfast is a no-op). nelux's cq/preset do not map
-            # to libvpx, so quality goes through AVOptions. b=0 keeps libvpx in
-            # true CRF (rc_end_usage VPX_Q), as the twin runs: libvpx-vp9's
-            # defaults table has b=0, but nelux would set its 4M default and
-            # turn -crf into constrained quality capped at 4 Mb/s.
+            # -- the twin's veryfast is a no-op). nelux >= 0.21.0 maps an int
+            # preset to libvpx's cpu-used, which the twin never sets, so quality
+            # goes through AVOptions. b=0 keeps libvpx in true CRF
+            # (rc_end_usage VPX_Q), as the twin runs; nelux < 0.21.0 set its 4M
+            # default here and turned -crf into constrained quality at 4 Mb/s.
             mapping = dict(
                 codec="libvpx-vp9",
                 pixel_format="yuv420p",
