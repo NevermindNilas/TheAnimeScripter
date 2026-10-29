@@ -115,11 +115,7 @@ def _ensureDependenciesOrExit() -> None:
 def _handleDependencies(args):
     import shutil
 
-    from src.infra.getFFMPEG import (
-        addFfmpegToDllSearchPath,
-        ffmpegNeedsInstall,
-        remove_readonly,
-    )
+    from src.infra.getFFMPEG import remove_readonly
 
     legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
     if os.path.isdir(legacyFFMPEG):
@@ -129,59 +125,17 @@ def _handleDependencies(args):
         except Exception as e:
             logging.warning(f"Failed to remove legacy FFmpeg folder: {e}")
 
-    ffmpegBaseDir = cs.WHEREAMIRUNFROM
-    ffmpegSharedDir = os.path.join(ffmpegBaseDir, "ffmpeg_shared")
-
+    # Where yt-dlp's FFmpeg lives. Only named here: it is installed on the first
+    # URL input (getFFMPEG.ensureFFMPEG), since nothing else in TAS runs it.
+    ffmpegSharedDir = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg_shared")
     cs.FFMPEGPATH = os.path.join(
         ffmpegSharedDir,
         "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
     )
-
     cs.FFPROBEPATH = os.path.join(
         ffmpegSharedDir,
         "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
-
-    probeName = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
-    if probeName not in os.environ["PATH"]:
-        os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
-
-    # Not a bare existence check: ffmpeg_shared/ used to be filled on the first
-    # run TAS ever did on a machine and never looked at again, so an upgrading
-    # user kept whichever third-party FFmpeg they got back then no matter what
-    # src/infra/getFFMPEG.py was pinned to. ffmpegNeedsInstall also replaces an
-    # install whose build stamp is missing or names a different build.
-    if ffmpegNeedsInstall(cs.FFMPEGPATH, cs.FFPROBEPATH):
-        from src.infra.getFFMPEG import getFFMPEG
-
-        haveWorkingFfmpeg = os.path.exists(cs.FFMPEGPATH) and os.path.exists(
-            cs.FFPROBEPATH
-        )
-        try:
-            getFFMPEG()
-        except Exception as e:
-            # An upgrade is not worth taking the run down for. Most users
-            # reaching here already have a working (if unpinned) FFmpeg from an
-            # older TAS, and before the build stamp existed they were never
-            # asked to download anything at all -- so an offline machine, a
-            # pruned release or a checksum mismatch must not turn a run that
-            # used to work into a startup failure. Nothing is deleted until the
-            # replacement is downloaded and verified, so the old install is
-            # still intact here. Loud, because they are not on the pinned build.
-            if not haveWorkingFfmpeg:
-                raise
-            from src.infra.logAndPrint import logAndPrint
-
-            logging.warning(f"Failed to install the pinned FFmpeg: {e}")
-            logAndPrint(
-                f"Could not install the pinned FFmpeg ({e}). Continuing with "
-                f"the FFmpeg already in ffmpeg_shared, which is not the build "
-                f"TAS is tested against.",
-                "yellow",
-            )
-            addFfmpegToDllSearchPath(cs.FFMPEGPATH)
-    else:
-        addFfmpegToDllSearchPath(cs.FFMPEGPATH)
 
     try:
         from src.infra.isCudaInit import (

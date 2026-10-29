@@ -591,7 +591,7 @@ class OGDepthV2DirectML(DepthRunOutcome):
 
             # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
             # every og_* depth run wrote MPEG-4 Part 2 no matter what
-            # --encode_method said, and ignored --bit_depth. WriteBuffer is
+            # --encode_method said, and ignored --bit_depth. createWriteBuffer is
             # what every other depth backend uses.
             self.writeBuffer = createWriteBuffer(
                 self.encode_method,
@@ -749,7 +749,7 @@ class OGDepthV2DirectML(DepthRunOutcome):
             depth = out_tensor[0].cpu().numpy()
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
 
-            # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once, to 8
+            # The writer takes [1, C, H, W] in [0, 1] and quantizes once, to 8
             # or 16 bit per --bit_depth, instead of the uint8 cast this path
             # used to hardcode. It also resizes a frame that does not match the
             # output dimensions, so the cv2.resize the old encode thread did is

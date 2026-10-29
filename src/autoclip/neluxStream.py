@@ -6,8 +6,7 @@ scenedetect's detectors from a ``nelux.VideoReader`` instead of
 ``VideoStreamCv2``. Frames are delivered as BGR uint8 numpy arrays, matching
 what the cv2 backend hands the detectors.
 
-nelux needs torch imported first and the FFmpeg shared DLLs registered
-(``src.infra.getFFMPEG.addFfmpegToDllSearchPath``, done during CLI startup).
+nelux needs torch imported first; it registers its own bundled FFmpeg DLLs.
 Callers should treat construction failures as non-fatal and fall back to
 ``scenedetect.open_video``.
 """
@@ -38,8 +37,8 @@ class NeluxVideoStream(VideoStream):
         # nelux delay-loads the FFmpeg DLLs at VideoReader construction; if
         # they cannot resolve, the delay-load helper raises SEH 0xC06D007E
         # which kills the process — `except Exception` in the caller never
-        # sees it. Preflight the load through ctypes (which honors the same
-        # os.add_dll_directory search path) so an unresolvable avcodec turns
+        # sees it. Preflight the load through ctypes (which honors the
+        # os.add_dll_directory search path nelux registers) so an unresolvable avcodec turns
         # into a catchable error and the caller can fall back to cv2.
         self._preflightFfmpegDlls()
 

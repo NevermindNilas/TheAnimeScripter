@@ -288,13 +288,12 @@ def trimFrameRange(fps, inPoint, outPoint):
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
     """
-    Get metadata from a video file using ffprobe.
+    Get metadata from a video file using nelux.probe().
 
     Parameters:
     inputPath (str): The path to the video file
     inPoint (float | str): Start of clip in seconds, or frames as "<n>f"
     outPoint (float | str): End of clip in seconds, or frames as "<n>f"
-    ffprobePath (str): Path to ffprobe executable
 
     Returns:
     tuple: (width, height, fps, totalFramesToProcess, hasAudio)
@@ -313,10 +312,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
             logging.error("Video file not found")
             raise FileNotFoundError("Video file not found")
 
-        # nelux reads container/stream metadata through the same libavformat that
-        # ffprobe used, so it replaces the ffprobe subprocess entirely. The probe
-        # is header-based (~8-14ms, size-independent) vs ffprobe's ~30-90ms that
-        # grew with file size. torch must be imported before nelux.
+        # nelux reads container/stream metadata through libavformat, header-based
+        # (~8-14ms, size-independent; ffprobe took ~30-90ms that grew with file
+        # size). torch must be imported before nelux.
         import torch  # noqa: F401,I001
         import nelux
 
@@ -328,8 +326,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         # returns the same dict as VideoReader.properties. That makes it both
         # cheaper than constructing a reader (~0.6ms/360p, ~17ms/4K vs a full
         # reader's ~20-65ms) and immune to the nvdec-construction deadlock on
-        # uncompressed/odd codecs, since it never opens a decoder. FFmpeg DLLs
-        # are already on the search path (src/cli/startup.py -> getFFMPEG).
+        # uncompressed/odd codecs, since it never opens a decoder.
         normPath = os.path.normpath(inputPath)
         if hasattr(nelux, "probe"):
             props = dict(nelux.probe(normPath))

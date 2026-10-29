@@ -133,6 +133,8 @@ def _expectedLabel(converter):
         return "true or false"
     if getattr(converter, "__name__", "") == "parseTrimArg":
         return "seconds (e.g. 60 or 60.5) or frames with an 'f' suffix (e.g. 100f)"
+    if getattr(converter, "__name__", "") == "encodeMethodName":
+        return "the method's plain name: the '_nelux' names were removed (use 'x264', not 'x264_nelux')"
     return f"a value accepted by {getattr(converter, '__name__', converter)}"
 
 

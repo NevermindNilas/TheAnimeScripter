@@ -45,6 +45,20 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def encodeMethodName(value):
+    """--encode_method's converter: name the replacement for a removed name.
+
+    `<method>_nelux` picked the in-process encoder while the FFmpeg writer
+    existed; every encoder is in-process now, under its plain name only.
+    """
+    if isinstance(value, str) and value.endswith("_nelux"):
+        raise argparse.ArgumentTypeError(
+            f"'{value}' was removed; every encoder runs in-process now, use "
+            f"'{value.removesuffix('_nelux')}'"
+        )
+    return value
+
+
 class DidYouMeanArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that provides "did you mean?" suggestions for invalid choices."""
 
@@ -1358,40 +1372,11 @@ def _addEncodingOptions(argParser):
         "lossless_nvenc",
         "png",
         "jpeg",
-        "nvenc_h264_nelux",
-        "slow_nvenc_h264_nelux",
-        "nvenc_h265_nelux",
-        "slow_nvenc_h265_nelux",
-        "nvenc_h265_10bit_nelux",
-        "nvenc_av1_nelux",
-        "slow_nvenc_av1_nelux",
-        "x264_nelux",
-        "slow_x264_nelux",
-        "x264_10bit_nelux",
-        "x264_animation_nelux",
-        "x264_animation_10bit_nelux",
-        "x265_nelux",
-        "slow_x265_nelux",
-        "x265_10bit_nelux",
-        "av1_nelux",
-        "slow_av1_nelux",
-        "vp9_nelux",
-        "prores_nelux",
-        "prores_segment_nelux",
-        "qsv_h264_nelux",
-        "qsv_h265_nelux",
-        "qsv_h265_10bit_nelux",
-        "qsv_vp9_nelux",
-        "gif_nelux",
-        "lossless_nelux",
-        "lossless_nvenc_nelux",
-        "png_nelux",
-        "jpeg_nelux",
     ]
 
     encodingGroup.add_argument(
         "--encode_method",
-        type=str,
+        type=encodeMethodName,
         choices=encodeMethods,
         default="x264",
         help="Encoding method",
@@ -1419,7 +1404,7 @@ def _addMiscOptions(argParser):
         type=str,
         default="8bit",
         choices=["8bit", "16bit"],
-        help="Bit Depth of the raw pipe input to FFMPEG",
+        help="Bit depth of the frames handed to the encoder",
     )
     miscGroup.add_argument(
         "--download_requirements",

@@ -1143,7 +1143,7 @@ def main():
             pass
         logWarning("Process interrupted by user")
         _notifyAdobeOfFatalError(KeyboardInterrupt("Cancelled"))
-        # A *_nelux encoder runs in this process and writes its container
+        # The encoder runs in this process and writes its container
         # trailer in a worker thread's finally, which os._exit skips -- so a
         # cancelled render used to leave a large file with no moov atom that no
         # player could open. Bounded and best-effort: it never joins, never
@@ -1160,8 +1160,8 @@ def main():
             # Must not preempt the force-exit below.
             pass
         _restoreTerminalTitle()
-        # Force-exit: bypass blocked thread joins (TRT inference, ffmpeg subprocess
-        # wait, nelux decoder) which sys.exit() would hang on.
+        # Force-exit: bypass blocked thread joins (TRT inference, nelux
+        # decoder/encoder) which sys.exit() would hang on.
         os._exit(130)
     except SystemExit as e:
         # validator.py exits directly on unrunnable input, and the batch loop

@@ -1,338 +1,4 @@
-import functools
-import subprocess
-
 from src.infra.logAndPrint import logWarning
-
-
-def matchEncoder(encode_method: str):
-    """
-    encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
-    """
-    command = []
-    match encode_method:
-        case "x264":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "veryfast",
-                    "-crf",
-                    "15",
-                ]
-            )
-        case "slow_x264":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "slow",
-                    "-crf",
-                    "18",
-                    "-tune",
-                    "animation",
-                    "-g",
-                    "240",
-                ]
-            )
-
-        case "x264_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "veryfast",
-                    "-crf",
-                    "15",
-                    "-profile:v",
-                    "high10",
-                ]
-            )
-        case "x264_animation":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "veryfast",
-                    "-tune",
-                    "animation",
-                    "-crf",
-                    "15",
-                ]
-            )
-        case "x264_animation_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "veryfast",
-                    "-tune",
-                    "animation",
-                    "-crf",
-                    "15",
-                    "-profile:v",
-                    "high10",
-                ]
-            )
-        case "x265":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx265",
-                    "-preset",
-                    "veryfast",
-                    "-crf",
-                    "15",
-                ]
-            )
-
-        case "slow_x265":
-            # Let x265 select the profile from the pixel format: forcing main
-            # rejects the 10-bit 4:4:4 output used by --bit_depth 16bit.
-            command.extend(
-                [
-                    "-c:v",
-                    "libx265",
-                    "-preset",
-                    "slow",
-                    "-crf",
-                    "18",
-                    "-level",
-                    "5.1",
-                    "-tune",
-                    "ssim",
-                    "-g",
-                    "240",
-                ]
-            )
-        case "x265_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx265",
-                    "-preset",
-                    "veryfast",
-                    "-crf",
-                    "15",
-                    "-profile:v",
-                    "main10",
-                    "-x265-params",
-                    "log-level=0",
-                ]
-            )
-        case "nvenc_h264":
-            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
-        case "slow_nvenc_h264":
-            command.extend(
-                [
-                    "-c:v",
-                    "h264_nvenc",
-                    "-preset",
-                    "p7",
-                    "-cq",
-                    "15",
-                    "-b:v",
-                    "0",
-                    "-g",
-                    "240",
-                ]
-            )
-        case "nvenc_h265":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15"])
-
-        case "slow_nvenc_h265":
-            command.extend(
-                [
-                    "-c:v",
-                    "hevc_nvenc",
-                    "-preset",
-                    "p7",
-                    "-cq",
-                    "12",
-                    "-b:v",
-                    "0",
-                    "-g",
-                    "240",
-                ]
-            )
-        case "nvenc_h265_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "hevc_nvenc",
-                    "-preset",
-                    "p1",
-                    "-cq",
-                    "15",
-                    "-profile:v",
-                    "main10",
-                ]
-            )
-        case "qsv_h264":
-            command.extend(
-                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "15"]
-            )
-        case "qsv_h265":
-            command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15"]
-            )
-        case "qsv_h265_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "hevc_qsv",
-                    "-preset",
-                    "veryfast",
-                    "-global_quality",
-                    "15",
-                    "-profile:v",
-                    "main10",
-                ]
-            )
-        case "nvenc_av1":
-            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
-
-        case "slow_nvenc_av1":
-            command.extend(
-                [
-                    "-c:v",
-                    "av1_nvenc",
-                    "-preset",
-                    "p7",
-                    "-cq",
-                    "15",
-                    "-b:v",
-                    "0",
-                    "-g",
-                    "240",
-                ]
-            )
-
-        case "av1":
-            command.extend(
-                [
-                    "-c:v",
-                    "libsvtav1",
-                    "-preset",
-                    "8",
-                    "-crf",
-                    "15",
-                ]
-            )
-
-        case "slow_av1":
-            command.extend(
-                [
-                    "-c:v",
-                    "libsvtav1",
-                    "-preset",
-                    "4",
-                    "-crf",
-                    "27",
-                    "-g",
-                    "240",
-                    "-b:v",
-                    "0",
-                    "-row-mt",
-                    "1",
-                ]
-            )
-        case "h264_amf":
-            command.extend(
-                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
-            )
-        case "hevc_amf":
-            command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
-            )
-        case "hevc_amf_10bit":
-            command.extend(
-                [
-                    "-c:v",
-                    "hevc_amf",
-                    "-quality",
-                    "speed",
-                    "-rc",
-                    "cqp",
-                    "-qp",
-                    "15",
-                    "-profile:v",
-                    "main10",
-                ]
-            )
-        case "prores" | "prores_segment":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
-        case "gif":
-            command.extend(["-c:v", "gif", "-qscale:v", "1", "-loop", "0"])
-        case "vp9":
-            command.extend(["-c:v", "libvpx-vp9", "-crf", "15", "-preset", "veryfast"])
-        case "qsv_vp9":
-            command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
-
-        case "lossless":
-            command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "ultrafast",
-                    "-crf",
-                    "0",
-                ]
-            )
-        case "lossless_nvenc" | "lossless_nvenc_h264":
-            command.extend(
-                [
-                    "-c:v",
-                    "h264_nvenc",
-                    "-preset",
-                    "p1",
-                    "-qp",
-                    "0",
-                    "-b:v",
-                    "0",
-                ]
-            )
-        case "png":
-            command.extend(
-                [
-                    "-c:v",
-                    "png",
-                    "-q:v",
-                    "0",
-                ]
-            )
-        case "jpeg":
-            # mjpeg's default qmin is 2, which silently clamps -q:v 1 back to
-            # 2; lower qmin first so the best-quality setting actually applies.
-            command.extend(
-                [
-                    "-c:v",
-                    "mjpeg",
-                    "-qmin",
-                    "1",
-                    "-q:v",
-                    "1",
-                ]
-            )
-        case _:
-            # Without this arm an unhandled name returns [], the command carries
-            # no -c:v, and FFmpeg quietly encodes with the container default at
-            # its own CRF -- a wrong-looking output file with nothing in the log
-            # to explain it. No CLI choice can reach this today (WriteBuffer
-            # maps the *_nelux names to their twins first, and every remaining
-            # choice has a matching arm); it is
-            # here so the next unmapped name is loud instead of silent.
-            logWarning(
-                f"Unrecognized encode method '{encode_method}'. FFmpeg will "
-                "pick the container's default encoder and quality."
-            )
-
-    return command
 
 
 def matchNeluxEncoder(
@@ -342,14 +8,15 @@ def matchNeluxEncoder(
     transparent: bool = False,
 ) -> dict | None:
     """
-    nelux.VideoEncoder kwargs mirroring matchEncoder's FFmpeg arm one-for-one,
-    or None for a method with no Nelux mapping.
+    nelux.VideoEncoder kwargs for an --encode_method, or None for an unknown
+    one.
 
-    grayscale/transparent mirror getPixFMT's two overrides: transparent=True
-    rewrites any *_nelux method to prores_segment_nelux (as getPixFMT rewrites
-    the FFmpeg method to prores_segment), and grayscale=True picks the
-    pixel_format the FFmpeg writer lands on for a gray pipe -- see
-    _grayscalePixelFormat.
+    Each method keeps the settings and pixel format it had when it ran on the
+    FFmpeg-subprocess writer (removed): the per-arm `ffmpeg ...` comments
+    record that command line, and the parity tests that held each mapping to
+    it ran until the writer went. transparent=True turns any method into
+    prores_segment (ProRes 4444 with alpha), and grayscale=True picks the
+    pixel_format a gray pipe was encoded into -- see _grayscalePixelFormat.
 
     nelux (>= 0.18.0) maps the knobs per codec: an INTEGER preset translates
     per family (x264/x265 1=ultrafast..9=veryslow so 3=veryfast; libsvtav1
@@ -379,18 +46,18 @@ def matchNeluxEncoder(
     nelux would fall back to 8-bit yuv420p) and hevc/av1_nvenc (p010le, the
     CUDA 10-bit surface). h264_nvenc has no 10-bit path at all and stays
     yuv420p with a warning, mirroring getPixFMT, as does mjpeg (8-bit only);
-    png and the QSV encoders take what the ffmpeg CLI swaps the twin's format
-    for (_FFMPEG_AUTOSELECTED).
+    png and the QSV and AMF encoders take what the ffmpeg CLI swaps the twin's
+    format for (_FFMPEG_AUTOSELECTED).
     """
     if transparent:
-        encode_method = "prores_segment_nelux"
+        encode_method = "prores_segment"
 
     mapping: dict | None = None
     match encode_method:
-        case "x264_nelux":
+        case "x264":
             # ffmpeg `x264`: -preset veryfast -crf 15
             mapping = dict(codec="libx264", preset=3, cq=15, pixel_format="yuv420p")
-        case "slow_x264_nelux":
+        case "slow_x264":
             # ffmpeg `slow_x264`: -preset slow -crf 18 -tune animation -g 240
             mapping = dict(
                 codec="libx264",
@@ -399,7 +66,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"tune": "animation", "g": "240"},
             )
-        case "x264_10bit_nelux":
+        case "x264_10bit":
             # ffmpeg `x264_10bit`: -preset veryfast -crf 15 -profile:v high10
             mapping = dict(
                 codec="libx264",
@@ -408,7 +75,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p10le",
                 options={"profile": "high10"},
             )
-        case "x264_animation_nelux":
+        case "x264_animation":
             # ffmpeg `x264_animation`: -preset veryfast -tune animation -crf 15
             mapping = dict(
                 codec="libx264",
@@ -417,7 +84,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"tune": "animation"},
             )
-        case "x264_animation_10bit_nelux":
+        case "x264_animation_10bit":
             mapping = dict(
                 codec="libx264",
                 preset=3,
@@ -425,11 +92,11 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p10le",
                 options={"profile": "high10", "tune": "animation"},
             )
-        case "x265_nelux":
+        case "x265":
             # ffmpeg `x265`: -preset veryfast -crf 15 (nelux itself passes
             # x265-params log-level=none, covering the 10bit arm's log-level=0)
             mapping = dict(codec="libx265", preset=3, cq=15, pixel_format="yuv420p")
-        case "slow_x265_nelux":
+        case "slow_x265":
             # ffmpeg `slow_x265`: -preset slow -crf 18
             # -level 5.1 -tune ssim -g 240. `-level` is dropped: FFmpeg's
             # libx265 wrapper never reads the generic level field, so the twin's
@@ -441,7 +108,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"tune": "ssim", "g": "240"},
             )
-        case "x265_10bit_nelux":
+        case "x265_10bit":
             # ffmpeg `x265_10bit`: -preset veryfast -crf 15 -profile:v main10
             mapping = dict(
                 codec="libx265",
@@ -457,7 +124,7 @@ def matchNeluxEncoder(
         # encoders' own 2M default, which nelux would otherwise replace with
         # its 4M one. 1080p, 300 frames: h264 p1 9.27 vs 9.45 MB at 53.28 vs
         # 53.48 dB; hevc p7 10.96 vs 11.15 MB at 54.43 vs 54.71 dB.
-        case "nvenc_h264_nelux":
+        case "nvenc_h264":
             # ffmpeg `nvenc_h264`: -preset p1 -cq 15
             mapping = dict(
                 codec="h264_nvenc",
@@ -465,7 +132,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "15", "b": "2M"},
             )
-        case "slow_nvenc_h264_nelux":
+        case "slow_nvenc_h264":
             # ffmpeg `slow_nvenc_h264`: -preset p7 -cq 15 -b:v 0 -g 240
             mapping = dict(
                 codec="h264_nvenc",
@@ -473,7 +140,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "15", "b": "0", "g": "240"},
             )
-        case "nvenc_h265_nelux":
+        case "nvenc_h265":
             # ffmpeg `nvenc_h265`: -preset p1 -cq 15
             mapping = dict(
                 codec="hevc_nvenc",
@@ -481,7 +148,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "15", "b": "2M"},
             )
-        case "slow_nvenc_h265_nelux":
+        case "slow_nvenc_h265":
             # ffmpeg `slow_nvenc_h265`: -preset p7 -cq 12 -b:v 0 -g 240
             mapping = dict(
                 codec="hevc_nvenc",
@@ -489,7 +156,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "12", "b": "0", "g": "240"},
             )
-        case "nvenc_h265_10bit_nelux":
+        case "nvenc_h265_10bit":
             # ffmpeg `nvenc_h265_10bit`: -preset p1 -cq 15 -profile:v main10
             mapping = dict(
                 codec="hevc_nvenc",
@@ -497,7 +164,7 @@ def matchNeluxEncoder(
                 pixel_format="p010le",
                 options={"cq": "15", "b": "2M", "profile": "main10"},
             )
-        case "nvenc_av1_nelux":
+        case "nvenc_av1":
             # ffmpeg `nvenc_av1`: -preset p1 -cq 15
             mapping = dict(
                 codec="av1_nvenc",
@@ -505,7 +172,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "15", "b": "2M"},
             )
-        case "slow_nvenc_av1_nelux":
+        case "slow_nvenc_av1":
             # ffmpeg `slow_nvenc_av1`: -preset p7 -cq 15 -b:v 0 -g 240
             mapping = dict(
                 codec="av1_nvenc",
@@ -513,10 +180,10 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"cq": "15", "b": "0", "g": "240"},
             )
-        case "av1_nelux":
+        case "av1":
             # ffmpeg `av1`: libsvtav1 -preset 8 -crf 15 (int 5 -> svt 13-5=8)
             mapping = dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p")
-        case "slow_av1_nelux":
+        case "slow_av1":
             # ffmpeg `slow_av1`: libsvtav1 -preset 4 -crf 27 -g 240 -b:v 0
             # (-row-mt is a libvpx knob the twin carries as a no-op; nelux
             # clears the bitrate itself whenever crf is set). The STRING "4"
@@ -528,7 +195,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"g": "240"},
             )
-        case "vp9_nelux":
+        case "vp9":
             # ffmpeg `vp9`: libvpx-vp9 -crf 15 (-preset is not a libvpx option
             # -- the twin's veryfast is a no-op). nelux >= 0.21.0 maps an int
             # preset to libvpx's cpu-used, which the twin never sets, so quality
@@ -540,7 +207,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv420p",
                 options={"crf": "15", "b": "0"},
             )
-        case "prores_nelux":
+        case "prores":
             # ffmpeg `prores`: prores_ks -profile:v 4 -qscale:v 15. The CLI's
             # -qscale:v is flags=+qscale with global_quality = 15 *
             # FF_QP2LAMBDA (118) = 1770; prores_ks divides it back out.
@@ -550,7 +217,7 @@ def matchNeluxEncoder(
                 pixel_format="yuv444p10le",
                 options={"profile": "4", "flags": "+qscale", "global_quality": "1770"},
             )
-        case "prores_segment_nelux":
+        case "prores_segment":
             # ffmpeg `prores_segment`: the prores flags above. Fed RGBA
             # (--segment) it encodes yuva444p10le, ProRes 4444 with its alpha
             # plane, like getPixFMT's transparent arm. Picked as a plain method
@@ -568,22 +235,22 @@ def matchNeluxEncoder(
                 pixel_format=proresFormat,
                 options={"profile": "4", "flags": "+qscale", "global_quality": "1770"},
             )
-        case "gif_nelux":
+        case "gif":
             # ffmpeg `gif`: -qscale:v 1 -loop 0, and both halves are inert --
             # the gif encoder is palette+LZW and reads no qscale, and the gif
             # muxer's loop already defaults to 0 (infinite). Byte-comparable
             # output to the twin.
             mapping = dict(codec="gif")
-        case "lossless_nelux":
+        case "lossless":
             # ffmpeg `lossless`: libx264 -preset ultrafast -crf 0
             mapping = dict(
                 codec="libx264", preset="ultrafast", cq=0, pixel_format="yuv420p"
             )
-        case "lossless_nvenc_nelux":
+        case "lossless_nvenc":
             # ffmpeg `lossless_nvenc`: h264_nvenc -preset p1 -qp 0 -b:v 0
             # (nelux cq=0 -> rc constqp qp 0, the same lossless mode)
             mapping = dict(codec="h264_nvenc", preset=1, cq=0, pixel_format="yuv420p")
-        case "qsv_h264_nelux":
+        case "qsv_h264":
             # ffmpeg `qsv_h264`: -preset veryfast -global_quality 15. nelux
             # wraps no QSV knob, so both go through verbatim (string preset,
             # AVOption global_quality). nv12 is what the ffmpeg CLI swaps the
@@ -594,7 +261,7 @@ def matchNeluxEncoder(
                 pixel_format="nv12",
                 options={"global_quality": "15"},
             )
-        case "qsv_h265_nelux":
+        case "qsv_h265":
             # ffmpeg `qsv_h265`: -preset veryfast -global_quality 15
             mapping = dict(
                 codec="hevc_qsv",
@@ -602,7 +269,7 @@ def matchNeluxEncoder(
                 pixel_format="nv12",
                 options={"global_quality": "15"},
             )
-        case "qsv_h265_10bit_nelux":
+        case "qsv_h265_10bit":
             # ffmpeg `qsv_h265_10bit`: -preset veryfast -global_quality 15
             # -profile:v main10, into getPixFMT's p010le
             mapping = dict(
@@ -611,7 +278,7 @@ def matchNeluxEncoder(
                 pixel_format="p010le",
                 options={"global_quality": "15", "profile": "main10"},
             )
-        case "qsv_vp9_nelux":
+        case "qsv_vp9":
             # ffmpeg `qsv_vp9`: -preset veryfast and nothing else, so the
             # encoder's own rate control. b=0 keeps it: nelux would otherwise
             # set its 4M default and cap the twin's ~7 Mb/s VBR at 4 Mb/s.
@@ -621,7 +288,41 @@ def matchNeluxEncoder(
                 pixel_format="nv12",
                 options={"b": "0"},
             )
-        case "png_nelux":
+        # The AMF twins pass `-qp 15`, which no AMF encoder has (QP is per
+        # frame type: qp_i/qp_p/qp_b), so the ffmpeg CLI only warns that it
+        # was unused and the twin runs cqp at the driver's default QP. That
+        # no-op is dropped here, as slow_x265's -level is. b=0 is the AMF
+        # encoders' own default; nelux would otherwise set its 4M one.
+        # Mapped from FFmpeg's amfenc sources and CLI negotiation only: no
+        # AMD GPU here to run them on.
+        case "h264_amf":
+            # ffmpeg `h264_amf`: -quality speed -rc cqp -qp 15
+            mapping = dict(
+                codec="h264_amf",
+                pixel_format="yuv420p",
+                options={"quality": "speed", "rc": "cqp", "b": "0"},
+            )
+        case "hevc_amf":
+            # ffmpeg `hevc_amf`: -quality speed -rc cqp -qp 15
+            mapping = dict(
+                codec="hevc_amf",
+                pixel_format="yuv420p",
+                options={"quality": "speed", "rc": "cqp", "b": "0"},
+            )
+        case "hevc_amf_10bit":
+            # ffmpeg `hevc_amf_10bit`: -quality speed -rc cqp -qp 15
+            # -profile:v main10, into getPixFMT's p010le
+            mapping = dict(
+                codec="hevc_amf",
+                pixel_format="p010le",
+                options={
+                    "quality": "speed",
+                    "rc": "cqp",
+                    "b": "0",
+                    "profile": "main10",
+                },
+            )
+        case "png":
             # ffmpeg `png`: -q:v 0, which the png encoder never reads (it is
             # lossless and has no q-scale), into getPixFMT's rgb24. A numbered
             # output path keeps nelux on FFmpeg's own png defaults; only a
@@ -632,7 +333,7 @@ def matchNeluxEncoder(
             mapping = dict(
                 codec="png", pixel_format="rgb24", options={"color_range": "pc"}
             )
-        case "jpeg_nelux":
+        case "jpeg":
             # ffmpeg `jpeg`: mjpeg -qmin 1 -q:v 1 into yuvj444p. -q:v is
             # flags=+qscale with global_quality = 1 * FF_QP2LAMBDA (118), as
             # for prores; qmin goes first for the same reason as the twin's.
@@ -651,8 +352,6 @@ def matchNeluxEncoder(
                 },
             )
         case _:
-            # *_amf (no AMD GPU here to verify a mapping against) stays
-            # FFmpeg-only.
             mapping = None
 
     if mapping is not None and grayscale:
@@ -688,9 +387,9 @@ def matchNeluxEncoder(
                 # getPixFMT's 16-bit png output is rgb48le, which the png
                 # encoder takes as rgb48be.
                 mapping["pixel_format"] = _FFMPEG_AUTOSELECTED[("png", "rgb48le")]
-            elif codec.endswith("_qsv"):
-                # The twin's default yuv444p10le, swapped for what the QSV
-                # encoder takes.
+            elif codec.endswith(("_qsv", "_amf")):
+                # The twin's default yuv444p10le, swapped for what the QSV or
+                # AMF encoder takes.
                 mapping["pixel_format"] = _FFMPEG_AUTOSELECTED[(codec, "yuv444p10le")]
             elif codec in ("hevc_nvenc", "av1_nvenc"):
                 mapping["pixel_format"] = "p010le"
@@ -706,10 +405,10 @@ def matchNeluxEncoder(
     return mapping
 
 
-# What the ffmpeg CLI auto-selects when getPixFMT's output format is one the
-# encoder does not take ("Incompatible pixel format ... auto-selecting format
-# ..."), read off its log; nelux has no such fallback (or falls back to a
-# different format), so the mapping names it up front.
+# What the ffmpeg CLI auto-selected when the FFmpeg writer asked an encoder for
+# a format it does not take ("Incompatible pixel format ... auto-selecting
+# format ..."), read off its log. nelux has no such fallback (or falls back to
+# a different format), so the mapping names it up front.
 _FFMPEG_AUTOSELECTED = {
     ("prores_ks", "yuv420p"): "yuv422p10le",
     ("libsvtav1", "yuv444p10le"): "yuv420p10le",
@@ -724,6 +423,10 @@ _FFMPEG_AUTOSELECTED = {
     ("hevc_qsv", "yuv444p10le"): "xv30le",
     ("vp9_qsv", "yuv420p"): "nv12",
     ("vp9_qsv", "yuv444p10le"): "xv30le",
+    # AMF takes no planar 4:4:4: the CLI picks packed RGB, which the AMF
+    # driver converts to YUV itself.
+    ("h264_amf", "yuv444p10le"): "x2bgr10le",
+    ("hevc_amf", "yuv444p10le"): "x2bgr10le",
     ("png", "rgb48le"): "rgb48be",
     ("png", "yuv420p"): "rgb24",
     ("png", "yuv444p10le"): "rgb48be",
@@ -732,12 +435,11 @@ _FFMPEG_AUTOSELECTED = {
 
 
 def _grayscalePixelFormat(codec: str, bitDepth: str) -> str:
-    """The pixel_format the FFmpeg writer encodes a gray pipe into for `codec`.
+    """The pixel_format a gray (depth map) pipe is encoded into for `codec`.
 
-    getPixFMT's grayscale arm outputs yuv420p (8-bit) or yuv444p10le (16-bit)
-    whatever the method. NVENC differs because WriteBuffer uploads through
-    hwupload_cuda: nv12 (nelux's yuv420p), or p010le for a 16-bit run on the
-    HEVC/AV1 encoders.
+    yuv420p (8-bit) or yuv444p10le (16-bit) whatever the method, as the FFmpeg
+    writer encoded it. NVENC takes yuv420p (its nv12), or p010le for a 16-bit
+    run on the HEVC/AV1 encoders.
     """
     eightBit = bitDepth == "8bit"
     if codec.endswith("_nvenc"):
@@ -746,90 +448,6 @@ def _grayscalePixelFormat(codec: str, bitDepth: str) -> str:
         return "yuv420p"
     pixFmt = "yuv420p" if eightBit else "yuv444p10le"
     return _FFMPEG_AUTOSELECTED.get((codec, pixFmt), pixFmt)
-
-
-def getPixFMT(encode_method, bitDepth, grayscale, transparent):
-    """
-    Return (inputPixFormat, outputPixFormat, encode_method) based on settings.
-    """
-    if bitDepth == "8bit":
-        defaultInPixFMT = "rgb24"
-        defaultOutPixFMT = "yuv420p"
-    else:
-        defaultInPixFMT = "rgb48le"
-        defaultOutPixFMT = "yuv444p10le"
-
-    inPixFmt = defaultInPixFMT
-    outPixFmt = defaultOutPixFMT
-    enc = encode_method
-
-    if transparent:
-        enc = "prores_segment"
-        inPixFmt = "rgba" if bitDepth == "8bit" else "rgba64le"
-        outPixFmt = "yuva444p10le"
-    elif grayscale:
-        if bitDepth == "8bit":
-            inPixFmt = "gray"
-            outPixFmt = "yuv420p"
-        else:
-            inPixFmt = "gray16le"
-            outPixFmt = "yuv444p10le"
-    elif encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv420p10le"
-        else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv420p10le"
-    elif encode_method in ["nvenc_h264"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv420p"
-        else:
-            logWarning(
-                "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit."
-            )
-
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv420p"
-    elif encode_method in [
-        "nvenc_h265_10bit",
-        "hevc_amf_10bit",
-        "qsv_h265_10bit",
-    ]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "p010le"
-        else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "p010le"
-    elif encode_method in ["prores"]:
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "yuv444p10le"
-        else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "yuv444p10le"
-
-    elif encode_method == "png":
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-            outPixFmt = "rgb24"
-        else:
-            inPixFmt = "rgb48le"
-            outPixFmt = "rgb48le"
-
-    elif encode_method == "jpeg":
-        # JPEG is 8-bit only; keep full-range 4:4:4 chroma so the sequence
-        # stays as close to the source frames as the format allows.
-        if bitDepth == "8bit":
-            inPixFmt = "rgb24"
-        else:
-            logWarning("JPEG only supports 8-bit encoding. Falling back to 8-bit.")
-            inPixFmt = "rgb48le"
-        outPixFmt = "yuvj444p"
-
-    return inPixFmt, outPixFmt, enc
 
 
 # Transfer characteristics FFmpeg's setparams accepts, so a probed value can be
@@ -855,120 +473,19 @@ SETPARAMS_TRANSFERS = frozenset(
 # tagged as, BT.709.
 BT2020_COLOR_VALUES = ("bt2020", "bt2020nc", "bt2020c")
 
-# zimg's names for the two matrices, for the 16-bit zscale route.
-_ZSCALE_MATRICES = {"bt709": "709", "bt2020": "bt2020nc"}
-
-
-def _matrixConversion(matrix: str, useZscale: bool) -> str:
-    """The RGB -> limited-range YUV step, on swscale or (16-bit input) zscale.
-
-    swscale is exact on rgb24 and costs about a third of zscale's CPU, so it is
-    the default. Fed rgb48le it is not: its limited-range luma runs high for
-    both matrices -- peak white lands on 943 instead of 940 at 10-bit, the
-    average sample +1.7 codes -- and no swscale flag or intermediate format
-    removes it, while zimg stays within 1 code of an exact float conversion.
-    So 16-bit input takes zscale wherever the FFmpeg build has it; Homebrew's
-    does not, and keeps swscale.
-    """
-    if useZscale:
-        return (
-            f"zscale=rangein=full:range=limited:matrix={_ZSCALE_MATRICES[matrix]}"
-            ":dither=error_diffusion"
-        )
-    return f"scale=in_range=pc:out_range=tv:out_color_matrix={matrix}"
-
-
-def bt709Filter(useZscale: bool = False) -> str:
-    """Conversion for a BT.709 (or unknown/SD) source, fully tagged."""
-    return (
-        f"{_matrixConversion('bt709', useZscale)},"
-        "format=yuv444p16le,"
-        "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
-    )
-
-
-BT709_FILTER = bt709Filter()
-
-
-def ffmpegHasFilter(ffmpegPath: str, name: str) -> bool:
-    """Whether the FFmpeg at `ffmpegPath` was built with the filter `name`.
-
-    Cached per binary: the answer cannot change mid-run, and a batch builds a
-    writer per input.
-    """
-    return name in _ffmpegFilters(ffmpegPath)
-
-
-@functools.cache
-def _ffmpegFilters(ffmpegPath: str) -> frozenset[str]:
-    try:
-        listing = subprocess.run(
-            [ffmpegPath, "-hide_banner", "-filters"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout
-    except OSError, subprocess.SubprocessError:
-        return frozenset()
-    # Rows read " TSC zscale            V->V       Apply resizing, ...".
-    return frozenset(
-        fields[1] for fields in map(str.split, listing.splitlines()) if len(fields) > 2
-    )
-
-
-def bt2020Filter(sourceTransfer: str = "unknown", useZscale: bool = False) -> str:
-    """Conversion for a BT.2020 source, tagged with its own transfer.
-
-    Only the matrix is converted here, so the transfer is whatever the source
-    already had: copy it rather than guess. An unrecognized or missing value
-    leaves `color_trc` off -- an untagged stream is recoverable, a mislabelled
-    one is not.
-
-    The working format is 16-bit like the BT.709 arm. It used to be `yuv420p`,
-    which crushed a 16-bit HDR frame to 8-bit 4:2:0 *inside* the graph and then
-    re-expanded it for the encoder: a 16-bit ramp came out as 220 distinct
-    10-bit codes, every one a multiple of 4. Let `-pix_fmt` do the reduction,
-    which is also where the dithering belongs.
-
-    This arm was `zscale` only, which Homebrew's FFmpeg lacks, so every
-    BT.2020 render on macOS died at filtergraph setup with "No such filter:
-    'zscale'". It now picks a route like the BT.709 arm: see
-    _matrixConversion.
-    """
-    setparams = "setparams=colorspace=bt2020nc:color_primaries=bt2020:range=tv"
-    if sourceTransfer in SETPARAMS_TRANSFERS:
-        setparams += f":color_trc={sourceTransfer}"
-    return f"{_matrixConversion('bt2020', useZscale)},format=yuv444p16le,{setparams}"
-
-
-def colorSpaceFilter(probedMetadata: dict, useZscale: bool = False) -> str:
-    """The colour-conversion filter for a source, from its probed metadata.
-
-    Kept out of ffmpegSettings so it can be tested without torch/nelux/cv2 --
-    that module's import chain is why CI skipped every colourspace test while a
-    filter string that FFmpeg could not even parse shipped.
-    """
-    fields = ("ColorSpace", "PixelFormat", "ColorTRT")
-    for field in fields:
-        if probedMetadata.get(field, "unknown") in BT2020_COLOR_VALUES:
-            return bt2020Filter(probedMetadata.get("ColorTRT", "unknown"), useZscale)
-    return bt709Filter(useZscale)
-
 
 def colorSpaceOptions(probedMetadata: dict) -> dict:
     """The Nelux encoder's colour AVOptions for a source, from probed metadata.
 
-    colorSpaceFilter's twin for NeluxWriteBuffer, detecting BT.2020 off the
-    same fields. nelux (>= 0.18.0) reads these options back after
-    avcodec_open2, so they drive the actual libswscale conversion matrix AND
-    the container/bitstream tags together -- verified: the bt709 arm converts
-    byte-identically to FFmpeg's `scale=out_color_matrix=bt709`, the bt2020nc
-    arm within +-1 of zscale's float pipeline. Left unset, nelux converts and
-    tags swscale's default bt470bg/601 -- self-consistent, but not what the
-    FFmpeg writer produces for the same frames.
+    nelux (>= 0.18.0) reads these options back after avcodec_open2, so they
+    drive the actual libswscale conversion matrix AND the container/bitstream
+    tags together -- verified: the bt709 arm converts byte-identically to
+    FFmpeg's `scale=out_color_matrix=bt709`, the bt2020nc arm within +-1 of
+    zscale's float pipeline. Left unset, nelux converts and tags swscale's
+    default bt470bg/601.
 
-    Like bt2020Filter, the BT.2020 arm converts only the matrix and copies the
-    source's own transfer -- and only when it is a value FFmpeg itself accepts;
+    The BT.2020 arm converts only the matrix and copies the source's own
+    transfer -- and only when it is a value FFmpeg itself accepts;
     an unrecognized transfer leaves `color_trc` unset, because an untagged
     stream is recoverable and a mislabelled one is not.
 

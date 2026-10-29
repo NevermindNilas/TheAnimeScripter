@@ -398,7 +398,7 @@ class OGDepthV2MPS(DepthRunOutcome):
 
             # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
             # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
-            # --encode_method said, and ignored --bit_depth. WriteBuffer is
+            # --encode_method said, and ignored --bit_depth. createWriteBuffer is
             # what every other depth backend uses.
             self.writeBuffer = createWriteBuffer(
                 self.encode_method,
@@ -512,7 +512,7 @@ class OGDepthV2MPS(DepthRunOutcome):
                 )
                 minVal = d.min()
                 d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
-                # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once,
+                # The writer takes [1, C, H, W] in [0, 1] and quantizes once,
                 # to 8 or 16 bit per --bit_depth, instead of the byte() cast
                 # this path used to hardcode.
                 self.writeBuffer.write(d.float().cpu())
@@ -662,9 +662,9 @@ class OGDepthV3MPS(OGDepthV2MPS):
                 )
 
     def _writeGray(self, gray):
-        """[H, W] float in [0, 1] -> the [1, 1, H, W] WriteBuffer expects.
+        """[H, W] float in [0, 1] -> the [1, 1, H, W] frame the writer expects.
 
-        WriteBuffer resizes a frame that does not match the output dimensions,
+        The writer resizes a frame that does not match the output dimensions,
         so the cv2.resize the old encode thread did here is not needed."""
         self.writeBuffer.write(
             torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))

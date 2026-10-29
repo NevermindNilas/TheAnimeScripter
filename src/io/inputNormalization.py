@@ -11,9 +11,9 @@ class InputNormalizationError(ValueError):
 
 
 def processUrlInput(args, outputPath, processingEnabled):
+    from src.infra.getFFMPEG import ensureFFMPEG
     from src.infra.logAndPrint import logAndPrint
     from src.io.inputOutputHandler import generateOutputName, titleFileName
-    from src.ytdlp import VideoDownloader
 
     result = urlparse(args.input)
 
@@ -23,6 +23,12 @@ def processUrlInput(args, outputPath, processingEnabled):
         )
 
     logging.info("URL is valid and will be used for processing")
+
+    # yt-dlp is the one thing left that runs FFmpeg (stream merge, Adobe mp4
+    # conversion), so it is installed on the first URL input, before src.ytdlp
+    # reads cs.FFMPEGPATH at import.
+    ensureFFMPEG()
+    from src.ytdlp import VideoDownloader
 
     downloader = VideoDownloader(args.input, args.encode_method)
     title = downloader.title

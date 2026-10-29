@@ -1,6 +1,5 @@
-import json
 import logging
-import subprocess
+import os
 import threading
 from time import sleep
 
@@ -56,7 +55,7 @@ class AutoClip:
             self._run()
 
     def _isConstantFrameRate(self) -> bool:
-        """ffprobe CFR check: r_frame_rate must equal avg_frame_rate.
+        """CFR check: r_frame_rate must equal avg_frame_rate.
 
         The nelux stream derives cut timestamps from frame_number / average
         fps, which is only truthful on constant-frame-rate containers; the
@@ -64,29 +63,16 @@ class AutoClip:
         many web downloads) must stay on cv2 or cut seconds drift by the
         accumulated PTS deviation.
 
-        Any probe failure (ffprobe error, non-JSON output, missing stream)
-        is treated as "not provably CFR" and returns False, keeping the run
-        on cv2 rather than raising.
+        nelux.probe() returns ffprobe's own rational strings for both rates.
+        Any probe failure (unreadable file, missing rate) is treated as "not
+        provably CFR" and returns False, keeping the run on cv2 rather than
+        raising.
         """
         try:
-            result = subprocess.run(
-                [
-                    cs.FFPROBEPATH,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "stream=r_frame_rate,avg_frame_rate",
-                    "-of",
-                    "json",
-                    self.input,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            stream = json.loads(result.stdout)["streams"][0]
+            import torch  # noqa: F401,I001
+            import nelux
+
+            stream = nelux.probe(os.path.normpath(self.input))
 
             def rate(expr: str) -> float:
                 num, _, den = expr.partition("/")

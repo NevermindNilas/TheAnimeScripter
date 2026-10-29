@@ -1,6 +1,5 @@
 import logging
 import os
-import subprocess
 import threading
 import time
 import weakref
@@ -10,31 +9,12 @@ from queue import Empty, Queue
 import torch  # this has to be always before nelux!
 from torch.nn import functional as F
 
-
-def _repair_nelux_macos_ffmpeg_links() -> None:
-    from src.infra.dependencyHandler import repairNeluxMacosFfmpegLinks
-
-    repairNeluxMacosFfmpegLinks()
-
-
-try:
-    import nelux
-except ImportError:
-    _repair_nelux_macos_ffmpeg_links()
-    import nelux
-except OSError:
-    _repair_nelux_macos_ffmpeg_links()
-    import nelux
+# Every nelux wheel (>= 0.17.0) carries its own FFmpeg libraries, so nothing
+# has to be on the library search path first.
+import nelux  # noqa: I001
 
 import src.constants as cs
-from src.io.encodingSettings import (
-    colorSpaceFilter,
-    colorSpaceOptions,
-    ffmpegHasFilter,
-    getPixFMT,
-    matchEncoder,
-    matchNeluxEncoder,
-)
+from src.io.encodingSettings import colorSpaceOptions, matchNeluxEncoder
 from src.io.getVideoMetadata import (
     isFramePoint,
     isTrimUnset,
@@ -104,10 +84,8 @@ def _drainQueueUntilSentinel(queue) -> None:
             return
 
 
-# Writers that finalize their container in-process and are currently running.
-# Only NeluxWriteBuffer belongs here: the FFmpeg WriteBuffer's close() waits on
-# a subprocess, which is exactly the hang os._exit exists to dodge, and its
-# child finalizes itself on stdin EOF anyway.
+# NeluxWriteBuffers currently running, which finalize their container
+# in-process.
 _LIVE_NELUX_WRITERS = weakref.WeakSet()
 
 
@@ -117,10 +95,8 @@ def finalizeLiveWriters(timeout: float = 5.0) -> bool:
     ``NeluxWriteBuffer`` encodes in this process and finalizes the container
     only in its worker thread's ``finally``. ``main.py``'s KeyboardInterrupt
     handler ends the process with ``os._exit(130)``, which runs no ``finally``
-    on any thread, so cancelling a ``*_nelux`` render left a multi-hundred-MB
-    file with no moov atom that no player or tool can open -- where the
-    FFmpeg-subprocess writer leaves a valid, playable partial, because its
-    child sees stdin EOF and finalizes itself.
+    on any thread, so a cancelled render left a multi-hundred-MB file with no
+    moov atom that no player or tool can open.
 
     Bounded and best-effort by design: a writer can be parked inside a native
     ``encode_frame`` where no Python-level flag preempts it, so the caller must
@@ -160,7 +136,7 @@ def finalizeLiveWriters(timeout: float = 5.0) -> bool:
 
 
 def _imageOutputPath(output: str, encodeMethod: str, singleImageOutput: bool) -> str:
-    """Where a png/jpeg method writes, shared by both writers.
+    """Where a png/jpeg method writes.
 
     A sequence needs a numbered pattern (image2 and nelux both count from 1):
     a folder gets ``%08d.png`` inside it, a file name grows ``_%08d`` before
@@ -185,9 +161,8 @@ def _probedMetadata() -> dict:
     """The current input's probed metadata dict, or {} when unavailable.
 
     getVideoMetadata.saveMetadata records it in-process and also writes the
-    file, once per input in a batch, before any writer is built. Both writers
-    read it for their colour-space decision: WriteBuffer via colorSpaceFilter,
-    NeluxWriteBuffer via colorSpaceOptions.
+    file, once per input in a batch, before any writer is built.
+    NeluxWriteBuffer reads it for its colour-space decision (colorSpaceOptions).
 
     The in-process copy wins. metadata.json is one fixed install-dir path
     shared by every TAS process on the machine, so a second run overwriting it
@@ -695,118 +670,41 @@ class BuildBuffer:
             return False
 
 
-class WriteBuffer:
+class SingleImageWriteBuffer:
+    """Writes the one frame of a single-image run (png/jpeg) with OpenCV.
+
+    The png/jpeg encoders write a numbered sequence; a single-image input gets
+    one file instead (`_imageOutputPath`), saved the way it always has been:
+    cv2 (PIL as the fallback), PNG lossless, JPEG at quality 100. Frames past
+    the first are consumed and dropped.
+    """
+
     def __init__(
         self,
-        input: str = "",
         output: str = "",
-        encode_method: str = "x264",
+        encode_method: str = "png",
         width: int = 1920,
         height: int = 1080,
-        fps: float = 60.0,
-        grayscale: bool = False,
-        transparent: bool = False,
-        benchmark: bool = False,
         bitDepth: str = "8bit",
-        inpoint: float | str = 0,
-        outpoint: float | str = 0,
-        slowmo: bool = False,
-        enablePreview: bool = False,
-        previewSink=None,
-        single_image_output: bool = False,
-        sourceFps: float | None = None,
+        **kwargs,  # the rest of createWriteBuffer's arguments do not apply
     ):
-        """
-        A class meant to Pipe the input to FFMPEG from a queue.
-
-        output: str - The path to the output video file.
-        encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
-        grayscale: bool - Whether to encode the video in grayscale.
-        width: int - The width of the output video in pixels.
-        height: int - The height of the output video in pixels.
-        fps: float - The frames per second of the output video.
-        transparent: bool - Whether to encode the video with transparency.
-        audio: bool - Whether to include audio in the output video.
-        benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
-        bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
-        inpoint: float | str - Start of the segment in seconds, or frames as "<n>f".
-        outpoint: float | str - End of the segment in seconds, or frames as "<n>f". 0 means EOF.
-        sourceFps: float | None - Source fps used to resolve "<n>f" points to
-            seconds for the audio trim. Defaults to fps (correct for every
-            standalone driver, where output fps == source fps); main.py passes
-            the source fps explicitly because interpolation changes fps.
-        enablePreview: bool - Whether to sample preview frames for the preview server.
-        previewSink: PreviewSink - In-memory holder the writer pushes preview JPEGs
-            to. Preview is only active when a sink is supplied.
-        """
-        self.input = input
-        self.output = os.path.normpath(output)
+        self.encode_method = encode_method
+        self.output = _imageOutputPath(
+            os.path.normpath(output), self.encode_method, True
+        )
         outputDir = os.path.dirname(self.output)
         if outputDir:
             os.makedirs(outputDir, exist_ok=True)
-        # A *_nelux method reaching this writer means a caller that builds
-        # WriteBuffer directly instead of going through createWriteBuffer (no
-        # caller in src/ does). matchEncoder has no arm for those names, so it
-        # would return an EMPTY command: no -c:v at all, and FFmpeg quietly
-        # encodes with the container default at its own CRF (23), discarding
-        # the requested encoder and its quality target. Each *_nelux method
-        # mirrors an FFmpeg twin one-for-one (x264_nelux -> x264,
-        # nvenc_av1_nelux -> nvenc_av1, ...), so fall back to that twin. Logged
-        # at info only: this is the last-resort net, not a path a run takes.
-        if encode_method.endswith("_nelux"):
-            fallback = encode_method[: -len("_nelux")]
-            logging.info(
-                f"{encode_method} needs the Nelux writer, which this operation "
-                f"does not use; encoding with the equivalent {fallback}."
-            )
-            encode_method = fallback
-        self.encode_method = encode_method
-        self.single_image_output = single_image_output
-        self.output = _imageOutputPath(
-            self.output, self.encode_method, self.single_image_output
-        )
-
-        self.grayscale = grayscale
         self.width = width
         self.height = height
-        self.fps = fps
-        self.transparent = transparent
-        self.benchmark = benchmark
         self.bitDepth = bitDepth
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        self.sourceFps = sourceFps if sourceFps else fps
-        self.slowmo = slowmo
-        # Preview is sampled from the frames this writer already holds, never
-        # produced by the encoder: the ffmpeg command below is identical whether
-        # preview is on or off, so preview cannot perturb encoding. The sampler
-        # is demand-gated and wall-clock throttled -- see PreviewSampler.
-        self.previewSink = previewSink
-        self.enablePreview = bool(enablePreview and previewSink is not None)
-        self.previewSampler = None
-        if self.enablePreview:
-            from src.server.previewSettings import PreviewSampler
-
-            self.previewSampler = PreviewSampler(previewSink)
-
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=adaptiveQueueDepth(width, height))
-        # True once __call__ consumed the producer's None sentinel. If the
-        # encoder dies early this stays False and the finally-drain below keeps
-        # emptying the queue so the producer's blocking put() can't deadlock
-        # the whole run (e.g. prores into an .mp4 container).
+        self.enablePreview = False
+        self.previewSampler = None
         self._sawSentinel = False
-        # Set when encoding fails. Read through
-        # src/io/runOutcome.py:truncatedDecodeError, the same way the decoder's
-        # own failure is.
+        # Read through src/io/runOutcome.py:truncatedDecodeError.
         self.encodeError: Exception | None = None
-
-    def _shouldUseDirectImageSingleFrame(self) -> bool:
-        return (
-            self.encode_method in SEQUENCE_EXTENSIONS
-            and self.single_image_output
-            and not self.benchmark
-        )
 
     @staticmethod
     def _toOutputFrame(frame, multiplier: int, dtype):
@@ -815,29 +713,23 @@ class WriteBuffer:
         fp16's largest finite value is 65504, so a 16-bit frame cannot be
         scaled in half precision: ``mul(65535)`` saturates to inf and
         ``clamp(0, 65535)`` raises "value cannot be converted to type
-        c10::Half without overflow". ``--half`` is on by default, so
-        ``--bit_depth 16bit`` hit that on the very first frame and the
-        encoder's ``except Exception`` turned it into a 0-byte output.
-        Promote to fp32 for 16-bit only; 8-bit keeps its existing fp16 math.
+        c10::Half without overflow". Promote to fp32 for 16-bit only.
         """
         frame = frame.squeeze(0).permute(1, 2, 0)
         if multiplier > 255 and frame.dtype == torch.float16:
             frame = frame.float()
         return frame.mul(multiplier).clamp(0, multiplier).to(dtype).contiguous()
 
-    def _writeSingleImageDirect(
-        self, frameTensor, needsResize: bool, multiplier: int, dtype
-    ):
-        from torch.nn import functional as F
-
+    def _writeImage(self, frameTensor):
+        multiplier, dtype = (
+            (255, torch.uint8) if self.bitDepth == "8bit" else (65535, torch.uint16)
+        )
         if self.encode_method == "jpeg" and multiplier > 255:
-            # JPEG is 8-bit only; a --bit_depth 16bit single-image run would
-            # otherwise hand cv2/PIL a uint16 array neither can encode. Warn
-            # like getPixFMT does on the sequence path.
+            # JPEG is 8-bit only; cv2/PIL cannot encode a uint16 array as one.
             logWarning("JPEG only supports 8-bit encoding. Falling back to 8-bit.")
             multiplier, dtype = 255, torch.uint8
 
-        if needsResize:
+        if tuple(frameTensor.shape[-2:]) != (self.height, self.width):
             frameTensor = F.interpolate(
                 frameTensor,
                 size=(self.height, self.width),
@@ -873,587 +765,29 @@ class WriteBuffer:
             else:
                 Image.fromarray(frameArray).save(self.output, format="PNG")
 
-    def encodeSettings(self) -> list:
-        """
-        Simplified structure for setting input/output pix formats
-        and building FFMPEG command.
-        """
-        # Set environment variables
-        os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
-        if self.encode_method and "av1" in self.encode_method:
-            os.environ["SVT_LOG"] = "0"
-
-        self.inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
-            self.encode_method, self.bitDepth, self.grayscale, self.transparent
-        )
-
-        if self.benchmark:
-            return self._buildBenchmarkCommand()
-        else:
-            return self._buildEncodingCommand(outputPixFmt)
-
-    def _buildBenchmarkCommand(self):
-        """Build FFmpeg command for benchmarking"""
-        return [
-            cs.FFMPEGPATH,
-            "-y",
-            "-hide_banner",
-            "-v",
-            "warning",
-            "-nostats",
-            "-f",
-            "rawvideo",
-            "-video_size",
-            f"{self.width}x{self.height}",
-            "-pix_fmt",
-            self.inputPixFmt,
-            "-r",
-            str(self.fps),
-            "-i",
-            "-",
-            "-benchmark",
-            "-f",
-            "null",
-            "-",
-        ]
-
-    def _isNvencEncoder(self):
-        """Check if the current encode method uses NVENC"""
-        nvenc_methods = [
-            "nvenc_h264",
-            "slow_nvenc_h264",
-            "nvenc_h265",
-            "slow_nvenc_h265",
-            "nvenc_h265_10bit",
-            "nvenc_av1",
-            "slow_nvenc_av1",
-            "lossless_nvenc",
-            "lossless_nvenc_h264",
-        ]
-        return self.encode_method in nvenc_methods
-
-    def _buildEncodingCommand(self, outputPixFmt):
-        """Build FFmpeg command for encoding"""
-        useHwUpload = self._isNvencEncoder()
-
-        command = [
-            cs.FFMPEGPATH,
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostats",
-            "-threads",
-            "0",
-            "-filter_threads",
-            "0",
-        ]
-
-        # Initialize CUDA device for hwupload when using NVENC
-        if useHwUpload:
-            command.extend(["-init_hw_device", "cuda=cu:0", "-filter_hw_device", "cu"])
-
-        command.extend(
-            [
-                "-f",
-                "rawvideo",
-                "-pix_fmt",
-                self.inputPixFmt,
-                "-s",
-                f"{self.width}x{self.height}",
-                "-r",
-                str(self.fps),
-            ]
-        )
-
-        # The piped frames are ALREADY the [inpoint, outpoint] range -- BuildBuffer
-        # trimmed the decode -- so the video input takes no -itsoffset and no
-        # trim. It used to take both: "-itsoffset in -i pipe:0 -ss in -to out"
-        # shifted the piped video to start at `inpoint` and then trimmed it, so
-        # --inpoint 1 --outpoint 6 lost a full second of video off a 5s payload
-        # and --inpoint 5 --outpoint 10 produced a 261-byte streamless file,
-        # both with ffmpeg exiting 0.
-        command.extend(["-i", "pipe:0"])
-
-        if cs.AUDIO:
-            command.extend(["-thread_queue_size", "1024"])
-            # Only the source input is trimmed, and only to feed audio/subtitles
-            # the matching range. Input-side -ss rebases to 0, so the audio lines
-            # up with the piped video's own zero.
-            #
-            # -ss is gated on inpoint alone, NOT on outpoint: BuildBuffer decodes
-            # [inpoint, EOF] when only --inpoint is given, so tying the audio
-            # offset to --outpoint left the audio ahead of the video by inpoint
-            # seconds whenever --outpoint was omitted. NeluxWriteBuffer's
-            # add_passthrough already gates them independently; this matches it.
-            if not self.slowmo:
-                if not isTrimUnset(self.inpoint):
-                    command.extend(
-                        [
-                            "-ss",
-                            str(trimPointToSeconds(self.sourceFps, self.inpoint)),
-                        ]
-                    )
-                if not isTrimUnset(self.outpoint):
-                    command.extend(
-                        [
-                            "-to",
-                            str(trimPointToSeconds(self.sourceFps, self.outpoint)),
-                        ]
-                    )
-            command.extend(["-i", self.input])
-
-        filterList = self._buildFilterList()
-
-        command.extend(["-map", "0:v"])
-
-        command.extend(matchEncoder(self.encode_method))
-
-        if useHwUpload:
-            # hwupload_cuda uploads whatever SW format precedes it, so
-            # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
-            # -- which matchEncoder already tags "-profile:v main10" -- and
-            # the "10bit" preset encoded 8-bit data. p010le is the CUDA
-            # 10-bit format.
-            #
-            # CUDA has no yuv444p10le hwframe format, so a 4:4:4 request
-            # subsamples here either way -- but it used to also fall to
-            # nv12 and lose the two extra bits, which is the half that
-            # actually matters (--depth --bit_depth 16bit on nvenc_h265
-            # wrote an 8-bit depth map: visible banding on the smooth
-            # gradients the 16-bit path exists for). Keep the depth
-            # wherever the encoder can carry it. h264_nvenc cannot encode
-            # 10-bit at all -- getPixFMT already forces "nvenc_h264" back
-            # to 8-bit, but "lossless_nvenc" also runs on h264_nvenc and
-            # does not go through that branch, so gate on the encoder.
-            tenBitNvenc = self.encode_method in (
-                "nvenc_h265",
-                "slow_nvenc_h265",
-                "nvenc_h265_10bit",
-                "nvenc_av1",
-                "slow_nvenc_av1",
-            )
-            wantsTenBit = outputPixFmt.endswith(("10le", "12le", "16le"))
-            hwFormat = "p010le" if (tenBitNvenc and wantsTenBit) else "nv12"
-            hwFilters = filterList.copy() if filterList else []
-            hwFilters.append(f"format={hwFormat}")
-            hwFilters.append("hwupload_cuda")
-            command.extend(["-vf", ",".join(hwFilters)])
-        else:
-            if filterList:
-                command.extend(["-vf", ",".join(filterList)])
-            command.extend(["-pix_fmt", outputPixFmt])
-
-        if cs.AUDIO:
-            command.extend(self._buildAudioSettings())
-
-        if self.single_image_output:
-            command.extend(["-frames:v", "1"])
-
-        command.append(self.output)
-
-        return command
-
-    def _buildFilterList(self):
-        """Build list of video filters based on settings"""
-        filterList = []
-
-        if self.grayscale:
-            filterList.append(
-                "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
-            )
-        if self.transparent:
-            # NOT yuva420p: getPixFMT already selects yuva444p10le for this
-            # path and matchEncoder pairs it with prores_ks -profile:v 4
-            # (4444). Routing rgba through 8-bit 2x2-subsampled yuva420p first
-            # threw away half the chroma resolution and two bits of precision
-            # before the 4:4:4 conversion, which cannot recover either -- the
-            # colour fringing showed up along the hard matte edges --segment
-            # exists to produce.
-            filterList.append("format=yuva444p10le")
-
-        if not self.grayscale and not self.transparent:
-            # RGB->YUV colorspace conversion + dithering.
-            #
-            # BT.709 (the common path; unknown/SD sources also default here):
-            # use swscale (`scale`) instead of `zscale`. zscale/zimg runs a
-            # float pipeline and costs ~3x the CPU of swscale's SIMD-integer
-            # path for a result within 1 code on 8-bit (rgb24) input. On
-            # 16-bit input swscale's luma runs up to ~0.4% high, so that takes
-            # zscale where the build has it (encodingSettings._matrixConversion).
-            # swscale only dithers on a bit-DEPTH reduction, so we route through
-            # a 16-bit working format (yuv444p16le); the downstream -pix_fmt /
-            # hwupload reduction then error-diffusion-dithers down to the target
-            # depth, matching zscale's banding exactly. `setparams` stamps the
-            # full color metadata (matrix + primaries + transfer + range) --
-            # swscale alone only tags the matrix.
-            #
-            # BT.2020 takes the same routes with its own matrix. It was on
-            # zscale alone, which Homebrew's FFmpeg lacks, so every BT.2020
-            # render on macOS failed at filtergraph setup.
-            useZscale = False
-            if self.bitDepth == "16bit":
-                useZscale = bool(cs.FFMPEGPATH) and ffmpegHasFilter(
-                    cs.FFMPEGPATH, "zscale"
-                )
-                if not useZscale:
-                    logging.info(
-                        "This FFmpeg has no zscale; 16-bit colour conversion "
-                        "uses swscale, whose luma runs up to ~0.4% high."
-                    )
-            filterList.append(colorSpaceFilter(_probedMetadata(), useZscale))
-
-        return filterList
-
-    # Subtitle codecs an ISO-BMFF container carries natively, so a stream copy
-    # is both valid and lossless. Everything else text-based (subrip, ass, ssa)
-    # has to become mov_text or the mux aborts at header-write with "Could not
-    # find tag for codec subrip ... not currently supported in container".
-    _ISO_BMFF_NATIVE_SUBTITLES = frozenset({"mov_text", "ttml", "stpp", "wvtt"})
-
-    def _isoBmffSubtitleCodec(self) -> str:
-        """`copy` or `mov_text` for an .mp4/.m4v/.mov output, by source codec.
-
-        Forcing mov_text unconditionally breaks the containers that already
-        agreed: FFmpeg ships a TTML *encoder* but no TTML decoder, so a
-        TTML-in-MP4 source could not be transcoded at all and the render died
-        with "no decoder found for: ttml" for a 0-byte output -- where a plain
-        copy had worked. Ask the source what it has; a probe failure keeps the
-        transcode, which is right for the common case (an MKV of subrip/ass).
-        """
-        # An image sequence needs no test of its own: the pattern is not a path
-        # on disk, so it fails the existence check below. Testing for a bare
-        # percent instead would divert an ordinary ``50%_off.mkv`` here and
-        # force mov_text on it -- the TTML case this method exists to avoid.
-        if not self.input or not os.path.exists(self.input):
-            return "mov_text"
-        try:
-            probe = subprocess.run(
-                [
-                    cs.FFPROBEPATH,
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "s",
-                    "-show_entries",
-                    "stream=codec_name",
-                    "-of",
-                    "csv=p=0",
-                    self.input,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        except Exception as e:
-            logging.warning(f"Subtitle probe failed ({e}); transcoding to mov_text.")
-            return "mov_text"
-
-        codecs = [line.strip() for line in probe.stdout.splitlines() if line.strip()]
-        if codecs and all(c in self._ISO_BMFF_NATIVE_SUBTITLES for c in codecs):
-            logging.info(f"Subtitles {codecs} are ISO-BMFF native; stream-copying.")
-            return "copy"
-        return "mov_text"
-
-    def _buildAudioSettings(self):
-        """Build audio encoding settings"""
-        audioSettings = ["-map", "1:a"]
-
-        # Lowercased: inputOutputHandler matches extensions case-insensitively
-        # and copies the input's extension verbatim, so `clip.MP4` from a phone
-        # or drone is an ordinary output name here.
-        output = self.output.lower()
-
-        audioCodec = "copy"
-        subCodec = "copy"
-        if output.endswith(".webm"):
-            audioCodec = "libopus"
-            subCodec = "webvtt"
-        elif output.endswith((".mov", ".mp4", ".m4v")):
-            subCodec = self._isoBmffSubtitleCodec()
-            if output.endswith(".mov"):
-                # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with "opus
-                # only supported in MP4"). The transparent/segment path always
-                # lands here as prores in a .mov. MP4/M4V accept opus natively,
-                # so they keep `copy`.
-                audioCodec = "aac"
-        audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
-
-        # No -ss/-to here. These land immediately before the output file, so they
-        # trimmed the OUTPUT timeline, not the audio: combined with the old
-        # -itsoffset on the piped video they cut real frames off the front of the
-        # render. The source input is trimmed in _buildEncodingCommand instead.
-        return audioSettings
-
     def __call__(self):
-        writtenFrames = 0
-
-        # Wait for at least one frame to be queued before starting encoding
-        while self.writeBuffer.empty():
-            try:
-                time.sleep(0.001)
-            except KeyboardInterrupt:
-                logging.warning("Encoding interrupted by user")
-                return
-
-        ffmpegProc = None
         try:
-            import torch
-            from torch.nn import functional as F
-
-            initialFrame = self.writeBuffer.queue[0]
-            if initialFrame is None:
-                self.writeBuffer.get()
+            frame = self.writeBuffer.get()
+            if frame is None:
                 self._sawSentinel = True
                 logging.info("Encoded 0 frames")
                 return
-
-            self.channels = 1 if self.grayscale else 4 if self.transparent else 3
-
-            isEightBit = self.bitDepth == "8bit"
-            multiplier = 255 if isEightBit else 65535
-            dtype = torch.uint8 if isEightBit else torch.uint16
-
-            needsResize = (
-                initialFrame.shape[2] != self.height
-                or initialFrame.shape[3] != self.width
-            )
-
-            if needsResize:
-                logging.info(
-                    f"Frame size mismatch. Frame: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output: {self.width}x{self.height}"
-                )
-
-            if self._shouldUseDirectImageSingleFrame():
-                logging.info("Using direct single-frame image encoder (ffmpeg bypass)")
-
-                firstFrame = None
-                while firstFrame is None:
-                    try:
-                        firstFrame = self.writeBuffer.get(timeout=1.0)
-                    except Exception:
-                        time.sleep(0.001)
-                        continue
-
-                if firstFrame is not None:
-                    self._writeSingleImageDirect(
-                        firstFrame,
-                        needsResize=needsResize,
-                        multiplier=multiplier,
-                        dtype=dtype,
-                    )
-                    writtenFrames = 1
-
-                while True:
-                    try:
-                        frame = self.writeBuffer.get(timeout=1.0)
-                    except Exception:
-                        time.sleep(0.001)
-                        continue
-                    if frame is None:
-                        self._sawSentinel = True
-                        break
-
-                logging.info(f"Encoded {writtenFrames} frames")
-                return
-
-            command = self.encodeSettings()
-            logging.info(f"Encoding with: {' '.join(map(str, command))}")
-
-            sampler = self.previewSampler
-            if sampler is not None:
-                logging.info("Preview enabled, sampling frames from the writer")
-
-            useCuda = False
-            transferStream = None
-            if checker.cudaAvailable:
-                try:
-                    transferStream = torch.cuda.Stream()
-                    useCuda = True
-                except Exception as e:
-                    logging.warning(
-                        f"CUDA init failed in writer, using CPU path. Reason: {e}"
-                    )
-                    useCuda = False
-
-            ffmpegProc = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=False,
-                cwd=cs.WHEREAMIRUNFROM,
-            )
-
-            if ffmpegProc.poll() is not None:
-                stderr_out = (
-                    ffmpegProc.stderr.read().decode(errors="replace")
-                    if ffmpegProc.stderr
-                    else ""
-                )
-                logging.error(
-                    f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
-                )
-                self.encodeError = RuntimeError(
-                    f"FFmpeg exited immediately with code {ffmpegProc.returncode}: "
-                    f"{stderr_out.strip()[:300]}"
-                )
-                return
-
-            logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
-
-            if useCuda:
-                frameShape = (self.height, self.width, self.channels)
-                pinnedBuffers = [
-                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
-                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
-                ]
-                transferEvents = [torch.cuda.Event(), torch.cuda.Event()]
-                bufferIdx = 0
-                pendingBuffer = None
-                pendingEvent = None
-
-                while True:
-                    try:
-                        frame = self.writeBuffer.get(timeout=1.0)
-                    except Exception:
-                        time.sleep(0.001)
-                        continue
-                    if frame is None:
-                        self._sawSentinel = True
-                        if pendingBuffer is not None:
-                            pendingEvent.synchronize()
-                            ffmpegProc.stdin.write(pendingBuffer.numpy())
-                            writtenFrames += 1
-                        break
-
-                    with torch.cuda.stream(transferStream):
-                        if frame.is_cuda:
-                            # Keep input storage alive through asynchronous reads,
-                            # including resize before frame is rebound below.
-                            frame.record_stream(transferStream)
-                        if needsResize:
-                            frame = F.interpolate(
-                                frame,
-                                size=(self.height, self.width),
-                                mode="bicubic",
-                                align_corners=False,
-                            )
-
-                        gpuTensor = self._toOutputFrame(frame, multiplier, dtype)
-
-                        currentBuffer = pinnedBuffers[bufferIdx]
-                        currentBuffer.copy_(gpuTensor, non_blocking=True)
-                        currentEvent = transferEvents[bufferIdx]
-                        currentEvent.record(transferStream)
-
-                    if pendingBuffer is not None:
-                        pendingEvent.synchronize()
-                        ffmpegProc.stdin.write(pendingBuffer.numpy())
-                        writtenFrames += 1
-                        if sampler is not None and sampler.wants():
-                            # The pinned buffer is host-side and already synced;
-                            # sampling after the encoder write keeps it off the
-                            # critical path. submit() copies (the buffer is
-                            # reused two frames from now).
-                            sampler.submit(pendingBuffer.numpy())
-
-                    pendingBuffer = currentBuffer
-                    pendingEvent = currentEvent
-                    bufferIdx = 1 - bufferIdx
-
-            else:
-                while True:
-                    try:
-                        frame = self.writeBuffer.get(timeout=1.0)
-                    except Exception:
-                        time.sleep(0.001)
-                        continue
-                    if frame is None:
-                        self._sawSentinel = True
-                        break
-
-                    if needsResize:
-                        frame = F.interpolate(
-                            frame,
-                            size=(self.height, self.width),
-                            mode="bicubic",
-                            align_corners=False,
-                        )
-                    frameTensor = self._toOutputFrame(frame, multiplier, dtype)
-
-                    ffmpegProc.stdin.write(frameTensor.numpy())
-                    writtenFrames += 1
-                    if sampler is not None and sampler.wants():
-                        sampler.submit(frameTensor.numpy())
-
-            logging.info(f"Encoded {writtenFrames} frames")
-
+            self._writeImage(frame)
+            self.writtenFrames = 1
+            logging.info(f"Wrote single image {self.output}")
         except Exception as e:
-            # Recorded, not just logged: for a single output file a dead
-            # encoder shows up as 0 bytes, but an image sequence that died
-            # after one frame is indistinguishable from a complete one.
             self.encodeError = e
-            logging.error(f"Encoding error: {e}")
-            if ffmpegProc is not None:
-                rc = ffmpegProc.poll()
-                logging.error(f"FFmpeg exit code: {rc}")
-                if ffmpegProc.stderr:
-                    try:
-                        stderr_out = (
-                            ffmpegProc.stderr.read().decode(errors="replace").strip()
-                        )
-                        if stderr_out:
-                            logging.error(f"FFmpeg stderr: {stderr_out}")
-                    except Exception:
-                        pass
+            logging.error(f"Single image write error: {e}")
         finally:
-            # Early exit (encoder startup failure / raised exception) leaves the
-            # producer blocked on put() to a full queue with nobody consuming;
-            # keep draining until its close() sentinel lands so the run fails
-            # cleanly instead of deadlocking (segment->mp4 prores case).
             if not self._sawSentinel:
                 _drainQueueUntilSentinel(self.writeBuffer)
-            try:
-                if ffmpegProc is not None and ffmpegProc.stderr:
-                    ffmpegProc.stderr.close()
-                if ffmpegProc is not None and ffmpegProc.stdin:
-                    ffmpegProc.stdin.close()
-                if ffmpegProc is not None:
-                    # 3s was too short: when the worker died early the encoder
-                    # pipe still had buffered data + an audio input file to
-                    # finalize, routinely blowing past 3s and spamming a
-                    # "Cleanup error" warning that looked like a bug. 30s is a
-                    # safe upper bound for any real finalize; if we still hit
-                    # it, force-kill and log at DEBUG (this is expected when
-                    # the upstream processing already errored).
-                    try:
-                        ffmpegProc.wait(timeout=30)
-                    except subprocess.TimeoutExpired:
-                        logging.debug(
-                            "FFmpeg did not exit within 30s after stdin close, killing"
-                        )
-                        ffmpegProc.kill()
-                        ffmpegProc.wait()
-
-                if self.previewSampler is not None:
-                    self.previewSampler.close()
-
-            except Exception as e:
-                logging.warning(f"Cleanup error: {e}")
 
     def write(self, frame):
-        """
-        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
-        Frame type is torch.Tensor when using PyTorch backend.
-        """
+        """Add a frame to the queue, [1, C, H, W] float in [0, 1]."""
         self.writeBuffer.put(frame)
 
     def put(self, frame):
-        """
-        Equivalent to write()
-        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
-        Frame type is torch.Tensor when using PyTorch backend.
-        """
+        """Equivalent to write()."""
         self.writeBuffer.put(frame)
 
     def close(self):
@@ -1462,17 +796,16 @@ class WriteBuffer:
 
 class NeluxWriteBuffer:
     """
-    Write buffer that uses Nelux VideoEncoder for NVENC/QSV (hardware) or
-    libx264/libx265/libsvtav1/libvpx-vp9/prores_ks/gif/png/mjpeg (software)
-    encoding.
-    More efficient than FFmpeg pipe for GPU-resident frames.
+    The video writer: encodes in-process with nelux's VideoEncoder, on NVENC/
+    QSV/AMF (hardware) or libx264/libx265/libsvtav1/libvpx-vp9/prores_ks/gif/
+    png/mjpeg (software), and muxes the source's audio and subtitles.
     """
 
     def __init__(
         self,
         input: str = "",
         output: str = "",
-        encode_method: str = "nvenc_h264_nelux",
+        encode_method: str = "x264",
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
@@ -1485,7 +818,7 @@ class NeluxWriteBuffer:
         enablePreview: bool = False,
         previewSink=None,
         sourceFps: float | None = None,
-        **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
+        **kwargs,  # createWriteBuffer arguments this writer has no use for
     ):
         """
         Initialize Nelux-based encoder.
@@ -1493,9 +826,7 @@ class NeluxWriteBuffer:
         Args:
             input: Source video path (audio/subtitle passthrough; see _setupPassthrough).
             output: Output video path.
-            encode_method: Any *_nelux method with a matchNeluxEncoder mapping
-                (the NVENC and QSV families plus the libx264/libx265/
-                libsvtav1/libvpx-vp9/prores_ks/gif/png/mjpeg software twins).
+            encode_method: An --encode_method; see matchNeluxEncoder.
             width: Output width.
             height: Output height.
             fps: Output framerate.
@@ -1508,28 +839,22 @@ class NeluxWriteBuffer:
             enablePreview: Whether to sample preview frames for the preview server.
             previewSink: PreviewSink the sampler pushes preview JPEGs to.
             grayscale: Frames are [1, 1, H, W] (depth maps); they reach nelux
-                as [H, W, 1] in the pixel_format WriteBuffer's gray pipe
-                encodes into.
+                as [H, W, 1] in the gray pipe's pixel_format.
             transparent: Frames are [1, 4, H, W] RGBA (segment mattes); the
-                method becomes prores_segment_nelux, as WriteBuffer's becomes
-                prores_segment.
+                method becomes prores_segment.
             bitDepth: "8bit" frames go out as uint8; "16bit" frames go out as
                 uint16 at full precision (nelux >= 0.17.0) into a 10-bit
                 pixel_format -- see matchNeluxEncoder's promotion table.
         """
         self.input = input
-        # png_nelux/jpeg_nelux take the numbered path the FFmpeg twin writes
-        # to; every other method keeps `output`. A single image never gets
-        # here (createWriteBuffer hands it to the twin).
+        # png/jpeg write a numbered sequence; every other method keeps
+        # `output`. A single image never gets here (createWriteBuffer hands it
+        # to SingleImageWriteBuffer).
         self.isImageOutput = encode_method in SEQUENCE_EXTENSIONS
         self.output = _imageOutputPath(os.path.normpath(output), encode_method, False)
-        # Same as WriteBuffer.__init__. NOT a latent bug being fixed: nelux
-        # creates the parent itself (verified on 0.17.0 -- VideoEncoder's
+        # nelux creates the parent itself (verified on 0.17.0 -- VideoEncoder's
         # constructor makes the folder), so this is belt-and-braces at TAS's
-        # own boundary rather than a dependency's undocumented courtesy. The
-        # failure it guards against is the one FFmpeg reports as "Error
-        # opening output <path>: No such file or directory", which kills the
-        # run at the first frame with a broken pipe and a 0-byte output.
+        # own boundary rather than a dependency's undocumented courtesy.
         outputDir = os.path.dirname(self.output)
         if outputDir:
             os.makedirs(outputDir, exist_ok=True)
@@ -1549,13 +874,19 @@ class NeluxWriteBuffer:
         # a Ctrl-C leaves a playable file instead of a headerless one.
         self._stopNow = threading.Event()
         self._finalized = threading.Event()
-        # Same early-death drain contract as WriteBuffer (see its __init__).
+        # True once __call__ consumed the producer's None sentinel. If the
+        # encoder dies early this stays False and the finally-drain keeps
+        # emptying the queue so the producer's blocking put() can't deadlock
+        # the whole run.
         self._sawSentinel = False
+        # Set when encoding fails. Read through
+        # src/io/runOutcome.py:truncatedDecodeError, the same way the decoder's
+        # own failure is.
         self.encodeError: Exception | None = None
         self.acceptsHwcUint8 = True
-        # Preview is sampled from the frames handed to the encoder, so it works
-        # here exactly as it does for WriteBuffer -- nelux needs no preview
-        # stream of its own.
+        # Preview is sampled from the frames handed to the encoder (demand-gated
+        # and wall-clock throttled, see PreviewSampler), so it cannot perturb
+        # the encode -- nelux needs no preview stream of its own.
         self.previewSink = previewSink
         self.enablePreview = bool(enablePreview and previewSink is not None)
         self.previewSampler = None
@@ -1564,12 +895,11 @@ class NeluxWriteBuffer:
 
             self.previewSampler = PreviewSampler(previewSink)
 
-        # The Nelux mirror of encodingSettings.matchEncoder, one mapping per
-        # FFmpeg twin; matchNeluxEncoder documents the knob translation and
-        # returns a fresh dict, so the mutations below stay per-instance.
-        # bitDepth promotes the pixel_format to 10-bit for --bit_depth 16bit
-        # (nelux >= 0.17.0 keeps uint16 frames at full precision), and
-        # grayscale/transparent pick getPixFMT's gray and alpha formats.
+        # matchNeluxEncoder documents the knob translation and returns a fresh
+        # dict, so the mutations below stay per-instance. bitDepth promotes the
+        # pixel_format to 10-bit for --bit_depth 16bit (nelux >= 0.17.0 keeps
+        # uint16 frames at full precision), and grayscale/transparent pick the
+        # gray and alpha formats.
         self.bitDepth = bitDepth
         self.grayscale = grayscale
         self.transparent = transparent
@@ -1577,28 +907,20 @@ class NeluxWriteBuffer:
             encode_method, bitDepth, grayscale, transparent
         )
         if self.encoderKwargs is None:
-            # Silently encoding H.264 when the caller asked for something else
-            # is how the FFmpeg writer's *_nelux gap stayed invisible for so
-            # long; do not repeat it on this side.
-            logWarning(
-                f"'{encode_method}' has no Nelux encoder mapping. "
-                "Encoding with nvenc_h264_nelux."
-            )
+            # Only a direct caller can get here (the CLI accepts mapped names
+            # only); say so rather than silently encode something else.
+            logWarning(f"'{encode_method}' has no encoder mapping. Encoding with x264.")
             self.encoderKwargs = matchNeluxEncoder(
-                "nvenc_h264_nelux", grayscale=grayscale
+                "x264", bitDepth, grayscale, transparent
             )
-        # The Nelux mirror of the FFmpeg writer's colorSpaceFilter: convert
-        # and tag bt709 (or bt2020nc for a probed BT.2020 source) instead of
-        # riding swscale's default bt470bg/601 matrix, which produced a
-        # correctly-tagged file that still did not match the FFmpeg twin's
-        # conversion. Mapping options stay on top only where keys collide
-        # (they never do today -- colour keys and quality keys are disjoint).
+        # Convert and tag bt709 (or bt2020nc for a probed BT.2020 source)
+        # instead of riding swscale's default bt470bg/601 matrix. Mapping
+        # options stay on top only where keys collide (they never do today --
+        # colour keys and quality keys are disjoint).
         #
-        # Not for gray or alpha frames: the FFmpeg twin's filter chain skips
-        # colorSpaceFilter for both, so the pixels go through swscale's
-        # default matrix there too. Left unset, segment output decodes
-        # byte-identical to the twin's (bt709 options put it 0.1 8-bit units
-        # further from the source frames).
+        # Not for gray or alpha frames, which never had a colour conversion:
+        # their pixels go through swscale's default matrix (bt709 options put
+        # segment output 0.1 8-bit units further from the source frames).
         colourOptions = (
             {} if grayscale or transparent else colorSpaceOptions(_probedMetadata())
         )
@@ -1645,9 +967,9 @@ class NeluxWriteBuffer:
     def _setupPassthrough(self):
         """
         Copy/transcode audio + subtitle streams from the source into the Nelux
-        output via VideoEncoder.add_passthrough, replacing the FFmpeg-subprocess
-        muxing the standard WriteBuffer uses (second `-i input`, `-map 1:a -c:a
-        copy`, `-map 1:s? -c:s copy`, with the webm `libopus`/`webvtt` fallback).
+        output via VideoEncoder.add_passthrough: stream copy where the
+        container takes the codec, else a transcode to its default (opus into
+        .mov -> aac, subrip into .mp4 -> mov_text, into .webm -> opus/webvtt).
         The --ss/--to trim (inpoint/outpoint) is honored: streams are packet-gated
         and rebased so inpoint maps to output t=0, aligning with the first video
         frame pushed (the decode side already trims the video to the same range).
@@ -1682,9 +1004,9 @@ class NeluxWriteBuffer:
         start = trimPointToSeconds(self.sourceFps, self.inpoint)
         try:
             # allow_transcode re-encodes streams the container cannot stream-copy
-            # (e.g. AAC->webm) to the container default instead of dropping them,
-            # mirroring the WriteBuffer webm path. The kwarg only exists in
-            # nelux >= 0.12.0; older builds fall back to copy-only.
+            # (e.g. AAC->webm) to the container default instead of dropping
+            # them. The kwarg only exists in nelux >= 0.12.0; older builds fall
+            # back to copy-only.
             try:
                 encoder.add_passthrough(
                     self.input,
@@ -1786,8 +1108,7 @@ class NeluxWriteBuffer:
                 # nelux reads CPU and CUDA tensors only: any other device (the
                 # MPS restore backend hands its output over as-is) reached
                 # encode_frame as a device buffer nelux memcpy'd from as if it
-                # were host memory. WriteBuffer .cpu()s every frame; so does
-                # this, for everything that is not already CPU or CUDA.
+                # were host memory, so everything else is moved to the CPU.
                 if isinstance(frame, torch.Tensor) and frame.device.type not in (
                     "cpu",
                     "cuda",
@@ -1798,8 +1119,7 @@ class NeluxWriteBuffer:
                 # float-pipeline conversion below. Both dtypes ride straight
                 # through: nelux carries uint16 at full precision into a
                 # >8-bit destination, narrows it into an 8-bit one, and
-                # upconverts uint8 into a 10-bit one -- exactly as the FFmpeg
-                # twin's rgb24/rgb48le inputs do. This also keeps the
+                # upconverts uint8 into a 10-bit one. This also keeps the
                 # standalone drivers working: they push HWC uint8 (their
                 # pixels genuinely are 8-bit) even on a --bit_depth 16bit
                 # run, which then encodes as 8-bit data in a 10-bit container
@@ -1819,14 +1139,13 @@ class NeluxWriteBuffer:
                     continue
 
                 # BCHW float pipeline frames in [0, 1]: scale to the integer
-                # range the encoder mapping expects. Mirrors
-                # WriteBuffer._toOutputFrame (including its fp16 -> fp32
-                # promotion: fp16 tops out at 65504, so mul(65535) saturates
+                # range the encoder mapping expects (16-bit promotes fp16 to
+                # fp32 first: fp16 tops out at 65504, so mul(65535) saturates
                 # to inf and the clamp raises).
                 multiplier = self._uint16White if self.bitDepth == "16bit" else 255
                 outDtype = torch.uint16 if self.bitDepth == "16bit" else torch.uint8
-                # WriteBuffer's bicubic fallback for a frame that is not at
-                # the pipeline size; depth backends lean on it.
+                # Bicubic fallback for a frame that is not at the pipeline
+                # size; depth backends lean on it.
                 needsResize = tuple(frame.shape[-2:]) != (self.height, self.width)
                 onStream = self.CudaStream is not None and frame.is_cuda
                 # On a CUDA host everything below, nelux's own convert
@@ -1931,28 +1250,22 @@ class NeluxWriteBuffer:
         self.writeBuffer.put(None)
 
 
-def isNeluxEncoder(encode_method: str) -> bool:
-    """Check if the encode method routes to the Nelux writer."""
-    return encode_method.endswith("_nelux")
-
-
 def createWriteBuffer(encode_method: str, **kwargs):
     """
     Factory function to create the appropriate write buffer.
 
-    Every writer in src/ is built here, so a `*_nelux` method is honored by
-    every operation: `--bit_depth 16bit` via matchNeluxEncoder's 10-bit
-    pixel_format promotion, and the grayscale (depth) and transparent (segment) writers via its
-    grayscale/transparent arms. Opus/Vorbis audio into a .mov needs no
-    FFmpeg fallback since nelux 0.20.0: its passthrough transcodes it to AAC,
-    as the FFmpeg writer does.
+    Every writer in src/ is built here: NeluxWriteBuffer for every video and
+    image sequence, honouring `--bit_depth 16bit` via matchNeluxEncoder's
+    10-bit pixel_format promotion and the grayscale (depth) and transparent
+    (segment) writers via its grayscale/transparent arms; SingleImageWriteBuffer
+    for the one still of a single-image run.
 
     Args:
         encode_method: The encoding method string.
         **kwargs: Arguments passed to the buffer constructor.
 
     Returns:
-        WriteBuffer or NeluxWriteBuffer instance.
+        NeluxWriteBuffer or SingleImageWriteBuffer instance.
 
     Usage:
         buffer = createWriteBuffer(
@@ -1966,13 +1279,7 @@ def createWriteBuffer(encode_method: str, **kwargs):
         )
     """
     if encode_method in SEQUENCE_EXTENSIONS and kwargs.get("single_image_output"):
-        # png_nelux/jpeg_nelux: the twin writes a single still with cv2
-        # (quality 100, 4:2:0, no colour chunks), not FFmpeg, so it is already
-        # in-process; the nelux sequence mapping would give a different JPEG.
-        # WriteBuffer maps the *_nelux name to that twin.
-        return WriteBuffer(encode_method=encode_method, **kwargs)
-    if isNeluxEncoder(encode_method):
-        logging.info(f"Using NeluxWriteBuffer for {encode_method}")
-        return NeluxWriteBuffer(encode_method=encode_method, **kwargs)
-    else:
-        return WriteBuffer(encode_method=encode_method, **kwargs)
+        # A single still is written with cv2 (quality 100, 4:2:0, no colour
+        # chunks); the nelux sequence mapping would give a different JPEG.
+        return SingleImageWriteBuffer(encode_method=encode_method, **kwargs)
+    return NeluxWriteBuffer(encode_method=encode_method, **kwargs)

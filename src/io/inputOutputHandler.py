@@ -78,13 +78,10 @@ _SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
 # single source for every sequence special case: extension resolution and
 # folder containment here, the writer's pattern rewrite in
 # src/io/ffmpegSettings.py, the audio-off rule in src/cli/validator.py, and
-# the single-image guard in src/io/inputNormalization.py. The *_nelux twins are
-# listed too: both writers take the same numbered output.
+# the single-image guard in src/io/inputNormalization.py.
 SEQUENCE_EXTENSIONS = {
     "png": ".png",
     "jpeg": ".jpg",
-    "png_nelux": ".png",
-    "jpeg_nelux": ".jpg",
 }
 
 
@@ -194,12 +191,7 @@ def _baseName(videoInput, title=None):
 
 def _resolveExtension(args, videoInput):
     """Pick the output file extension consistently for every input kind."""
-    # A *_nelux method needs the container its FFmpeg twin gets: prores_nelux
-    # into the input's .mp4 would be legal, but gif_nelux into it fails at
-    # header write exactly like `-c:v gif` does.
     encodeMethod = getattr(args, "encode_method", "") or ""
-    if encodeMethod.endswith("_nelux"):
-        encodeMethod = encodeMethod[: -len("_nelux")]
     if getattr(args, "single_image_input", False):
         # A single-image run keeps a sequence-format --encode_method for its
         # one-frame output (png or jpeg); every other method writes PNG.
@@ -403,12 +395,6 @@ WEBM_COMPATIBLE_ENCODERS = (
     "slow_av1",
     "nvenc_av1",
     "slow_nvenc_av1",
-    "vp9_nelux",
-    "qsv_vp9_nelux",
-    "av1_nelux",
-    "slow_av1_nelux",
-    "nvenc_av1_nelux",
-    "slow_nvenc_av1_nelux",
 )
 
 
@@ -417,10 +403,7 @@ def validateEncoder(video, encodeMethod):
     if str(video).endswith(".webm") and encodeMethod not in WEBM_COMPATIBLE_ENCODERS:
         from src.infra.logAndPrint import logAndPrint
 
-        # An incompatible *_nelux method stays on the Nelux writer: its VP9
-        # twin exists, and downgrading the writer as a side effect of a
-        # container fix would silently cost the run its encoder path.
-        substitute = "vp9_nelux" if encodeMethod.endswith("_nelux") else "vp9"
+        substitute = "vp9"
         logAndPrint(
             f"Video {video} is a Webm file and encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)}, defaulting to '{substitute}'.",
             colorFunc="yellow",

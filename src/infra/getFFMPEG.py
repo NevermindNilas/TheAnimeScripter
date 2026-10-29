@@ -8,24 +8,23 @@ from urllib.request import urlopen
 
 import src.constants as cs
 
-_ffmpegDllDirectoryHandle = None
-
 # --------------------------------------------------------------------------- #
 # The pinned FFmpeg build
+#
+# Only yt-dlp needs FFmpeg now (to merge a URL download's video and audio, and
+# for the Adobe mp4 conversion); TAS itself decodes, probes and encodes through
+# nelux, whose wheels carry their own FFmpeg libraries. So this is installed on
+# the first URL input (ensureFFMPEG), not at startup, and ffmpeg_shared/ is
+# never put on the DLL search path: its executables run as yt-dlp's
+# subprocesses and its libraries are never loaded into TAS's process.
 #
 # TAS downloads FFmpeg from NevermindNilas/TAS-FFMPEG: one build of FFmpeg
 # 8.1.2, produced from pinned sources for every platform TAS supports, with the
 # corresponding source published beside it so the GPL obligation is actually
 # satisfiable. It replaces BtbN's `latest` autobuild and johnvansickle's rolling
 # static tarball, both of which meant the FFmpeg a user ended up with depended
-# on the day they first ran TAS.
-#
-# Why one build matters, and not just one version: these binaries carry no
-# --build-suffix, so nelux's bundled libraries and the ones TAS unpacks into
-# ffmpeg_shared/ have identical file names. On Windows whichever loads first
-# into the process serves both. Identical builds are safe; mismatched builds are
-# undefined behaviour, and nothing at the OS level prevents it. The binaries are
-# built with --extra-version=tas, so `ffmpeg -version` reports exactly
+# on the day they first ran TAS. The binaries are built with
+# --extra-version=tas, so `ffmpeg -version` reports exactly
 # FFMPEG_AV_VERSION_INFO and no distro, gyan or BtbN build can be mistaken for
 # one -- which is what _verifyInstalledBuild() asserts after every install.
 #
@@ -81,31 +80,52 @@ _LICENSE_PREFIXES = ("license", "copying", "gpl")
 _KEEP_FROM_ARCHIVE = ("licenses", "manifest.json", "share")
 
 
-def addFfmpegToDllSearchPath(ffmpegPath: str | None = None) -> None:
-    global _ffmpegDllDirectoryHandle
-
-    if cs.SYSTEM != "Windows":
-        return
-
-    ffmpegPath = ffmpegPath or cs.FFMPEGPATH
-    ffmpeg_dir = os.path.dirname(ffmpegPath)
-    if not ffmpeg_dir or not os.path.exists(ffmpeg_dir):
-        return
-
-    try:
-        _ffmpegDllDirectoryHandle = os.add_dll_directory(ffmpeg_dir)
-        logging.info(f"Added FFmpeg directory to DLL search path: {ffmpeg_dir}")
-    except Exception as e:
-        logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
-
-
 def getFFMPEG():
     ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
     cs.FFMPEGPATH = ffmpegPath
     if not cs.FFPROBEPATH or not os.path.exists(cs.FFPROBEPATH):
         ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
         cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
-    addFfmpegToDllSearchPath(cs.FFMPEGPATH)
+
+
+def ensureFFMPEG() -> None:
+    """Install (or upgrade to) the pinned FFmpeg before yt-dlp runs.
+
+    cs.FFMPEGPATH/FFPROBEPATH already name ffmpeg_shared/ (set at startup).
+    Not a bare existence check: ffmpeg_shared/ used to be filled on the first
+    run TAS ever did on a machine and never looked at again, so an upgrading
+    user kept whichever third-party FFmpeg they got back then no matter what
+    this module was pinned to. ffmpegNeedsInstall also replaces an install
+    whose build stamp is missing or names a different build.
+    """
+    probeDir = os.path.dirname(cs.FFPROBEPATH)
+    if probeDir and probeDir not in os.environ["PATH"].split(os.pathsep):
+        os.environ["PATH"] += os.pathsep + probeDir
+
+    if not ffmpegNeedsInstall(cs.FFMPEGPATH, cs.FFPROBEPATH):
+        return
+
+    haveWorkingFfmpeg = os.path.exists(cs.FFMPEGPATH) and os.path.exists(cs.FFPROBEPATH)
+    try:
+        getFFMPEG()
+    except Exception as e:
+        # An upgrade is not worth taking the run down for. Most users reaching
+        # here already have a working (if unpinned) FFmpeg from an older TAS,
+        # so an offline machine, a pruned release or a checksum mismatch must
+        # not turn a download that used to work into a failure. Nothing is
+        # deleted until the replacement is downloaded and verified, so the old
+        # install is still intact here. Loud, because it is not the pinned build.
+        if not haveWorkingFfmpeg:
+            raise
+        from src.infra.logAndPrint import logAndPrint
+
+        logging.warning(f"Failed to install the pinned FFmpeg: {e}")
+        logAndPrint(
+            f"Could not install the pinned FFmpeg ({e}). Continuing with "
+            f"the FFmpeg already in ffmpeg_shared, which is not the build "
+            f"TAS is tested against.",
+            "yellow",
+        )
 
 
 def _normalizeArch(machine: str) -> str:
@@ -319,7 +339,7 @@ def _flattenInto(sourceDir: str, ffmpegDir: str, keepIf=None) -> None:
     flattened into one directory on purpose: the binaries' runpath is
     `$ORIGIN:$ORIGIN/../lib`, so side-by-side satisfies it without
     LD_LIBRARY_PATH, and it keeps the layout TAS has always had -- ffmpeg.exe
-    next to its DLLs, which is what addFfmpegToDllSearchPath and nelux expect.
+    next to its DLLs.
     """
     if not os.path.isdir(sourceDir):
         return
@@ -346,15 +366,14 @@ def _clearStaleFfmpeg(ffmpegDir: str, keep: str | None = None) -> None:
     carries whatever library names that build used, and anything the new archive
     does not happen to overwrite survives beside it -- a leftover avcodec-61.dll
     next to a fresh avcodec-62.dll. Windows binds the first matching name the
-    loader finds, and nelux delay-loads FFmpeg and aborts the process when the
-    sonames disagree with what its wheel was built against, so a mixed directory
-    is a crash rather than clutter.
+    loader finds, so the ffmpeg executable would run against a mixed set of
+    libraries.
 
     ffmpeg_shared/ is created and owned by TAS -- it is gitignored and no build
-    step populates it -- so emptying it is safe. This runs before nelux is
-    imported and before addFfmpegToDllSearchPath, so nothing in *this* process
-    holds the DLLs; another TAS can (the Adobe Edition relaunches TAS while a
-    render is running), and Windows refuses to delete a loaded DLL.
+    step populates it -- so emptying it is safe. Nothing in *this* process
+    holds its DLLs (they are never loaded into it); another process can (a
+    yt-dlp merge still running in another TAS), and Windows refuses to delete a
+    loaded DLL.
 
     That case is checked BEFORE anything is deleted. Deleting first and raising
     afterwards would leave the user with a half-erased install *and* a failed

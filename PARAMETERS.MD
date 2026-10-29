@@ -132,7 +132,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 
 **📦 Software**
 - **Python:** 3.14 ( automatically bundled by TAS )
-- **FFmpeg:** Latest version ( automatically installed by TAS )
+- **FFmpeg:** only for YouTube URL inputs ( downloaded by TAS on first use; Homebrew on macOS )
 - **GPU Drivers:** Latest NVIDIA/AMD drivers
 
 </td>
@@ -306,7 +306,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Description | Performance Impact |
 |-----------|------|-------------|-------------------|
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
-| `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/` (see `--preview_port`), at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
+| `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/` (see `--preview_port`), at output resolution, for every encoder | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
 | `--preview_port` | int | **Preview server port** (default 5000). Port 5000 is heavily contested — Flask/uvicorn dev servers use it, and macOS AirPlay Receiver owns it by default. Left at the default, TAS falls back to an OS-assigned free port and prints the real URL; set explicitly, it reports the port as busy instead of silently moving | None |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 | `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
@@ -553,7 +553,7 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | AMD/Intel GPUs | DirectML |
 | **birefnet** / **birefnet-rocm** | — | — | — | Screenshots from anime video; BiRefNet Lite trained at 1024×1024 | CUDA / ROCm (PyTorch) |
 
-`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`, or `prores_segment_nelux` when an in-process `*_nelux` encoder is requested) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
+`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
 
 > **Note:** There is no MPS segmentation path.
 
@@ -874,43 +874,13 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 | **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD HEVC |
 | **hevc_amf_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | AMD GPU | 10-bit AMD HEVC |
 
-#### In-Process Encoders (`*_nelux`)
+#### How encoding runs
 
-These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, which removes the pipe copy on GPU-resident frames. The encoder settings match the plain encoder of the same name, and so does the colour pipeline: the in-process encoder converts and tags BT.709 exactly like the plain encoders' filter chain (byte-identical matrix), and a probed BT.2020 source is converted and tagged bt2020nc with its own transfer copied, mirroring the FFmpeg writer's zscale path.
+Every encoder runs inside TAS through [Nelux](https://github.com/NevermindNilas/Nelux), which ships its own FFmpeg libraries: no FFmpeg install is needed except for YouTube URL inputs (yt-dlp merges the downloaded streams with it). Each method keeps the settings it had when TAS piped frames to an FFmpeg subprocess. The output is converted to and tagged BT.709, or for a probed BT.2020 source converted and tagged bt2020nc with its own transfer copied. Audio and subtitles are stream-copied where the container takes them and converted where it does not (opus into `.mov` becomes AAC, subrip into `.mp4`/`.mov` becomes mov_text, into `.webm` WebVTT).
 
-| Encoder | Equivalent | Requirements |
-|---------|-----------|--------------|
-| **x264_nelux** | x264 | - |
-| **slow_x264_nelux** | slow_x264 | - |
-| **x264_10bit_nelux** | x264_10bit | - |
-| **x264_animation_nelux** | x264_animation | - |
-| **x264_animation_10bit_nelux** | x264_animation_10bit | - |
-| **x265_nelux** | x265 | - |
-| **slow_x265_nelux** | slow_x265 | - |
-| **x265_10bit_nelux** | x265_10bit | - |
-| **av1_nelux** | av1 | - |
-| **slow_av1_nelux** | slow_av1 | - |
-| **vp9_nelux** | vp9 | - |
-| **prores_nelux** | prores | - |
-| **prores_segment_nelux** | prores_segment | - |
-| **gif_nelux** | gif | - |
-| **lossless_nelux** | lossless | - |
-| **nvenc_h264_nelux** | nvenc_h264 | NVIDIA GPU |
-| **slow_nvenc_h264_nelux** | slow_nvenc_h264 | NVIDIA GPU |
-| **nvenc_h265_nelux** | nvenc_h265 | NVIDIA GPU |
-| **slow_nvenc_h265_nelux** | slow_nvenc_h265 | NVIDIA GPU |
-| **nvenc_h265_10bit_nelux** | nvenc_h265_10bit | NVIDIA RTX |
-| **nvenc_av1_nelux** | nvenc_av1 | NVIDIA RTX 40+ |
-| **slow_nvenc_av1_nelux** | slow_nvenc_av1 | NVIDIA RTX 40+ |
-| **lossless_nvenc_nelux** | lossless_nvenc | NVIDIA GPU |
-| **qsv_h264_nelux** | qsv_h264 | Intel CPU |
-| **qsv_h265_nelux** | qsv_h265 | Intel CPU |
-| **qsv_h265_10bit_nelux** | qsv_h265_10bit | Intel CPU |
-| **qsv_vp9_nelux** | qsv_vp9 | Intel CPU |
-| **png_nelux** | png | - |
-| **jpeg_nelux** | jpeg | - |
+`--bit_depth 16bit` keeps uint16 frames at full precision into a 10-bit pixel format (`yuv444p10le`; `p010le` on HEVC/AV1 NVENC and HEVC AMF; `yuv420p10le` on SVT-AV1); `nvenc_h264` and `jpeg` stay 8-bit, as neither has a 10-bit mode. `--depth` encodes its grayscale maps into `yuv420p` (`yuv444p10le`/`p010le` at `--bit_depth 16bit`) whatever the method, and `--segment` always writes `prores_segment` (ProRes 4444 with alpha); neither applies the BT.709 conversion. `png`/`jpeg` write a numbered sequence (one file for a single-image input) and carry no audio. The AMF encoders (`h264_amf`, `hevc_amf`, `hevc_amf_10bit`) have not yet been run on an AMD GPU.
 
-> **Note:** the in-process encoder honors `--bit_depth 16bit` (nelux ≥ 0.17.0 encodes uint16 frames at full precision into a 10-bit pixel format, mirroring the plain encoder's 16-bit output; `nvenc_h264_nelux` stays 8-bit like its twin, since NVENC H.264 has no 10-bit path). `--depth` and `--segment` use it too: depth maps are encoded from grayscale frames into the same pixel format as the plain encoder (`yuv420p`, or `yuv444p10le`/`p010le` at `--bit_depth 16bit`), and segmentation turns any in-process encoder into `prores_segment_nelux` (ProRes 4444 with alpha), as it turns plain encoders into `prores_segment`. Like the plain encoders, neither applies the BT.709 conversion (segment output decodes byte-identical to `prores_segment`); the in-process file is tagged bt470bg where the plain one is left untagged. `png_nelux`/`jpeg_nelux` write the same numbered sequence as `png`/`jpeg` (one file for a single-image input) and carry no audio. The AMF family remains FFmpeg-only.
+> **Note:** the `<method>_nelux` names (`x264_nelux`, `prores_nelux`, ...) from when the in-process encoders were opt-in are gone: use the plain name. TAS stops with that replacement if it is given one.
 
 #### High-Quality Presets
 

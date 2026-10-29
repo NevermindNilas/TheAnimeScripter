@@ -196,7 +196,7 @@ class DepthCuda(DepthRunOutcome):
         Per-frame min-max so a batched forward
         stays bit-identical to one-frame-at-a-time.
 
-        The result goes straight to WriteBuffer, whose writer thread copies on
+        The result goes straight to the writer, whose writer thread copies on
         its own private stream and never waits on ours, so the normalize must be
         synchronized here. Without it the writer can read the block before the
         kernels land and, because the allocator recycles the tensor freed two
@@ -362,7 +362,7 @@ class LimboCuda(DepthCuda):
 
         Normalizing before the upscale, not after, keeps the percentile pair off
         a multi-megapixel tensor (``nanquantile`` caps out around 16M elements)
-        and hands WriteBuffer a frame that already matches the output, so its
+        and hands the writer a frame that already matches the output, so its
         bicubic fallback -- which overshoots on a map that is already clipped to
         [0, 1] -- never runs.
 
@@ -443,7 +443,7 @@ class OGDepthV2CUDA(DepthRunOutcome):
             # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
             # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
             # --encode_method said, ignored --bit_depth,
-            # and dropped the source audio. WriteBuffer is what every other
+            # and dropped the source audio. createWriteBuffer is what every other
             # depth backend uses, OGDepthV2TensorRT included.
             self.writeBuffer = createWriteBuffer(
                 self.encode_method,
@@ -557,7 +557,7 @@ class OGDepthV2CUDA(DepthRunOutcome):
                 )
                 minVal = d.min()
                 d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
-                # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once,
+                # The writer takes [1, C, H, W] in [0, 1] and quantizes once,
                 # to 8 or 16 bit per --bit_depth, instead of the byte() cast
                 # this path used to hardcode. Land on the CPU first: the writer
                 # copies on its own private stream and never waits on ours, so
@@ -734,9 +734,9 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                 )
 
     def _writeGray(self, gray):
-        """[H, W] float in [0, 1] -> the [1, 1, H, W] WriteBuffer expects.
+        """[H, W] float in [0, 1] -> the [1, 1, H, W] frame the writer expects.
 
-        WriteBuffer resizes a frame that does not match the output dimensions,
+        The writer resizes a frame that does not match the output dimensions,
         so the cv2.resize the old encode thread did here is not needed."""
         self.writeBuffer.write(
             torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))

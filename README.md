@@ -44,7 +44,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 | **Stabilize** | `--stabilize` | Classic (feature tracking), DUT (deep mesh warp) | CPU · CUDA · ROCm |
 | **Motion blur** | `--moblur` | RIFE-driven shutter simulation | CUDA · TRT · DML · MPS · ROCm |
 
-Output goes through FFmpeg or TAS's in-process [Nelux](https://github.com/NevermindNilas/Nelux) encoders: x264/x265/AV1/VP9, NVENC, QSV, AMF, ProRes (with alpha), lossless, GIF and PNG/JPEG sequences.
+Decoding and encoding run in-process through [Nelux](https://github.com/NevermindNilas/Nelux): x264/x265/AV1/VP9, NVENC, QSV, AMF, ProRes (with alpha), lossless, GIF and PNG/JPEG sequences.
 
 **[PARAMETERS.MD](PARAMETERS.MD)** has every flag, every model with its backends, and recommendations by content type.
 
@@ -129,7 +129,7 @@ python main.py -h
 
 Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use, or picks one from your hardware when run without a terminal), or pass one by name, e.g. `--download_requirements linux-rocm`.
 
-On macOS TAS uses Homebrew's FFmpeg and runs `brew install ffmpeg` on first launch if it is missing. FFmpeg is GPL, so TAS does not ship it. [Homebrew](https://brew.sh) itself must already be installed.
+FFmpeg is only needed for YouTube URL inputs, where yt-dlp merges the downloaded video and audio with it. TAS downloads it the first time you give it a URL; on macOS it runs `brew install ffmpeg` instead ([Homebrew](https://brew.sh) itself must already be installed). FFmpeg is GPL, so TAS does not ship it.
 
 Portable builds: see [BUILD.md](BUILD.md).
 
@@ -174,7 +174,7 @@ TAS builds on the work of many model authors and open-source projects. Third-par
 
 | Project | Used for |
 |---|---|
-| [FFmpeg](https://github.com/FFmpeg/FFmpeg) | Encoding, muxing, audio |
+| [FFmpeg](https://github.com/FFmpeg/FFmpeg) | Codecs and containers (inside Nelux); URL download merging (yt-dlp) |
 | [spandrel](https://github.com/chaiNNer-org/spandrel) (chaiNNer-org; vendored [TNTwise](https://github.com/TNTwise) fork) | Model architectures, custom models |
 | [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan) (nihui), [TNTwise fork](https://github.com/TNTwise/rife-ncnn-vulkan), [Python wrapper](https://github.com/media2x/rife-ncnn-vulkan-python) (media2x) | NCNN/Vulkan RIFE |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | URL input |

@@ -156,7 +156,7 @@ class MaskedSink:
 
         # Everything entering a write buffer must already be materialized: the
         # writer thread copies it to pinned memory on its own private stream
-        # (ffmpegSettings.WriteBuffer.transferStream / NeluxWriteBuffer.CudaStream)
+        # (ffmpegSettings.NeluxWriteBuffer.CudaStream)
         # and never waits on ours, so it can read the tensor before these blend
         # kernels have run. The interpolators satisfy that contract by syncing
         # normStream before they hand a frame over; MotionBlurPipeline does the
