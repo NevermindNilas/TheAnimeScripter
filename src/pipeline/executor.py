@@ -28,7 +28,7 @@ widens gaps by dropped duplicates.
 
 import torch
 
-from src.interpolate._timesteps import cutHoldSplit, gapPlan
+from src.interpolate._timesteps import cutHoldSplit, gapPlan, sourceOnGrid
 from src.io.frameWindow import FrameSlot, LagRing, Window, temporalDemand
 from src.pipeline.planner import factorFraction
 from src.pipeline.stages import DROP, isStatelessUpscale
@@ -325,7 +325,8 @@ class _DriverSink:
 
 
 class ExpandNode(_Node):
-    """Interpolation: emits the frames owed to each source interval, then the centre.
+    """Interpolation: emits the frames owed to each source interval, then the centre
+    when its source time is an output slot (always, for an integer factor).
 
     The gap for source frame ``k`` covers ``(previous, k]``, so a smooth-dedup
     gap widened by dropped duplicates gets proportionally more slots. A gap over a
@@ -370,6 +371,8 @@ class ExpandNode(_Node):
         self._lastFed = None
         self._maskAnchor = None
         self._pos = 0
+        self._standIn = 0
+        self._gapEmitted = 0
         self._sink = _DriverSink(self)
 
     def _run(self, window) -> None:
@@ -383,20 +386,28 @@ class ExpandNode(_Node):
         curPos = prevPos + 1 + dups
         span = curPos - prevPos
         holdGap = bool(self.smoothDedup and self.maxSpan and span > self.maxSpan)
-        framesToInsert, timesteps = gapPlan(
-            prevPos, curPos, self.factorNum, self.factorDen
-        )
-        if self.factorDen == 1 and span == 1:
+        # The output grid is anchored on the first frame this expander receives
+        # (sourcePos 1 = output slot 0), so a fractional factor's slots fall at
+        # first + o / factor, not at a phantom frame before the first one.
+        gridPrev, gridCur = prevPos - 1, curPos - 1
+        num, den = self.factorNum, self.factorDen
+        framesToInsert, timesteps = gapPlan(gridPrev, gridCur, num, den)
+        if den == 1 and span == 1:
             # Identical values, but the driver's own ladder keeps its timestep
             # buffer cached on the common path.
             timesteps = None
+        onGrid = sourceOnGrid(gridCur, num, den)
         holdFromPrev = (
-            cutHoldSplit(prevPos, curPos, self.factorNum, self.factorDen)
+            cutHoldSplit(gridPrev, gridCur, num, den)
             if centre.isCut
             else framesToInsert
         )
         self.sourcePos = curPos
         self._pos = curPos
+        # Off the grid the centre is not written; the gap's last frame (the
+        # nearest to it) stands in for it as what trailing duplicates copy.
+        self._standIn = 0 if onGrid else framesToInsert
+        self._gapEmitted = 0
 
         self._clearMemos()
         try:
@@ -406,7 +417,8 @@ class ExpandNode(_Node):
             else:
                 self._drive(centre, nextFrame, framesToInsert, timesteps)
                 fromCurrent = 0
-            self._emitCentre(centre, curPos, fromCurrent)
+            if onGrid:
+                self._emitCentre(centre, curPos, fromCurrent)
             self._flushCollected()
         finally:
             self._collected.clear()
@@ -459,11 +471,18 @@ class ExpandNode(_Node):
     def _emitHeld(self, frame, key, *, cut: bool) -> None:
         held = frame.clone()
         _syncAfter(held)
-        self._emit(FrameSlot(held, cut, 0, self._pos, False, key))
+        self._emit(FrameSlot(held, cut, 0, self._pos, self._isStandIn(), key))
+
+    def _isStandIn(self) -> bool:
+        """Count one gap frame; True for the one standing in for an off-grid centre."""
+        self._gapEmitted += 1
+        return self._gapEmitted == self._standIn
 
     def emitFrame(self, frame) -> None:
         """A frame a driver produced (not held, not the centre)."""
-        self._collected.append(FrameSlot(frame, False, 0, self._pos, False, None))
+        self._collected.append(
+            FrameSlot(frame, False, 0, self._pos, self._isStandIn(), None)
+        )
         if len(self._collected) >= self.collectLimit:
             self._flushCollected(fromDriver=True)
 
@@ -506,9 +525,10 @@ class ExpandNode(_Node):
 
     def trailingOwed(self, trailing: int) -> int:
         """Output slots owed to ``trailing`` duplicates that closed the stream."""
+        # On the same grid as _run: sourcePos 1 is output slot 0.
         endPos = self.sourcePos + trailing
-        owed = (endPos * self.factorNum) // self.factorDen - (
-            self.sourcePos * self.factorNum
+        owed = ((endPos - 1) * self.factorNum) // self.factorDen - (
+            (self.sourcePos - 1) * self.factorNum
         ) // self.factorDen
         self.sourcePos = endPos
         return owed
