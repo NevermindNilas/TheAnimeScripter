@@ -61,6 +61,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - Non-integer `--interpolate_factor` values juddered: a source frame was written at the end of every gap even when its time was not an output slot's, so 2.5× showed times 0, 0.4, 1.0, 1.2, … and 1.5× stepped ⅓, ⅔, 1. Every output frame now sits at its own slot time; integer factors are unchanged.
+- The progress bar and After Effects frame total for an interpolated run counted `source frames × factor`, one or more frames more than are written (744/744 shown, 743 written at 2×); they now count the frames actually written.
 - A URL input with processing downloaded to the same path it was processed into (`output\TAS-YTDLP-Int2.mp4` as both input and output); the download is now the bare title. A URL with `--output <folder>` and no processing failed its final rename with "file already exists".
 - RIFE `-rocm` interpolated the first frame pair of every video against the encoder features of its all-zero warmup frames (every RIFE except `rife4.6`, which has no encoder), so the first generated frame was wrong. It now encodes the real first frame.
 - `scunet`, `scunet-rocm`, `scunet-mps` and `scunet-openvino` crashed on any frame whose width or height is not a multiple of 64, 1080p included (`EinopsError` / ONNX `Reshape` failure). They now reflect-pad to the multiple and crop back.

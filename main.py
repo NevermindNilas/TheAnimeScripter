@@ -493,12 +493,13 @@ class VideoProcessor:
             increment = int(increment)
 
         try:
-            # The bar counts output frames and only accepts integers, so a
-            # fractional factor is projected onto the output grid rather than
-            # multiplied per step -- `bar(2.5)` raised "an integer is required"
-            # and killed every fractional-factor run before the first frame.
-            def outputPosition(sourceFrames):
-                return int(sourceFrames * increment)
+            # The bar counts output frames and only accepts integers, so it is
+            # driven by the frames written so far for the frames decoded so far
+            # (the plan's own count, which the end total must match: it showed
+            # 744/744 where 743 were written) rather than multiplied per step --
+            # `bar(2.5)` raised "an integer is required" and killed every
+            # fractional-factor run before the first frame.
+            outputPosition = self.plan.outputFrames
 
             pipeline = Pipeline(
                 self.plan,

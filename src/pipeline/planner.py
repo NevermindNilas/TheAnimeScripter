@@ -121,6 +121,23 @@ class Plan:
     def ofKind(self, kind: str) -> tuple:
         return tuple(unit for unit in self.units if unit.kind == kind)
 
+    def outputFrames(self, sourceFrames: int) -> int:
+        """Frames written for ``sourceFrames`` decoded frames, before any dedup.
+
+        Each interpolate stage writes ``floor((n - 1) * factor) + 1`` for the
+        ``n`` frames it receives: its output grid starts on its first frame and
+        ends on its last, with nothing after the last (by design, no padding).
+        Stages are chained in order, since a fractional factor's rounding
+        compounds. ``sourceFrames * factor`` overcounted by ``factor - 1``
+        (744 shown, 743 written at 2x).
+        """
+        frames = int(sourceFrames)
+        for unit in self.units:
+            if unit.kind == "interpolate" and frames > 0:
+                factor = factorFraction(unit.spec["factor"])
+                frames = (frames - 1) * factor.numerator // factor.denominator + 1
+        return frames
+
     def enlargedBefore(self, name: str) -> bool:
         """Whether an upscale, or a resize that enlarges, runs before ``name``."""
         for unit in self.units:
