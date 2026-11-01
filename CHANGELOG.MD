@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-01
+
 ### Added
 - Stages repeat and take their settings as values, run in the order typed: `--resize 720p --upscale span --interpolate rife4.26 --upscale shufflecugan --interpolate 3x --restore scunet nafnet`. A repeat without values reuses the previous stage's settings; `--upscale_method`-style flags still work and apply to the last stage of their kind typed before them. See PARAMETERS.MD, Stages and values.
 - `--resize` is a stage with a target (`1920x1080`, `1440p`, `4k`, `0.5`, `50%`) that runs wherever it is typed; typed first it is done by the decoder, bit-identical to the old `--resize --resize_factor`.
