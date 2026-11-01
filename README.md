@@ -54,7 +54,7 @@ Decoding and encoding run in-process through [Nelux](https://github.com/Nevermin
 |---|---|---|
 | **[TAS-Standalone](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows | Desktop app with its own backend: no Python, no terminal. Toggle steps into a chain, watch the live preview and save presets. |
 | **[TAS-AdobeEdition](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS | After Effects 2022+ panel. Follow the [installation guide](https://nevermindnilas.github.io/zxp-installation/) or the [video tutorial](https://youtu.be/JAdZ3z-os_A). |
-| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS (Apple Silicon), Linux (source) | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
+| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS 15+ (Apple Silicon), Linux (source) | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
 
 <table>
 <tr>
@@ -125,7 +125,7 @@ python main.py -h
 | `extra-requirements-windows.txt` / `-linux.txt` | NVIDIA: CUDA, TensorRT, Maxine, plus everything in lite |
 | `extra-requirements-windows-lite.txt` / `-linux-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
 | `extra-requirements-linux-rocm.txt` | AMD ROCm (experimental) |
-| `extra-requirements-macos.txt` | Apple Silicon (MPS) |
+| `extra-requirements-macos.txt` | Apple Silicon (MPS, macOS 15 or newer) |
 
 Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use, or picks one from your hardware when run without a terminal), or pass one by name, e.g. `--download_requirements linux-rocm`.
 

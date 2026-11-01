@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python 3.14 installed and accessible from PATH
-- Windows 11, Linux, or Apple Silicon macOS
+- Windows 11, Linux, or Apple Silicon macOS 15 or newer (PyTorch 2.15's MPS backend needs it)
 
 The build does not need FFmpeg on the build machine, and deliberately does not bundle it: FFmpeg is GPL, so shipping it inside a release asset would make TAS a redistributor. TAS itself decodes and encodes through the `nelux` wheel, which carries its own FFmpeg libraries; only YouTube URL inputs need the FFmpeg executables (for yt-dlp), which TAS obtains on first use — Windows and Linux download them, macOS installs them via Homebrew.
 

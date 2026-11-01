@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
 ### Changed
+- PyTorch 2.14.1 → 2.15.0 and torchvision 0.29.2 in every profile. Linux CUDA moves from cu130 to cu132 (2.15 has no cu130 wheels), ROCm from 7.2 to 7.14 (gfx900/gfx906 no longer supported), `triton-windows` to 3.9; MPS now needs macOS 15 or newer.
 - Every `--encode_method` now encodes in-process through Nelux; the FFmpeg-subprocess writer is gone. The plain names (`x264`, `nvenc_h264`, `prores`, ...) now give what their `*_nelux` twins did: within 0.2 dB of the old output and up to 18% smaller. QSV, AMF (not yet tested on AMD hardware), ProRes 4444 segment output and PNG/JPEG sequences included.
 - FFmpeg is no longer downloaded at startup (or installed with Homebrew on macOS): TAS fetches it the first time it is given a YouTube URL, for yt-dlp's stream merge.
 - RIFE `-tensorrt` no longer loads the PyTorch model when its engines are cached: the first frame's and a scene cut's encoder features now come from the pair engine, as every other frame's already did. Driver build 459 → 281 ms (`rife4.26`, 720p, RTX 3090); the first interpolated frame and the first one after a cut change slightly (~58-60 dB), all others are bit-identical.

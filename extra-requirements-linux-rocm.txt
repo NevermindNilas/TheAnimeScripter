@@ -4,9 +4,9 @@
 # Requires an AMD GPU with ROCm drivers; -tensorrt / maxine-* methods stay
 # NVIDIA-only and will fail on this profile. Use the -rocm method suffixes
 # (e.g. --upscale_method shufflecugan-rocm) for the eager HIP paths.
---extra-index-url https://download.pytorch.org/whl/rocm7.2
-torch==2.14.1+rocm7.2
-torchvision==0.29.1+rocm7.2
+--extra-index-url https://download.pytorch.org/whl/rocm7.14
+torch==2.15.0+rocm7.14
+torchvision==0.29.2+rocm7.14
 # Keep the native video wheel on the same PyTorch ABI during profile installs.
 nelux==0.21.0
 opencv-python-headless==5.0.0.93
