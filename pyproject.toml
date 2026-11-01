@@ -4,7 +4,6 @@ target-version = "py314"
 # Vendored / generated trees are third-party — not ours to reformat or lint.
 extend-exclude = [
     "src/spandrel",                    # vendored fork of TNTwise/spandrel @ e747f27 — keep diff-clean vs upstream
-    "src/gmfss",                       # vendored GMFSS interpolation arch
     "src/depth/depth_anything_3",      # vendored Depth-Anything-3 arch
     "src/depth/video_depth_anything",  # vendored Video-Depth-Anything arch
     "src/depth/dinov2_layers",         # vendored DINOv2 layers
@@ -41,7 +40,6 @@ python-version = "3.14"
 # Same vendored trees ruff skips — not ours to annotate.
 exclude = [
     "src/spandrel",
-    "src/gmfss",
     "src/rifearches",
     "src/depth/depth_anything_3",
     "src/depth/video_depth_anything",

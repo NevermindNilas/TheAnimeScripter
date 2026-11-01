@@ -632,8 +632,6 @@ def _addInterpolationOptions(argParser):
         "rife4.26-heavy-tensorrt",
         "rife4.26-ultra-tensorrt",
         "rife-tensorrt",
-        "gmfss",
-        "gmfss-rocm",
         "rife_elexor",
         "rife_elexor-tensorrt",
         "rife4.6-directml",

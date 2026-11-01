@@ -34,7 +34,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 | Feature | Flag | Models | Backends |
 |---|---|---|---|
 | **Upscale** | `--upscale` | ShuffleCUGAN, Adore, Fallin Soft/Strong, Cyte, SPAN, Open-Proteus, AniScale 2, RTMoSR, Saryn, Gauss, SmoSR, FigSR, AnimeSR, ArtCNN, NVIDIA Maxine VSR, your own Spandrel/ONNX model | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
-| **Interpolate** | `--interpolate` | RIFE 4.6 – 4.26 (lite / heavy), RIFE Elexor, DistilDRBA, GMFSS Fortuna, NVIDIA Maxine Frame Generation | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
+| **Interpolate** | `--interpolate` | RIFE 4.6 – 4.26 (lite / heavy), RIFE Elexor, DistilDRBA, NVIDIA Maxine Frame Generation | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
 | **Restore** (chainable) | `--restore` | Anime1080Fixer, SCUNet, NAFNet, DPIR, DeJPEG, DeH264, GaterV3, HurrDeblur, DeHalo, deepDeband, FastLineDarken, LineThinner, AutoCAS, Maxine denoise/deblur | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
 | **Dedup** | `--dedup` / `--smooth_dedup` | SSIM, MSE, VMAF, FlowNetS | CPU · CUDA · ROCm |
 | **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
@@ -147,7 +147,7 @@ TAS builds on the work of many model authors and open-source projects. Third-par
 | [hzwer](https://github.com/hzwer) | [RIFE](https://github.com/hzwer/Practical-RIFE) interpolation |
 | [Elexor](https://github.com/elexor) | Modified RIFE (RIFE Elexor) |
 | [routineLife1](https://github.com/routineLife1) | [DistilDRBA](https://github.com/routineLife1/DistilDRBA) |
-| [98mxr](https://github.com/98mxr) / [HolyWu](https://github.com/HolyWu) | GMFSS Fortuna, [vs-gmfss_fortuna](https://github.com/HolyWu/vs-gmfss_fortuna), [vs-animesr](https://github.com/HolyWu/vs-animesr) |
+| [HolyWu](https://github.com/HolyWu) | [vs-animesr](https://github.com/HolyWu/vs-animesr) |
 | [TencentARC](https://github.com/TencentARC) | [AnimeSR](https://github.com/TencentARC/AnimeSR) |
 | [styler00dollar (SUDO)](https://github.com/styler00dollar) | ShuffleCUGAN & ONNX models ([VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)) |
 | [renarchi](https://github.com/renarchi) | Adore, Fallin Soft & Strong |

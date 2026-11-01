@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `rife4.26-ultra` interpolation (also `-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): rife4.26-heavy's weights run as four flipped views averaged after every block, finished with a Catmull-Rom warp. On 442 held-out anime frames LPIPS 0.0842 → 0.0819 (closer on 87%), and on a panning fence the generated frames no longer lose 17% of their detail; it costs about 3–4× rife4.26-heavy's time and 4× its working VRAM (RTX 3090).
 - Added RIFE 4.26 and 4.26-heavy interpolation (`rife4.26`, `rife4.26-heavy`, each also `-tensorrt`, `-directml`, `-openvino`, `-mps`). 4.26 reuses the 4.25 architecture; 4.26-heavy keeps 4.25's block widths and widens the feature encoder to 16 channels.
 - Added `birefnet` and `birefnet-rocm` segmentation methods for anime video frames, using Zarxrax's BiRefNet Lite checkpoint and writing an RGBA matte.
-- Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA/GMFSS), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
+- Added `-rocm` (AMD ROCm/HIP, Linux) counterparts for all PyTorch CUDA paths: upscale, interpolate (RIFE/DistilDRBA), restore, dedup, scene-cut, segment, depth, motion blur, transnetv2 autoclip, and DUT stabilize. Eager, no CUDA graphs; shares `.pth` weights with CUDA. New `linux-rocm` dependency profile.
 
 ### Changed
 - Every `--encode_method` now encodes in-process through Nelux; the FFmpeg-subprocess writer is gone. The plain names (`x264`, `nvenc_h264`, `prores`, ...) now give what their `*_nelux` twins did: within 0.2 dB of the old output and up to 18% smaller. QSV, AMF (not yet tested on AMD hardware), ProRes 4444 segment output and PNG/JPEG sequences included.
@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - The frame loop runs the typed order as one chain: the startup line shows the resolved order and warns about costs (restore or dedup after upscale runs at the upscaled size; after interpolate it runs on every interpolated frame).
 
 ### Removed
+- Removed GMFSS (`--interpolate_method gmfss` / `gmfss-rocm`, and motion blur's GMFSS path) along with its prebuilt CUDA softsplat extension; use RIFE or DistilDRBA.
 - Removed the `*_nelux` encode methods (`x264_nelux`, `prores_nelux`, ...): every encoder is in-process now, under its plain name. TAS stops with the name to use instead.
 - Removed `--output_scale`, `--resize_factor` and the on/off `--resize` (and their JSON keys, including `"resize": true`); each stops with its replacement. Use `--resize WxH` last for an output size: it resizes bicubic in the chain instead of bilinear in the encoder. Standalone capabilities (`--depth`, `--segment`, `--stabilize`, ...) no longer scale in the encoder; they take one `--resize`, applied at decode.
 - Removed `--preset`, `--list_presets` and the saved `presets.json` loader; a `--json` file covers the same use. Existing `presets.json` files are no longer read.

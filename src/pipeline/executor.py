@@ -478,9 +478,9 @@ class ExpandNode(_Node):
         The stages after interpolation run here, and they expect the default
         stream. At the end of a gap this runs on the main thread, which is
         already on it. A mid-gap flush (the collect limit) runs inside the
-        driver's put, and gmfss puts from inside its private stream, so that
-        case is pinned -- checked once per driver, because entering a stream
-        context costs ~8 us.
+        driver's put, and a driver may put from inside its private stream, so
+        that case is pinned -- checked once per driver, because entering a
+        stream context costs ~8 us.
         """
         collected = self._collected
         if not collected:

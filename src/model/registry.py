@@ -263,7 +263,6 @@ def modelsList() -> list[str]:
         "shift_lpips-directml",
         "differential-tensorrt",
         "transnetv2",
-        "gmfss",
         "flownets",
         "dut",
         "og_small_v2-mps",
@@ -646,9 +645,6 @@ def modelsMap(
 
         case "deepdeband-f":
             return "deepdeband_f.pth"
-
-        case "gmfss":
-            return "gmfss-fortuna-union.zip"
 
         case (
             "rife4.25-heavy"

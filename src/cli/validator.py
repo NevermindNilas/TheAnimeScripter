@@ -440,7 +440,7 @@ def _resolveStaticStep(stage):
 def _resolveDynamicScale(stage):
     """--dynamic_scale is read by the RIFE torch arches only (src/rifearches/),
     i.e. by RifeCuda, RifeMPS and RifeROCm. The TensorRT / DirectML / OpenVINO
-    / NCNN classes and the gmfss / distildrba families never receive the flag,
+    / NCNN classes and the distildrba family never receive the flag,
     so leaving it set there was a silent no-op instead of an error. rife_elexor
     is caught later, in RifeCuda.handleModel -- its arch takes no such argument.
     """

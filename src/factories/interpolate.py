@@ -168,30 +168,6 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 self.ensemble,
             )
 
-        case "gmfss":
-            from src.gmfss.gmfss import GMFSS
-
-            return GMFSS(
-                int(self.interpolateFactor),
-                self.half,
-                interpWidth,
-                interpHeight,
-                self.ensemble,
-                compileMode=self.compileMode,
-            )
-
-        case "gmfss-rocm":
-            from src.gmfss.gmfss import GMFSSROCm
-
-            return GMFSSROCm(
-                int(self.interpolateFactor),
-                self.half,
-                interpWidth,
-                interpHeight,
-                self.ensemble,
-                compileMode=self.compileMode,
-            )
-
         case (
             "rife4.6-directml"
             | "rife4.6-openvino"

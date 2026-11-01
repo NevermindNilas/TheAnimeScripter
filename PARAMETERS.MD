@@ -367,7 +367,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
-| `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, ROCm, MPS); ignored by `rife_elexor`, `gmfss` and `distildrba` |
+| `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, ROCm, MPS); ignored by `rife_elexor` and `distildrba` |
 
 > **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
@@ -395,7 +395,6 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, MPS |
 | **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, ROCm, TRT |
 | **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, ROCm, TRT |
-| **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, ROCm |
 | **maxine-low / -medium / -high** | varies | varies | varies | NVIDIA Maxine Video Frame Generation (SDK-provided, no download). RTX 40/50 (Ada, Blackwell) only; fp32 internally; ignores `--ensemble`. Holds on shot changes it detects itself | CUDA (NVIDIA-only, no ROCm) |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews. On Apple Silicon use `rife4.6-mps` or `rife4.25-mps`.
@@ -628,7 +627,7 @@ Example: `python main.py --input input/Raw.mp4 --depth --depth_method video_limb
 One mask covers both `--moblur` and `--interpolate`. Paint the regions you want left alone — a HUD, hardsubs, a watermark, a logo — as opaque dark pixels on a transparent background. RGB (no alpha) and grayscale images work too: dark = protected. The mask is resized to match the frame if the dimensions differ.
 
 - With `--moblur`, protected pixels are taken from the unblurred source frame, so they stay sharp while everything else smears.
-- With `--interpolate`, protected pixels are taken from the source frame preceding each generated frame, so they hold instead of warping. This kills the rippling that RIFE and GMFSS produce on text and UI overlaid on moving footage. Static protected content is pixel-identical to the source; content that does change (a subtitle line swapping) snaps on its own source frame rather than morphing across the gap.
+- With `--interpolate`, protected pixels are taken from the source frame preceding each generated frame, so they hold instead of warping. This kills the rippling that RIFE produces on text and UI overlaid on moving footage. Static protected content is pixel-identical to the source; content that does change (a subtitle line swapping) snaps on its own source frame rather than morphing across the gap.
 
 ```bash
 # Interpolate gameplay to 120fps without smearing the HUD

@@ -340,18 +340,6 @@ class MotionBlurPipeline:
                     self.ensemble,
                 )
 
-            case "gmfss":
-                from src.gmfss.gmfss import GMFSS
-
-                self.interpolateProcess = GMFSS(
-                    int(self.interpolateFactor),
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.ensemble,
-                    compileMode=self.compileMode,
-                )
-
             case (
                 "rife4.6-directml"
                 | "rife4.6-openvino"
@@ -391,7 +379,7 @@ class MotionBlurPipeline:
                 raise ValueError(
                     f"Motion blur does not support interpolate_method "
                     f"'{self.interpolateMethod}'. Supported methods are the "
-                    f"rife (cuda/rocm/ncnn/tensorrt/directml/openvino) variants and gmfss."
+                    f"rife (cuda/rocm/ncnn/tensorrt/directml/openvino) variants."
                 )
 
     def _run(self):
