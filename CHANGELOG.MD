@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Added
+- `-rocm` methods now run on Windows through the new `windows-rocm` profile (experimental): AMD's torch 2.15 and torchvision builds plus the GPU kernels for the AMD target the installer detects, overridable with `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100`). On ROCm the encoder gets 8-bit host copies of the frames and `--decode_method nvdec` falls back to CPU decoding, since nelux's GPU paths are NVIDIA-only.
+
+### Fixed
+- The `--download_requirements` picker on Windows offered the `linux-rocm` profile.
+- The portable build left out `extra-requirements-linux-rocm.txt`, so `--download_requirements linux-rocm` failed with "Requirements file not found".
+
 ## [3.0.0] - 2026-11-01
 
 ### Added

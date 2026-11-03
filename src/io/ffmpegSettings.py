@@ -240,6 +240,17 @@ def neluxUint16White(decodeMethod: str, bitDepth: int, colorRange: str) -> float
     return _NELUX_CPU_LIMITED_WHITE
 
 
+def neluxGpuUnusable() -> bool:
+    """True under a ROCm torch, where nelux cannot touch the GPU at all.
+
+    nelux's GPU paths (NVDEC, NVENC's CUDA context, CUDA-tensor input) are
+    NVIDIA's: they go through c10_cuda and the CUDA driver, which a ROCm torch
+    does not ship, while it reports HIP tensors as device "cuda" and
+    torch.cuda.is_available() as True -- the only check nelux makes itself.
+    """
+    return getattr(torch.version, "hip", None) is not None
+
+
 class BuildBuffer:
     def __init__(
         self,
@@ -275,6 +286,12 @@ class BuildBuffer:
             Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
             processFrameToTorch converts this to BCHW float format for processing.
         """
+        if decode_method.lower() == "nvdec" and neluxGpuUnusable():
+            logWarning(
+                "--decode_method nvdec needs an NVIDIA GPU and a CUDA PyTorch; "
+                "decoding on the CPU."
+            )
+            decode_method = "cpu"
         self.decodeMethod = decode_method
         self.half = half
         self.decodeBuffer = Queue(maxsize=adaptiveQueueDepth(width, height))
@@ -939,10 +956,16 @@ class NeluxWriteBuffer:
         self._uint16White = (
             _NELUX_CPU_LIMITED_WHITE if colourOptions and yuvOutput else 65535.0
         )
+        # On ROCm nelux gets a host copy of every GPU frame (_encodeFrame), as
+        # it would read HIP memory through the CUDA driver.
+        self._hostEncode = neluxGpuUnusable()
         # Float RGB frames go to nelux as they are (a CHW view) where it
         # narrows them as this writer would; see _NELUX_FLOAT_NARROWED_FORMATS.
+        # Not on ROCm: narrowed on the GPU first, the host copy is a uint8
+        # frame rather than a 2-4x larger float one.
         self._floatToNelux = (
-            bitDepth != "16bit"
+            not self._hostEncode
+            and bitDepth != "16bit"
             and not grayscale
             and not transparent
             and self.encoderKwargs.get("pixel_format") in _NELUX_FLOAT_NARROWED_FORMATS
@@ -963,6 +986,18 @@ class NeluxWriteBuffer:
             f"pix_fmt={self.encoderKwargs.get('pixel_format', 'default')}, "
             f"bitDepth={self.bitDepth}"
         )
+
+    def _encodeFrame(self, frame):
+        """Hand one frame to nelux and count it; returns the tensor it got.
+
+        On ROCm that is a host copy (see neluxGpuUnusable): a blocking copy,
+        so it is ordered after the work queued on the current stream.
+        """
+        if self._hostEncode and frame.is_cuda:
+            frame = frame.cpu()
+        self.encoder.encode_frame(frame)
+        self.writtenFrames += 1
+        return frame
 
     def _setupPassthrough(self):
         """
@@ -1132,8 +1167,7 @@ class NeluxWriteBuffer:
                 ):
                     # nelux (>= 0.21.0) reads a strided frame (CHW view,
                     # padded rows) where it lies, CPU or CUDA: no copy here.
-                    self.encoder.encode_frame(frame)
-                    self.writtenFrames += 1
+                    frame = self._encodeFrame(frame)
                     if sampler is not None and sampler.wants():
                         sampler.submit(frame)
                     continue
@@ -1190,8 +1224,7 @@ class NeluxWriteBuffer:
                         # next frame is written over it mid-read (a partly
                         # stale frame every few hundred on 1080p NVENC).
                         frame.record_stream(self.CudaStream)
-                    self.encoder.encode_frame(out)
-                    self.writtenFrames += 1
+                    out = self._encodeFrame(out)
                     if sampler is not None and sampler.wants():
                         if out.dtype not in (torch.uint8, torch.uint16):
                             out = (out.float() * 255).clamp(0, 255).to(torch.uint8)

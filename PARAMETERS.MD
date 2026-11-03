@@ -155,14 +155,14 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | Backend | Suffix | Hardware | Covers |
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
-| **ROCm** | `-rocm` | AMD (Linux, HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
+| **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU | Upscale, interpolate, restore, depth, object detection |
 | **NCNN** | `-ncnn` | Vulkan / low-power | Upscale (`shufflecugan`, `span`), interpolate (RIFE) |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
-> **🎮 ROCm note:** install the `linux-rocm` profile (`python main.py --download_requirements linux-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only.
+> **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
 >
 > **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication, stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
 
@@ -749,7 +749,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `linux-rocm` once a ROCm torch is installed; pass it by name). |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `windows-rocm`, `linux-cuda`, `linux-lite`, `linux-rocm`, `macos-mps`, or `macos-lite`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `windows-rocm`/`linux-rocm` once a ROCm torch is installed; pass it by name). |
 | `--list_methods` | optional str | None | **List available methods** for one capability (e.g. `--list_methods upscale`) or, with no value, for every capability |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 

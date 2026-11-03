@@ -35,6 +35,7 @@ KNOWN_MODULE_ALIASES = {
 DEPENDENCY_PROFILE_REQUIREMENTS = {
     "windows-cuda": "extra-requirements-windows.txt",
     "windows-lite": "extra-requirements-windows-lite.txt",
+    "windows-rocm": "extra-requirements-windows-rocm.txt",
     "linux-cuda": "extra-requirements-linux.txt",
     "linux-lite": "extra-requirements-linux-lite.txt",
     "linux-rocm": "extra-requirements-linux-rocm.txt",
@@ -55,6 +56,34 @@ DEPENDENCIES_MISSING_EXIT_CODE = 78  # EX_CONFIG
 # vmaf-torch, ...) only breaks the runs that use it, so a run with no terminal
 # to reinstall from warns and carries on, as it always did on macOS and Linux.
 CORE_PACKAGES = frozenset({"torch", "torchvision"})
+
+# AMD's Windows torch and torchvision wheels carry no GPU kernels until a
+# `[device-gfxNNNN]` extra pulls the per-target `amd-<package>-device-*`
+# packages, so the windows-rocm profile installs these with the extra for
+# every detected GPU target.
+WINDOWS_ROCM_DEVICE_PACKAGES = ("torch", "torchvision")
+
+# Targets with a Windows `amd-torch-device-*` and `amd-torchvision-device-*`
+# wheel for the pinned torch==2.15.0+rocm10.2.0rc1 and
+# torchvision==0.29.2+rocm10.2.0rc1. pip only warns about an extra a wheel lacks
+# and installs it with no kernels, so a target outside this set is dropped here
+# instead. Re-list it from the index on every torch pin bump.
+WINDOWS_ROCM_TARGETS = frozenset(
+    {
+        *(f"gfx{n}" for n in range(1010, 1013)),  # RDNA1
+        *(f"gfx{n}" for n in range(1030, 1037)),  # RDNA2 (gfx1036: Ryzen iGPU)
+        *(f"gfx{n}" for n in range(1100, 1104)),  # RDNA3
+        *(f"gfx{n}" for n in range(1150, 1154)),  # RDNA3.5 APUs (gfx1151: AI Max)
+        "gfx1200",  # RX 9060
+        "gfx1201",  # RX 9070
+        "gfx908",
+        "gfx90a",
+    }
+)
+
+# What AMD's torch pulls in besides the listed requirements: the ROCm SDK
+# (rocm, rocm-sdk-*, several GB), rocm-bootstrap and the kernel packages.
+_WINDOWS_ROCM_RUNTIME = re.compile(r"rocm|rocm-.+|amd-torch(?:vision)?-device-.+")
 
 
 class DependenciesMissingError(RuntimeError):
@@ -128,6 +157,8 @@ def getDependencyProfile(
 ) -> str:
     normalized = systemName.lower()
     if normalized == "windows":
+        if isRocm:
+            return "windows-rocm"
         return "windows-cuda" if supportsCuda else "windows-lite"
     if normalized == "darwin":
         return "macos-mps"
@@ -145,6 +176,98 @@ def getRequirementsFileForProfile(profile: str) -> str:
             f"Unsupported dependency profile '{profile}'. Expected one of: {validProfiles}"
         )
     return requirementsFile
+
+
+def deviceExtraRequirements(profile: str) -> tuple[list[str], str]:
+    """Requirements that add a profile's per-GPU kernel packages.
+
+    Returns (requirements, error). Only windows-rocm has any: each package in
+    WINDOWS_ROCM_DEVICE_PACKAGES at its profile pin, with a `device-<target>`
+    extra per detected GPU target in WINDOWS_ROCM_TARGETS. `error` explains why
+    there is no supported target to install for.
+    """
+    if profile.strip().lower() != "windows-rocm":
+        return [], ""
+
+    from src.infra.isCudaInit import ROCM_TARGET_OVERRIDE_ENV, detectRocmGfxTargets
+
+    detected = detectRocmGfxTargets()
+    targets = [target for target in detected if target in WINDOWS_ROCM_TARGETS]
+    unsupported = [target for target in detected if target not in targets]
+    if unsupported:
+        logAndPrint(
+            f"No Windows ROCm build for {', '.join(unsupported)}; skipping it.",
+            "yellow",
+        )
+    if not targets:
+        found = f" (found {', '.join(detected)})" if detected else ""
+        forced = os.environ.get(ROCM_TARGET_OVERRIDE_ENV, "").strip()
+        fix = (
+            f"{ROCM_TARGET_OVERRIDE_ENV} is set to '{forced}'; set it to"
+            if forced
+            else f"Set {ROCM_TARGET_OVERRIDE_ENV} to"
+        )
+        return [], (
+            f"Could not find an AMD GPU the windows-rocm profile supports{found}. "
+            f"{fix} your GPU's target and run --download_requirements "
+            "windows-rocm again: gfx1100 (RX 7900), gfx1101 (RX 7800/7700), "
+            "gfx1102 (RX 7600), gfx1200 (RX 9060), gfx1201 (RX 9070), "
+            "gfx1151 (Ryzen AI Max)."
+        )
+
+    ok, requirementsPath = _resolveRequirementsPath(
+        getRequirementsFileForProfile(profile)
+    )
+    pins = dict(DependencyChecker().iterRequirements(requirementsPath)) if ok else {}
+    extras = ",".join(f"device-{target}" for target in targets)
+    logAndPrint(f"Installing ROCm GPU kernels for {', '.join(targets)}", "green")
+    return [
+        f"{name}[{extras}]{pins.get(name, '')}" for name in WINDOWS_ROCM_DEVICE_PACKAGES
+    ], ""
+
+
+def _installedDistributionNames() -> set[str]:
+    """Normalized names of every installed distribution."""
+    from importlib.metadata import distributions
+
+    names = set()
+    for dist in distributions():
+        name = dist.metadata["Name"] if dist.metadata else None
+        if name:
+            names.add(re.sub(r"[-_.]+", "-", name).lower())
+    return names
+
+
+def missingDeviceKernels(profile: str) -> list[str]:
+    """The profile's device packages installed without any GPU kernel package.
+
+    Only windows-rocm has device packages: a torch or torchvision from AMD's
+    index with no `amd-<package>-device-*` beside it imports fine but has no
+    kernel for the GPU.
+    """
+    if profile.strip().lower() != "windows-rocm":
+        return []
+    installed = _installedDistributionNames()
+    return [
+        package
+        for package in WINDOWS_ROCM_DEVICE_PACKAGES
+        if not any(name.startswith(f"amd-{package}-device-") for name in installed)
+    ]
+
+
+def profileRuntimePackages(profile: str) -> list[str]:
+    """Installed packages the profile pulled in that its file does not list.
+
+    --cleanup removes them with the listed ones. Only windows-rocm has any:
+    the ROCm SDK and the GPU kernel packages, several GB.
+    """
+    if profile.strip().lower() != "windows-rocm":
+        return []
+    return sorted(
+        name
+        for name in _installedDistributionNames()
+        if _WINDOWS_ROCM_RUNTIME.fullmatch(name)
+    )
 
 
 def getPythonExecutable() -> str:
@@ -228,8 +351,13 @@ def _runPipCommand(pythonPath: str, args: list[str], action: str) -> tuple[bool,
         return False, errorMsg
 
 
-def uninstallDependencies(extension: str = "") -> tuple[bool, str]:
-    """Uninstall dependencies from the selected requirements file."""
+def uninstallDependencies(
+    extension: str = "", extraPackages: Iterable[str] = ()
+) -> tuple[bool, str]:
+    """Uninstall dependencies from the selected requirements file.
+
+    `extraPackages` are uninstalled in the same pip call.
+    """
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
     if not ok:
@@ -246,14 +374,20 @@ def uninstallDependencies(extension: str = "") -> tuple[bool, str]:
             "-y",
             "-r",
             requirementsPath,
+            *extraPackages,
             "--disable-pip-version-check",
         ],
         "uninstall",
     )
 
 
-def installDependencies(extension: str = "") -> tuple[bool, str]:
-    """Install dependencies from the selected requirements file."""
+def installDependencies(
+    extension: str = "", extraRequirements: Iterable[str] = ()
+) -> tuple[bool, str]:
+    """Install dependencies from the selected requirements file.
+
+    `extraRequirements` go into the same pip resolve, after the file.
+    """
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
     if not ok:
@@ -269,6 +403,7 @@ def installDependencies(extension: str = "") -> tuple[bool, str]:
             "install",
             "-r",
             requirementsPath,
+            *extraRequirements,
             "--no-warn-script-location",
             "--no-cache-dir",
             "--disable-pip-version-check",
@@ -349,13 +484,23 @@ class DependencyChecker:
             moduleAliases=self.knownAliases,
         )
 
-        if not missing and not notImportable:
+        kernelless = [
+            package
+            for package in missingDeviceKernels(storedProfile)
+            if package not in missing
+        ]
+
+        if not missing and not notImportable and not kernelless:
             return True
 
-        missingList = ", ".join(missing + notImportable)
+        missingList = ", ".join(
+            missing
+            + notImportable
+            + [f"{package} (no GPU kernels)" for package in kernelless]
+        )
         logAndPrint(f"Missing dependencies detected: {missingList}", "yellow")
         if not canPromptInteractively() and CORE_PACKAGES.isdisjoint(
-            missing + notImportable
+            missing + notImportable + kernelless
         ):
             return False
         return self._promptInstallAndStore(f"Missing dependencies: {missingList}")
@@ -364,7 +509,12 @@ class DependencyChecker:
         """Install a specific profile's requirements and store the choice."""
         requirementsFile = getRequirementsFileForProfile(profile)
 
-        success, message = installDependencies(requirementsFile)
+        extraRequirements, error = deviceExtraRequirements(profile)
+        if error:
+            logAndPrint(error, "red")
+            return False
+
+        success, message = installDependencies(requirementsFile, extraRequirements)
 
         if not success:
             logAndPrint(message, "red")

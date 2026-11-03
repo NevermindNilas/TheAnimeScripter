@@ -26,7 +26,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 - **Anime-first models.** Line-art-tuned upscalers (ShuffleCUGAN, Adore, Fallin, AniScale 2, Cyte), RIFE up to 4.26, anime depth (Limbo) and anime segmentation, plus general-purpose models for live action and games.
 - **One pass, in memory.** Decode → dedup → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
 - **Built for animation.** `--smooth_dedup` detects frames held on twos and threes and interpolates across them while keeping the original length and audio. `--scenechange` holds the frame at hard cuts so nothing morphs between shots. `--mask` keeps HUDs and hardsubs from warping.
-- **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux.
+- **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux and Windows.
 - **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with batch input and YouTube URLs.
 
 ## 🧰 What it does
@@ -72,7 +72,7 @@ Models download on first use, so the first run with a new model takes longer.
 | NVIDIA RTX 20 – 50 / GTX 16 | CUDA (default) or `-tensorrt` for maximum speed |
 | NVIDIA GTX 10 and older | `-directml` |
 | AMD / Intel on Windows | `-directml`, or `-openvino` on Intel |
-| AMD on Linux | `-rocm` (experimental) |
+| AMD on Linux or Windows | `-rocm` (experimental) |
 | Apple Silicon (M1+) | `-mps` |
 | Anything with Vulkan | `-ncnn` (RIFE, ShuffleCUGAN, SPAN) |
 
@@ -124,7 +124,7 @@ python main.py -h
 |---|---|
 | `extra-requirements-windows.txt` / `-linux.txt` | NVIDIA: CUDA, TensorRT, Maxine, plus everything in lite |
 | `extra-requirements-windows-lite.txt` / `-linux-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
-| `extra-requirements-linux-rocm.txt` | AMD ROCm (experimental) |
+| `extra-requirements-linux-rocm.txt` / `-windows-rocm.txt` | AMD ROCm (experimental). On Windows install it with `--download_requirements windows-rocm`, which adds the kernels for your GPU |
 | `extra-requirements-macos.txt` | Apple Silicon (MPS, macOS 15 or newer) |
 
 Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use, or picks one from your hardware when run without a terminal), or pass one by name, e.g. `--download_requirements linux-rocm`.

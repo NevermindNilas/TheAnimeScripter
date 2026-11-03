@@ -777,6 +777,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
             DependencyChecker,
             getDependencyProfile,
             getRequirementsFileForProfile,
+            profileRuntimePackages,
             uninstallDependencies,
         )
 
@@ -804,11 +805,13 @@ def prepareRuntimeArgs(args, outputPath, parser):
                 isRocm = detectRocmGPU()
             except Exception:
                 isRocm = False
-            extension = getRequirementsFileForProfile(
-                getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
-            )
+            storedProfile = getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
+            extension = getRequirementsFileForProfile(storedProfile)
 
-        success, message = uninstallDependencies(extension=extension)
+        success, message = uninstallDependencies(
+            extension=extension,
+            extraPackages=profileRuntimePackages(storedProfile),
+        )
         checker.clearCache()
 
         logging.info(message)

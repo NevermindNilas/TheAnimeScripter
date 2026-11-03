@@ -1413,14 +1413,16 @@ def _addMiscOptions(argParser):
         metavar="PROFILE",
         help=(
             "Download dependencies for a runtime profile. Supported profiles: "
-            "windows-cuda, windows-lite, linux-cuda, linux-lite, linux-rocm, macos-mps, "
-            "macos-lite. When used "
+            "windows-cuda, windows-lite, windows-rocm, linux-cuda, linux-lite, "
+            "linux-rocm, macos-mps, macos-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
             "or lite dependencies, with guidance for newer NVIDIA GPUs, Apple "
             "Silicon MPS, and CPU-only hardware. With no terminal to prompt in, "
             "installs the profile detected from the hardware instead (it can "
-            "only detect linux-rocm once a ROCm torch is installed; name it "
-            "explicitly)."
+            "only detect windows-rocm / linux-rocm once a ROCm torch is "
+            "installed; name it explicitly). windows-rocm detects the AMD GPU "
+            "target to install kernels for; set ROCM_BOOTSTRAP_FORCE_GFX_ARCH "
+            "(e.g. gfx1100) to override it."
         ),
     )
     miscGroup.add_argument(

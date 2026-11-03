@@ -34,8 +34,8 @@ def _promptDownloadRequirementsSelection() -> str:
                 f"{currentPlatform}-cuda",
             ),
             (
-                "ROCm dependencies (AMD RDNA/CDNA on Linux, experimental)",
-                "linux-rocm",
+                f"ROCm dependencies (AMD Radeon on {currentPlatform.title()}, experimental)",
+                f"{currentPlatform}-rocm",
             ),
             (
                 "Lite dependencies (GTX 10xx, AMD, Intel)",

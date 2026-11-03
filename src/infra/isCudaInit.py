@@ -2,8 +2,10 @@ import glob
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
+import sys
 from functools import lru_cache
 
 
@@ -278,6 +280,123 @@ def checkWindowsAmdAdapters():
         for name in listWindowsGpuNames()
         for vendor in ("amd", "radeon", "rx ", "vega", "navi")
     )
+
+
+# AMD's own override (rocm-bootstrap reads the same variable), so a target
+# forced for the install also holds for AMD's tooling afterwards.
+ROCM_TARGET_OVERRIDE_ENV = "ROCM_BOOTSTRAP_FORCE_GFX_ARCH"
+
+_GFX_NAME = re.compile(r"gfx[0-9a-f]+")
+# AMD's clinfo prints "Name: gfx1100"; the Khronos clinfo "Device Name  gfx1100".
+_CLINFO_GFX_LINE = re.compile(r"^\s*(?:Device\s+)?Name:?\s+(gfx[0-9a-f]+)\b")
+
+# Asks the driver's HIP runtime for each device's gcnArchName. Run in a child
+# process: the driver's amdhip64_N.dll shares its file name with the one the
+# ROCm torch wheel ships, and an install continues into a run that loads torch.
+# hipDeviceProp_t differs between HIP versions, so the probe hands it a buffer
+# larger than any of them and finds the arch name ("gfx1100:xnack-") by pattern.
+_HIP_ARCH_PROBE = r"""
+import ctypes, re
+for name in ("amdhip64_7.dll", "amdhip64_6.dll", "amdhip64.dll"):
+    try:
+        hip = ctypes.CDLL(name)
+    except OSError:
+        continue
+    count = ctypes.c_int()
+    if hip.hipGetDeviceCount(ctypes.byref(count)) != 0:
+        continue
+    getProps = getattr(hip, "hipGetDevicePropertiesR0600", None)
+    if getProps is None:
+        getProps = hip.hipGetDeviceProperties
+    for index in range(count.value):
+        props = ctypes.create_string_buffer(16384)
+        if getProps(props, index) == 0:
+            match = re.search(rb"gfx[0-9a-f]+", props.raw)
+            if match:
+                print(match.group().decode())
+    break
+"""
+
+
+def _uniqueGfxNames(names) -> list[str]:
+    seen = []
+    for name in names:
+        name = name.strip().lower()
+        if _GFX_NAME.fullmatch(name) and name not in seen:
+            seen.append(name)
+    return seen
+
+
+def parseClinfoGfxTargets(text: str) -> list[str]:
+    """gfx targets named by clinfo output (AMD's or the Khronos one)."""
+    return _uniqueGfxNames(
+        match.group(1)
+        for match in map(_CLINFO_GFX_LINE.match, text.splitlines())
+        if match
+    )
+
+
+def _runForStdout(command: list[str]) -> str:
+    try:
+        # clinfo prints driver strings in the console code page; a byte that
+        # does not decode must not abort the detection.
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=60,
+            check=False,
+        )
+    except OSError, subprocess.SubprocessError:
+        return ""
+    # Not gated on the exit code: AMD's clinfo exits 1 on the first OpenCL
+    # error in any platform, after printing the devices before it (as
+    # rocm-bootstrap does, only gfx lines are read from it).
+    return result.stdout
+
+
+def detectRocmGfxTargets() -> list[str]:
+    """The gfx targets (e.g. ``["gfx1100"]``) of the AMD GPUs on this machine.
+
+    Needs no ROCm torch: it picks the per-GPU kernel packages a ROCm torch
+    install pulls. In order: ROCM_BOOTSTRAP_FORCE_GFX_ARCH (comma-separated),
+    then clinfo (what AMD's rocm-bootstrap uses on Windows), then the HIP
+    runtime the AMD driver installs. Empty when none of them answers. An
+    override naming no gfx target is reported and detection runs instead.
+    """
+    forced = os.environ.get(ROCM_TARGET_OVERRIDE_ENV, "")
+    if forced.strip():
+        from src.infra.logAndPrint import logAndPrint
+
+        entries = [entry.strip().lower() for entry in forced.split(",")]
+        ignored = [e for e in entries if e and not _GFX_NAME.fullmatch(e)]
+        if ignored:
+            logAndPrint(
+                f"{ROCM_TARGET_OVERRIDE_ENV}: ignoring {', '.join(ignored)} "
+                "(not a gfx target such as gfx1100)",
+                "yellow",
+            )
+        targets = _uniqueGfxNames(entries)
+        if targets:
+            return targets
+        logAndPrint(
+            f"{ROCM_TARGET_OVERRIDE_ENV} names no gfx target; detecting the GPU.",
+            "yellow",
+        )
+
+    targets = parseClinfoGfxTargets(_runForStdout(["clinfo"]))
+    if targets:
+        logging.info(f"AMD GPU targets from clinfo: {targets}")
+        return targets
+
+    if platform.system().lower() == "windows":
+        targets = _uniqueGfxNames(
+            _runForStdout([sys.executable, "-I", "-c", _HIP_ARCH_PROBE]).splitlines()
+        )
+        if targets:
+            logging.info(f"AMD GPU targets from the HIP runtime: {targets}")
+    return targets
 
 
 def isRocmTorch() -> bool:
