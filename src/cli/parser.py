@@ -1263,10 +1263,13 @@ def _addDepthOptions(argParser):
         "video_base_v3-rocm",
         "video_limbo",
         "video_limbo_v2",
+        "video_limbo_v3",
         "video_limbo-rocm",
         "video_limbo_v2-rocm",
+        "video_limbo_v3-rocm",
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
         "video_small_v2-tensorrt",
         "small_v2-tensorrt",
         "small_v2-directml",
@@ -1295,6 +1298,11 @@ def _addDepthOptions(argParser):
         "limbo_v2-rocm",
         "limbo_v2-tensorrt",
         "limbo_v2-openvino",
+        "limbo_v3",
+        "limbo_v3-mps",
+        "limbo_v3-rocm",
+        "limbo_v3-tensorrt",
+        "limbo_v3-openvino",
     ]
 
     depthGroup.add_argument(

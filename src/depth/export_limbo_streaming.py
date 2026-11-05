@@ -1,4 +1,4 @@
-"""Export raw Limbo V1/V2 safetensors for TensorRT multi-frame inference."""
+"""Export raw Limbo V1/V2/V3 safetensors for TensorRT multi-frame inference."""
 
 import argparse
 from pathlib import Path

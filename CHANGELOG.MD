@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `--depth_method limbo_v3` (plus `-mps`, `-rocm`, `-tensorrt`, `-openvino`, and streaming `video_limbo_v3`, `video_limbo_v3-rocm`, `video_limbo_v3-tensorrt`): Limbo-V3, a finetune of V2 with the same setup and backends, with 12–22% less flicker than V2 in streaming depth.
 - `-rocm` methods now run on Windows through the new `windows-rocm` profile (experimental): AMD's torch 2.15 and torchvision builds plus the GPU kernels for the AMD target the installer detects, overridable with `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100`). On ROCm the encoder gets 8-bit host copies of the frames and `--decode_method nvdec` falls back to CPU decoding, since nelux's GPU paths are NVIDIA-only.
 
 ### Fixed

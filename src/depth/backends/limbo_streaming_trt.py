@@ -14,7 +14,11 @@ from src.model.registry import modelsMap
 
 class LimboStreamingTensorRT(DA3StreamingCuda):
     def handleModels(self):
-        if self.depth_method not in ("video_limbo-tensorrt", "video_limbo_v2-tensorrt"):
+        if self.depth_method not in (
+            "video_limbo-tensorrt",
+            "video_limbo_v2-tensorrt",
+            "video_limbo_v3-tensorrt",
+        ):
             raise ValueError(f"Unsupported Limbo streaming model: {self.depth_method}")
         from src.depth.streaming_export import exportStreamingDepth
 

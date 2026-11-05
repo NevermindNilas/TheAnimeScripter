@@ -37,7 +37,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 | **Interpolate** | `--interpolate` | RIFE 4.6 – 4.26 (lite / heavy), RIFE Elexor, DistilDRBA, NVIDIA Maxine Frame Generation | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
 | **Restore** (chainable) | `--restore` | Anime1080Fixer, SCUNet, NAFNet, DPIR, DeJPEG, DeH264, GaterV3, HurrDeblur, DeHalo, deepDeband, FastLineDarken, LineThinner, AutoCAS, Maxine denoise/deblur | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
 | **Dedup** | `--dedup` / `--smooth_dedup` | SSIM, MSE, VMAF, FlowNetS | CPU · CUDA · ROCm |
-| **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
+| **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2/V3 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
 | **Segmentation** | `--segment` | Anime Segmentation, BiRefNet (anime) | CUDA · TRT · DML · ROCm |
 | **Object detection** | `--obj_detect` | YOLOv9 (MIT) S / M / L | TRT · DML · OpenVINO |
 | **Scene detection** | `--autoclip` / `--scenechange` | PySceneDetect, TransNetV2, MaxxViT, SSIM/MSE | CPU · CUDA · TRT · DML · ROCm |

@@ -246,7 +246,11 @@ def downloadModels(
     os.makedirs(weightsDir, exist_ok=True)
 
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
-    if downloadModel in ("video_limbo-tensorrt", "video_limbo_v2-tensorrt"):
+    if downloadModel in (
+        "video_limbo-tensorrt",
+        "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
+    ):
         downloadModel = downloadModel.removesuffix("-tensorrt")
         modelType = "pth"  # The multi-view ONNX is generated locally on first use.
     registryModel = {
@@ -255,6 +259,7 @@ def downloadModels(
         "video_base_v3": "base_v3",
         "video_limbo": "limbo",
         "video_limbo_v2": "limbo_v2",
+        "video_limbo_v3": "limbo_v3",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
@@ -291,12 +296,16 @@ def downloadModels(
             f"Cyte-V1-SuperUltraCompact/{filename}"
         )
 
-    elif registryModel.split("-")[0] in {"limbo_v2", "limbo_v2_43"}:
+    elif (limboBase := registryModel.split("-")[0].removesuffix("_43")) in {
+        "limbo_v2",
+        "limbo_v3",
+    }:
         # Keep versioned cache names: upstream uses the same filenames as v1.
-        remoteFilename = filename.replace("LimboV2", "Limbo", 1)
+        version = limboBase.removeprefix("limbo_v")
+        remoteFilename = filename.replace(f"LimboV{version}", "Limbo", 1)
         fullUrl = (
             "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
-            f"Limbo-V2/{remoteFilename}"
+            f"Limbo-V{version}/{remoteFilename}"
         )
 
     elif registryModel == "transnetv2":

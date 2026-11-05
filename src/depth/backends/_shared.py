@@ -194,7 +194,7 @@ def limboOnnxPath(depthMethod, height, width, half, backend):
     from src.model.download import resolveWeightPath
     from src.model.registry import modelsMap
 
-    base = "limbo_v2" if depthMethod.startswith("limbo_v2") else "limbo"
+    base = depthMethod.removeprefix("video_").split("-")[0]
     if (height, width) in LIMBO_SHAPES:
         # The two exports differ only in resolution, so the shape is what
         # picks the weight file.

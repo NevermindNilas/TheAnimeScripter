@@ -72,7 +72,7 @@ class DA3StreamingCuda(OGDepthV3Cuda):
 
 class LimboStreamingCuda(DA3StreamingCuda):
     def handleModels(self):
-        if self.depth_method not in ("video_limbo", "video_limbo_v2"):
+        if self.depth_method not in ("video_limbo", "video_limbo_v2", "video_limbo_v3"):
             raise ValueError(f"Unsupported Limbo streaming model: {self.depth_method}")
         LimboCuda.handleModels(self)
         self._decodeWidth = self.newWidth

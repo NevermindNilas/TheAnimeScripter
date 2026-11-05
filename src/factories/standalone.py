@@ -413,8 +413,10 @@ def _depth(self):
             | "video_base_v3"
             | "video_limbo"
             | "video_limbo_v2"
+            | "video_limbo_v3"
             | "video_limbo-tensorrt"
             | "video_limbo_v2-tensorrt"
+            | "video_limbo_v3-tensorrt"
         ):
             from src.depth.backends.da3_streaming import (
                 DA3StreamingCuda,
@@ -558,7 +560,7 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "limbo_v2":
+        case "limbo_v2" | "limbo_v3":
             from src.depth.backends.cuda import LimboCuda
 
             driver = LimboCuda(
@@ -602,7 +604,7 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "limbo_v2-mps":
+        case "limbo_v2-mps" | "limbo_v3-mps":
             from src.depth.backends.mps import LimboMPS
 
             driver = LimboMPS(
@@ -645,7 +647,7 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "limbo_v2-tensorrt":
+        case "limbo_v2-tensorrt" | "limbo_v3-tensorrt":
             from src.depth.backends.tensorrt import LimboTensorRT
 
             driver = LimboTensorRT(
@@ -686,7 +688,7 @@ def _depth(self):
                 self.depthQuality,
             )
 
-        case "limbo_v2-openvino":
+        case "limbo_v2-openvino" | "limbo_v3-openvino":
             from src.depth.backends.directml import LimboOpenVino
 
             driver = LimboOpenVino(
@@ -815,7 +817,7 @@ def _depth(self):
                 depth_window=self.depthWindow,
             )
 
-        case "video_limbo-rocm" | "video_limbo_v2-rocm":
+        case "video_limbo-rocm" | "video_limbo_v2-rocm" | "video_limbo_v3-rocm":
             from src.depth.backends.rocm import LimboStreamingROCm
 
             driver = LimboStreamingROCm(
@@ -859,7 +861,7 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "limbo-rocm" | "limbo_v2-rocm":
+        case "limbo-rocm" | "limbo_v2-rocm" | "limbo_v3-rocm":
             from src.depth.backends.rocm import LimboROCm
 
             driver = LimboROCm(

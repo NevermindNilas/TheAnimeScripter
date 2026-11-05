@@ -214,7 +214,7 @@ class DA3StreamingROCm(DA3StreamingCuda):
 
 
 class LimboStreamingROCm(LimboStreamingCuda):
-    """video_limbo-rocm / video_limbo_v2-rocm."""
+    """video_limbo-rocm / video_limbo_v2-rocm / video_limbo_v3-rocm."""
 
     def __init__(self, *args, depth_window=32, **kwargs):
         method = kwargs.get("depth_method", "")
@@ -274,7 +274,7 @@ class OGDepthV3ROCm(OGDepthV3Cuda):
 
 
 class LimboROCm(LimboCuda):
-    """limbo-rocm / limbo_v2-rocm."""
+    """limbo-rocm / limbo_v2-rocm / limbo_v3-rocm."""
 
     def __init__(
         self,

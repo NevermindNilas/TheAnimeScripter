@@ -274,8 +274,10 @@ def modelsList() -> list[str]:
         "video_base_v3",
         "video_limbo",
         "video_limbo_v2",
+        "video_limbo_v3",
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -296,6 +298,9 @@ def modelsList() -> list[str]:
         "limbo_v2",
         "limbo_v2-mps",
         "limbo_v2-tensorrt",
+        "limbo_v3",
+        "limbo_v3-mps",
+        "limbo_v3-tensorrt",
         "small_v2-rocm",
         "og_small_v2-rocm",
         "og_video_small_v2-rocm",
@@ -304,12 +309,14 @@ def modelsList() -> list[str]:
         "video_base_v3-rocm",
         "video_limbo-rocm",
         "video_limbo_v2-rocm",
+        "video_limbo_v3-rocm",
         "small_v3-rocm",
         "base_v3-rocm",
         "large_v3-rocm",
         "og_large_v3-rocm",
         "limbo-rocm",
         "limbo_v2-rocm",
+        "limbo_v3-rocm",
     ]
 
 
@@ -1108,7 +1115,7 @@ def modelsMap(
 
         # Limbo is an anime finetune of DA3-small, exported at two fixed input
         # resolutions rather than a dynamic one. The CLI methods are "limbo"
-        # (v1) and "limbo_v2" (v2); the ONNX backends resolve the aspect
+        # (v1), "limbo_v2" (v2) and "limbo_v3" (v3); the ONNX backends resolve the aspect
         # themselves and ask for the "_43" name when the source is closer to
         # 4:3 (_shared.limboResolution).
         case "video_limbo-tensorrt":
@@ -1118,6 +1125,9 @@ def modelsMap(
         case "video_limbo_v2-tensorrt":
             return "LimboV2.safetensors"
 
+        case "video_limbo_v3-tensorrt":
+            return "LimboV3.safetensors"
+
         case "limbo" | "video_limbo":
             if modelType == "pth":
                 return "Limbo.safetensors"
@@ -1125,6 +1135,10 @@ def modelsMap(
         case "limbo_v2" | "video_limbo_v2":
             if modelType == "pth":
                 return "LimboV2.safetensors"
+
+        case "limbo_v3" | "video_limbo_v3":
+            if modelType == "pth":
+                return "LimboV3.safetensors"
 
         case "limbo-tensorrt" | "limbo-directml":
             if half:
@@ -1149,6 +1163,18 @@ def modelsMap(
                 return "LimboV2_504x378_fp16.onnx"
             else:
                 return "LimboV2_504x378_fp32.onnx"
+
+        case "limbo_v3-tensorrt" | "limbo_v3-directml":
+            if half:
+                return "LimboV3_504x280_fp16.onnx"
+            else:
+                return "LimboV3_504x280_fp32.onnx"
+
+        case "limbo_v3_43-tensorrt" | "limbo_v3_43-directml":
+            if half:
+                return "LimboV3_504x378_fp16.onnx"
+            else:
+                return "LimboV3_504x378_fp32.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
