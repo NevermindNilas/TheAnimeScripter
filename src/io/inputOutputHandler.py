@@ -85,9 +85,37 @@ SEQUENCE_EXTENSIONS = {
 }
 
 
+def isSingleImageInput(path) -> bool:
+    """Whether ``path`` is one still image rather than a video or a sequence.
+
+    Only a PNG is accepted as a single image (src/io/inputNormalization.py
+    rejects the other still formats), and a ``%`` pattern is a sequence.
+    The writer factory asks this too, because the standalone drivers (depth,
+    segment, ...) build their own writers without saying so.
+    """
+    path = str(path or "")
+    return "%" not in path and path.lower().endswith(".png")
+
+
+_URL_PREFIXES = ("http://", "https://", "www.")
+
+
+def isUrlInput(value) -> bool:
+    """Whether an ``--input`` names a URL to download rather than a local path.
+
+    The one URL test: input normalization routes on it and output naming
+    reads it. It used to be two -- a bare ``startswith(("http", "www"))`` in
+    normalization, so a local ``http_clip.mp4`` or a ``www`` folder was sent
+    to the downloader and rejected as "not a YouTube URL". A path that exists
+    is never a URL.
+    """
+    text = str(value or "").strip()
+    return text.lower().startswith(_URL_PREFIXES) and not os.path.exists(text)
+
+
 def _isURL(value):
-    """True if the input string is an http(s) URL."""
-    return any(proto in str(value) for proto in ("https://", "http://"))
+    """True if the input string is an http(s) URL (see :func:`isUrlInput`)."""
+    return isUrlInput(value)
 
 
 def _sanitize(value):
@@ -312,17 +340,46 @@ def generateOutputName(args, videoInput, title=None):
     return f"{_sanitize(baseName)}{''.join(suffixes)}{extension}"
 
 
-def _makeUniquePath(path, usedPaths, checkFs=True):
+def _pathMatcher(paths):
+    """A test for "is this one of ``paths``": by normalized name (a pattern
+    compares as text), or as the same file on disk (a link, another spelling)."""
+    keys = {os.path.normcase(os.path.abspath(p)) for p in paths}
+    onDisk = [p for p in paths if os.path.exists(p)]
+
+    def matches(candidate):
+        if os.path.normcase(os.path.abspath(candidate)) in keys:
+            return True
+        if not onDisk or not os.path.exists(candidate):
+            return False
+        for p in onDisk:
+            try:
+                if os.path.samefile(candidate, p):
+                    return True
+            except OSError:
+                continue
+        return False
+
+    return matches
+
+
+def _makeUniquePath(path, usedPaths, checkFs=True, avoid=()):
     """Return ``path``, or ``path-1``/``path-2``/... if it would collide.
 
     A name is considered taken if it was already handed out in this run
     (``usedPaths``) or, when ``checkFs`` is set, if it already exists on disk.
     ``checkFs=False`` is used for explicit user-named outputs: those should be
-    overwritable, but still must not clobber each other inside one batch.
+    overwritable, but still must not clobber each other inside one batch, nor
+    be one of ``avoid`` -- the run's inputs.
     """
 
+    isAvoided = _pathMatcher(avoid)
+
     def taken(candidate):
-        return candidate in usedPaths or (checkFs and os.path.exists(candidate))
+        return (
+            candidate in usedPaths
+            or (checkFs and os.path.exists(candidate))
+            or isAvoided(candidate)
+        )
 
     if not taken(path):
         usedPaths.add(path)
@@ -352,16 +409,25 @@ def _makeUniqueDir(path, usedPaths):
     return candidate
 
 
-def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
+def generateOutputPath(video, output, defaultOutputPath, args, usedPaths, inputs=None):
     """Generates appropriate output path based on input parameters.
 
     ``usedPaths`` is a set shared across one batch; it guarantees that two
     inputs never resolve to the same output file (e.g. same basename in two
     folders, or one explicit ``--output file.mp4`` for many inputs).
+    ``inputs`` are the batch's input files (default: ``video``), none of which
+    an explicit output may overwrite.
     """
     sequenceExt = SEQUENCE_EXTENSIONS.get(getattr(args, "encode_method", ""))
-    if getattr(args, "png_passthrough", False):
-        # A single-image run writes one file, never a sequence folder.
+    if getattr(args, "png_passthrough", False) or getattr(args, "autoclip", False):
+        # A single-image run writes one file, never a sequence folder, and
+        # autoclip writes a cut list whatever --encode_method says: with png
+        # or jpeg it went into a `<name>-Autoclip.txt` FOLDER as a text file
+        # named `frames_%05d.png`.
+        sequenceExt = None
+    if getattr(args, "segment", False):
+        # A segment matte is always ProRes 4444 with alpha (the writer turns
+        # every method into prores_segment), so it is a .mov, not a sequence.
         sequenceExt = None
 
     # Explicit, fully-specified output file: honour the exact name the user
@@ -373,7 +439,25 @@ def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
             outputFolder = _makeUniqueDir(os.path.splitext(output)[0], usedPaths)
             os.makedirs(outputFolder, exist_ok=True)
             return os.path.join(outputFolder, f"frames_%05d{sequenceExt}")
-        return _makeUniquePath(output, usedPaths, checkFs=False)
+        # Never an input: the encoder truncates the file the decoder is still
+        # reading, so the run failed part-way AND the source was lost (or, in
+        # a batch, a later video wrote over an earlier one's source). An
+        # explicit name is honoured or refused, like a pinned --preview_port:
+        # a substitute could land on a file the user never named.
+        sources = [video] if inputs is None else list(inputs)
+        if _pathMatcher(sources)(output):
+            if isSingleImageInput(output):
+                # A single still is read whole before anything is written, so
+                # writing it in place is the edit asked for, not a race.
+                others = [s for s in sources if not _pathMatcher([s])(output)]
+                return _makeUniquePath(output, usedPaths, checkFs=False, avoid=others)
+            raise ValueError(
+                f"--output {output} is one of the input files; writing to it "
+                "would destroy the source while it is being read. Choose "
+                "another output name."
+            )
+        # The -1/-2 names a batch hands out still skip every input.
+        return _makeUniquePath(output, usedPaths, checkFs=False, avoid=sources)
 
     baseDir = output if output and os.path.isdir(output) else defaultOutputPath
 
@@ -400,7 +484,10 @@ WEBM_COMPATIBLE_ENCODERS = (
 
 def validateEncoder(video, encodeMethod):
     """Validates and potentially adjusts the encoder method based on file type."""
-    if str(video).endswith(".webm") and encodeMethod not in WEBM_COMPATIBLE_ENCODERS:
+    # Case-blind like every other extension test here: `clip.WEBM` kept
+    # libx264, which the WebM muxer refuses after the whole run has processed.
+    isWebm = str(video).lower().endswith(".webm")
+    if isWebm and encodeMethod not in WEBM_COMPATIBLE_ENCODERS:
         from src.infra.logAndPrint import logAndPrint
 
         substitute = "vp9"
@@ -410,6 +497,56 @@ def validateEncoder(video, encodeMethod):
         )
         return substitute
     return encodeMethod
+
+
+# Containers that take the ProRes 4444 a segment matte is always encoded as
+# (matchNeluxEncoder's prores_segment); nelux names exactly these two.
+SEGMENT_CONTAINERS = (".mov", ".mkv")
+
+
+def validateSegmentOutput(video, outputPath):
+    """Refuse a segment output no ProRes 4444 can be written into.
+
+    Before any model loads: the matte is ProRes 4444 with alpha whatever
+    --encode_method says, so `--output matte.mp4` (or .png, .webm, ...)
+    segmented every frame and then failed ("prores_ks cannot be written into
+    a 'mp4' container"). Refused rather than renamed, as an output naming an
+    input is: a substitute could be a file the user never named. A single
+    still (written as a PNG with alpha) is not affected.
+    """
+    if isSingleImageInput(video):
+        return
+    extension = os.path.splitext(str(outputPath))[1].lower()
+    if extension not in SEGMENT_CONTAINERS:
+        raise ValueError(
+            f"--segment writes ProRes 4444 with alpha, which {outputPath} "
+            f"cannot hold; name a {' or '.join(SEGMENT_CONTAINERS)} --output."
+        )
+
+
+def _readListFile(path):
+    """The text of a ``.txt`` batch list, whatever saved it.
+
+    A BOM names the encoding: UTF-16 is what Windows PowerShell 5's ``>``
+    writes, UTF-8 with a BOM what Notepad offers. Read with the locale's
+    encoding, the first gave a decode error or NUL-riddled paths and the
+    second glued the BOM onto the first path, and either aborted the batch.
+    Without a BOM, UTF-8 comes first and the locale's encoding -- the only one
+    tried before -- is the fallback.
+    """
+    import codecs
+    import locale
+
+    with open(path, "rb") as f:
+        data = f.read()
+    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return data.decode("utf-16")
+    if data.startswith(codecs.BOM_UTF8):
+        return data[len(codecs.BOM_UTF8) :].decode("utf-8")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode(locale.getpreferredencoding(False))
 
 
 def getVideoFiles(videosInput):
@@ -471,13 +608,19 @@ def getVideoFiles(videosInput):
         return videos
 
     if os.path.isfile(absPath):
-        if absPath.endswith(".txt"):
-            with open(absPath) as f:
-                return [
-                    os.path.abspath(line.strip().strip('"'))
-                    for line in f
-                    if line.strip()
-                ]
+        # Case-blind like every other extension test: `LIST.TXT` was probed
+        # as a video and failed with "Invalid data found when processing input".
+        if absPath.lower().endswith(".txt"):
+            from io import StringIO
+
+            # Split on \r\n, \r and \n only, as reading the file in text mode
+            # did: str.splitlines() also cuts at U+2028, U+0085, \f, ..., which
+            # file names may contain.
+            return [
+                os.path.abspath(line.strip().strip('"'))
+                for line in StringIO(_readListFile(absPath), newline=None)
+                if line.strip()
+            ]
         return [absPath]
 
     # Fallback
@@ -520,6 +663,7 @@ def processInputOutputPaths(args, defaultOutputPath):
 
     usedPaths = set()
     results = []
+    localInputs = [video for video in videoFiles if not _isURL(video)]
     for video in videoFiles:
         if not _isURL(video):
             # Skip existence check for image sequence patterns (they contain %)
@@ -527,8 +671,10 @@ def processInputOutputPaths(args, defaultOutputPath):
                 raise FileNotFoundError(f"File {video} does not exist")
 
         outputPath = generateOutputPath(
-            video, output, defaultOutputPath, args, usedPaths
+            video, output, defaultOutputPath, args, usedPaths, inputs=localInputs
         )
+        if getattr(args, "segment", False):
+            validateSegmentOutput(video, outputPath)
         results.append(
             {
                 "videoPath": video,

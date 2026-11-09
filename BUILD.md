@@ -49,6 +49,13 @@ On Linux/macOS portable builds, use:
 ./run.sh -h
 ```
 
+Linux x86_64 releases ship as `TAS-<version>-Linux-x86_64.tar.gz`, which holds the bundle's contents with no top-level folder and no dependency profile:
+
+```sh
+mkdir TAS && tar -xzf TAS-<version>-Linux-x86_64.tar.gz -C TAS && cd TAS
+./run.sh --download_requirements linux-cuda   # or linux-lite, linux-rocm
+```
+
 For end users on Windows, the preferred install flow is the portable bootstrap script hosted on the project site:
 
 ```powershell

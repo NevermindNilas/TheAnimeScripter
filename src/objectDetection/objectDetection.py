@@ -8,15 +8,15 @@ import torch
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
     closeWriterAndDrainReader,
     createWriteBuffer,
 )
-from src.io.runOutcome import truncatedDecodeError
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -36,6 +36,18 @@ __all__ = [
 
 
 _INV_255 = 1.0 / 255.0
+
+
+def _rgb8(frame):
+    """A decoded frame as 8-bit RGB, the range the model and the palette use.
+
+    nelux decodes a >8-bit source (Hi10P, HEVC Main10, ProRes) to uint16, so
+    the model saw x / 255 up to ~257 instead of [0, 1], and the 0-255 palette
+    drew near-black boxes on a frame whose white is ~65535.
+    """
+    if frame.dtype == np.uint8:
+        return frame
+    return (frame >> 8).astype(np.uint8)
 
 
 def _writeRgbFrame(
@@ -93,6 +105,7 @@ class ObjectDetectionDML:
         objDetectMethod="yolov9_small-directml",
         totalFrames=0,
         disableAnnotations=False,
+        decodeResize=False,
     ):
         import onnxruntime as ort
 
@@ -115,6 +128,9 @@ class ObjectDetectionDML:
         self.objDetectMethod = objDetectMethod
         self.totalFrames = totalFrames
         self.disableAnnotations = disableAnnotations
+        # A --resize target the decoder scales to: frames are written to the
+        # encoder as they were decoded, at width x height.
+        self.decodeResize = decodeResize
         self.confThreshold = 0.25
 
         if "openvino" in objDetectMethod:
@@ -131,6 +147,7 @@ class ObjectDetectionDML:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
                 width=self.width,
                 height=self.height,
                 toTorch=False,
@@ -168,6 +185,8 @@ class ObjectDetectionDML:
             self.processingError = e
             logging.exception(f"Something went wrong, {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -224,7 +243,7 @@ class ObjectDetectionDML:
                     "OpenVINO object detection",
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU for object detection"
             )
             self.session = self.ort.InferenceSession(
@@ -273,6 +292,7 @@ class ObjectDetectionDML:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
+            frame = _rgb8(frame)
             classIds, boxes, confidences = self.detect(frame)
             if boxes.size == 0:
                 _writeRgbFrame(
@@ -348,6 +368,7 @@ class ObjectDetectionTensorRT:
         objDetectMethod="yolov9_small-tensorrt",
         totalFrames=0,
         disableAnnotations=False,
+        decodeResize=False,
     ):
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -377,6 +398,9 @@ class ObjectDetectionTensorRT:
         self.objDetectMethod = objDetectMethod
         self.totalFrames = totalFrames
         self.disableAnnotations = disableAnnotations
+        # A --resize target the decoder scales to: frames are written to the
+        # encoder as they were decoded, at width x height.
+        self.decodeResize = decodeResize
         self.confThreshold = 0.25
 
         self.handleModels()
@@ -386,6 +410,7 @@ class ObjectDetectionTensorRT:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
                 width=self.width,
                 height=self.height,
                 toTorch=False,
@@ -423,6 +448,8 @@ class ObjectDetectionTensorRT:
             self.processingError = e
             logging.exception(f"Something went wrong, {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -612,6 +639,7 @@ class ObjectDetectionTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
+            frame = _rgb8(frame)
             classIds, boxes, confidences = self.detect(frame)
             if boxes.size == 0:
                 _writeRgbFrame(

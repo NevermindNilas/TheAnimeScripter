@@ -6,6 +6,7 @@ import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.stageOrder import (
     stageDrafts,
+    stageLabel,
     stageOrderWarning,
     syncStageGlobals,
 )
@@ -274,7 +275,9 @@ def _finalizeChain(args):
     step, because it reads the final state. Also prints the one order warning
     (a dedup stage after an interpolate stage). Raises
     :class:`CliValidationError` for a standalone capability given more than
-    one ``--resize``.
+    one ``--resize``, a single-instance backend used twice, an upscale stage
+    whose model cannot produce its factor (``span 4x``), and an NCNN upscale
+    stage whose package is not installed.
     """
     drafts = stageDrafts(args)
     if drafts is None:
@@ -301,6 +304,25 @@ def _finalizeChain(args):
         checkChainInstances(args.chain)
     except ValueError as error:
         raise CliValidationError(str(error)) from None
+
+    # A model that cannot produce its stage's factor: refused here, naming the
+    # stage, after the backend fallback has settled each method, instead of at
+    # model build (src/factories/upscale.py keeps the same check as a backstop).
+    from src.model.registry import ncnnUpscaleRefusal, upscaleFactorRefusal
+
+    for spec in args.chain:
+        if spec.kind != "upscale":
+            continue
+        problem = upscaleFactorRefusal(
+            spec["method"], spec["factor"], spec.settings.get("customModel")
+        ) or ncnnUpscaleRefusal(spec["method"])
+        if problem is not None:
+            raise CliValidationError(f"{stageLabel(spec)}: {problem}")
+
+    # A --mask that an interpolate stage or --moblur will read must be readable.
+    from src.cli.validation import validateMaskPath
+
+    validateMaskPath(args)
 
     warning = stageOrderWarning(args.chain)
     if warning:
@@ -428,11 +450,16 @@ def _writeLegacyStages(args, stages):
 
 
 def _resolveStaticStep(stage):
+    """--static_step bakes an integer timestep ladder, so a fractional factor
+    turns it off. Whole-valued floats count as whole: --interpolate_factor is a
+    float flag, and testing the type turned --static_step off for every
+    `--interpolate_factor 2` and every --json factor."""
     settings = stage.settings
-    if settings.get("staticStep") and isinstance(settings["factor"], float):
+    if settings.get("staticStep") and not float(settings["factor"]).is_integer():
         where = f" ({stage.label})" if stage.repeated else ""
         logging.info(
-            f"Interpolate Factor is a float, static step will be disabled{where}"
+            f"Interpolate Factor is not a whole number, static step will be "
+            f"disabled{where}"
         )
         settings["staticStep"] = False
 

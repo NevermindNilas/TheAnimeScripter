@@ -158,8 +158,8 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
-| **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU | Upscale, interpolate, restore, depth, object detection |
-| **NCNN** | `-ncnn` | Vulkan / low-power | Upscale (`shufflecugan`, `span`), interpolate (RIFE) |
+| **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU (Windows; runs on the CPU on Linux, where no Python 3.14 `onnxruntime-openvino` wheel exists) | Upscale, interpolate, restore, depth, object detection |
+| **NCNN** | `-ncnn` | Vulkan / low-power (AMD, Intel, NVIDIA) | Interpolate (RIFE), upscale (`shufflecugan`, `span`). Runs on the best GPU in the machine and tiles frames that do not fit its memory |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
 > **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
@@ -320,8 +320,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 4x`; repeatable; see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
-| `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
+| `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 2x`; repeatable (`--upscale span --upscale` is 4x); see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
+| `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)**. Every bundled model is 2x; 3x and 4x need a `maxine-*` method or a `--custom_model` of that scale, any other method refuses them before loading |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
 | `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
 
@@ -552,7 +552,7 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | AMD/Intel GPUs | DirectML |
 | **birefnet** / **birefnet-rocm** | — | — | — | Screenshots from anime video; BiRefNet Lite trained at 1024×1024 | CUDA / ROCm (PyTorch) |
 
-`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
+`birefnet` uses [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime). It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
 
 > **Note:** There is no MPS segmentation path.
 
@@ -956,7 +956,7 @@ A stage flag takes zero or more values, up to the next option. The `=` form (`--
 | `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
 | `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=` | `ensemble`, `dynamic_scale`, `static_step` |
 | `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=` | as `--interpolate` |
-| `--resize` | - | scale | scale (`50%` = 0.5) | scale | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
+| `--resize` | - | scale | scale (`50%` = 0.5) | scale below 16; 16 or more is an **error**: ambiguous, write `1080p` or `1080x` | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
 
 A `-` means that form is an error for that stage.
 
@@ -985,7 +985,7 @@ A `-` means that form is an error for that stage.
 
 ### Repeating a stage
 
-- A repeated stage without values reuses the settings of the previous stage of the same kind: `--upscale span 4x --interpolate --upscale` runs `span` 4x twice.
+- A repeated stage without values reuses the settings of the previous stage of the same kind: `--upscale maxine-high 4x --interpolate --upscale` runs `maxine-high` 4x twice.
 - Values given on the repeat replace only those settings: in `--interpolate rife4.26 --interpolate 3x`, the second stage keeps `rife4.26`.
 - A repeat inherits what the previous stage asked for, and each stage is then checked on its own: in `--interpolate rife4.26-tensorrt --dynamic_scale --interpolate rife4.26`, `dynamic_scale` is dropped (with a warning) on the TensorRT stage and kept on the second.
 - A plain `--interpolate` after a `--smooth_dedup` that has values of its own reuses its interpolation settings (method, factor, `ensemble`, ...), not its detection settings.
@@ -1007,10 +1007,10 @@ A `-` means that form is an error for that stage.
 
 | Command | Runs |
 |---------|------|
-| `--upscale span --upscale_factor 4` | `span` 4x |
-| `--upscale_factor 4 --upscale span --upscale cyte` | `span` 4x, then `cyte` 4x |
-| `--upscale span --upscale_factor 4 --upscale cyte` | `span` 4x, then `cyte` 4x (the factor carries over) |
-| `--upscale span --upscale cyte --upscale_factor 4` | `span` 2x, then `cyte` 4x |
+| `--upscale maxine-high --upscale_factor 4` | `maxine-high` 4x |
+| `--upscale_factor 4 --upscale maxine-high --upscale maxine-ultra` | `maxine-high` 4x, then `maxine-ultra` 4x |
+| `--upscale maxine-high --upscale_factor 4 --upscale maxine-ultra` | `maxine-high` 4x, then `maxine-ultra` 4x (the factor carries over) |
+| `--upscale maxine-high --upscale maxine-ultra --upscale_factor 4` | `maxine-high` 2x, then `maxine-ultra` 4x |
 | `--upscale 2x --upscale_factor 4` | error: factor given twice |
 | `--interpolate_method rife4.26 --upscale` | interpolate with `rife4.26`, then upscale (the long flag added the stage where it was typed) |
 
@@ -1077,7 +1077,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 ./python.exe ./main.py --input in.mp4 --interpolate factor=2.5 method=rife4.26 ensemble
 
 # A custom model, with a long flag as the default for every upscale
-./python.exe ./main.py --input in.mp4 --upscale_factor 4 --upscale "D:/models/4x_custom.pth" --upscale span
+./python.exe ./main.py --input in.mp4 --upscale_factor 4 --upscale "D:/models/4x_custom.pth" --upscale maxine-high
 
 # The long-flag spelling still works and means the same as before
 ./python.exe ./main.py --input in.mp4 --interpolate --interpolate_method rife4.26 --interpolate_factor 3

@@ -300,6 +300,10 @@ class AnimeSR:
     def padFrame(self, frame: torch.tensor) -> torch.tensor:
         return torch.nn.functional.pad(frame, self.padding, mode="reflect")
 
+    def _asBuffers(self, frame: torch.tensor) -> torch.tensor:
+        """``frame`` on the device and in the dtype of the model's buffers."""
+        return frame.to(device=self.prevFrame.device, dtype=self.prevFrame.dtype)
+
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
         # Pad first, then copy. prevFrame/nextFrame are allocated at padded size,
@@ -308,8 +312,15 @@ class AnimeSR:
         # a (856) must match the size of tensor b (854)" on the very first frame.
         # The TensorRT and DirectML siblings already pad before copying.
         with torch.cuda.stream(self.normStream):
-            frame = self.padFrame(frame)
-            paddedNext = frame if nextFrame is None else self.padFrame(nextFrame)
+            # The arch takes `frame` itself next to the fp16/fp32 buffers, so it
+            # must match them: a stage before this one may hand on fp32 frames
+            # (RIFE above 1080p, scunet-directml) or CPU ones (-ncnn, -directml).
+            frame = self.padFrame(self._asBuffers(frame))
+            paddedNext = (
+                frame
+                if nextFrame is None
+                else self.padFrame(self._asBuffers(nextFrame))
+            )
 
             if self.firstRun:
                 self.prevFrame.copy_(frame, non_blocking=False)
@@ -371,11 +382,9 @@ class AnimeSRROCm(AnimeSR):
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        frame = self.padFrame(frame.to(device=checker.device))
+        frame = self.padFrame(self._asBuffers(frame))
         paddedNext = (
-            frame
-            if nextFrame is None
-            else self.padFrame(nextFrame.to(device=checker.device))
+            frame if nextFrame is None else self.padFrame(self._asBuffers(nextFrame))
         )
 
         if self.firstRun:

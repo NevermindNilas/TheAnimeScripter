@@ -38,7 +38,9 @@ def _promptDownloadRequirementsSelection() -> str:
                 f"{currentPlatform}-rocm",
             ),
             (
-                "Lite dependencies (GTX 10xx, AMD, Intel)",
+                "Lite dependencies (NCNN/Vulkan and CPU, no CUDA)"
+                if currentPlatform == "linux"
+                else "Lite dependencies (GTX 10xx, AMD, Intel)",
                 f"{currentPlatform}-lite",
             ),
         ]
@@ -112,6 +114,38 @@ def _ensureDependenciesOrExit() -> None:
         sys.exit(DEPENDENCIES_MISSING_EXIT_CODE)
 
 
+def _useCertifiWithoutSystemCertificates() -> None:
+    """Let HTTPS work on a minimal Linux system with no CA bundle installed.
+
+    Model and FFmpeg downloads use urllib, which only reads the system's store;
+    pip gets away with it by shipping its own.
+    """
+    import ssl
+
+    if cs.SYSTEM != "Linux" or "SSL_CERT_FILE" in os.environ:
+        return
+    paths = ssl.get_default_verify_paths()
+    if os.path.isfile(paths.openssl_cafile):
+        return
+    if os.path.isdir(paths.openssl_capath) and os.listdir(paths.openssl_capath):
+        return
+    try:
+        import certifi  # ty: ignore[unresolved-import]
+    except ImportError:
+        return
+    logging.info("No system CA certificates found; using certifi's bundle")
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+
+
+def _torchCanRunCuda() -> bool:
+    try:
+        import torch
+    except ImportError:
+        # Nothing installed yet: an install run has no stage to fall back.
+        return True
+    return torch.cuda.is_available()
+
+
 def _handleDependencies(args):
     import shutil
 
@@ -165,3 +199,10 @@ def _handleDependencies(args):
 
     if args.download_requirements is None and not args.cleanup:
         _ensureDependenciesOrExit()
+
+    _useCertifiWithoutSystemCertificates()
+
+    # The hardware answer above picks the profile; a run also needs a torch that
+    # can reach it (not a CPU-only build, a broken driver or a hidden GPU).
+    if args.supportsCuda and not isRocm and not _torchCanRunCuda():
+        args.supportsCuda = False

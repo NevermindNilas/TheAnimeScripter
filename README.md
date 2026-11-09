@@ -54,7 +54,7 @@ Decoding and encoding run in-process through [Nelux](https://github.com/Nevermin
 |---|---|---|
 | **[TAS-Standalone](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows | Desktop app with its own backend: no Python, no terminal. Toggle steps into a chain, watch the live preview and save presets. |
 | **[TAS-AdobeEdition](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS | After Effects 2022+ panel. Follow the [installation guide](https://nevermindnilas.github.io/zxp-installation/) or the [video tutorial](https://youtu.be/JAdZ3z-os_A). |
-| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS 15+ (Apple Silicon), Linux (source) | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
+| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS 15+ (Apple Silicon), Linux x86_64 | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
 
 <table>
 <tr>
@@ -72,9 +72,10 @@ Models download on first use, so the first run with a new model takes longer.
 | NVIDIA RTX 20 – 50 / GTX 16 | CUDA (default) or `-tensorrt` for maximum speed |
 | NVIDIA GTX 10 and older | `-directml` |
 | AMD / Intel on Windows | `-directml`, or `-openvino` on Intel |
+| AMD / Intel on Linux | `-ncnn` for RIFE, `shufflecugan` and `span`, or `-rocm` on AMD. `-directml` and `-openvino` run on the CPU here |
 | AMD on Linux or Windows | `-rocm` (experimental) |
 | Apple Silicon (M1+) | `-mps` |
-| Anything with Vulkan | `-ncnn` (RIFE, ShuffleCUGAN, SPAN) |
+| Anything with Vulkan | `-ncnn`: RIFE, `shufflecugan` and `span`, on AMD, Intel and NVIDIA GPUs |
 
 NVIDIA Maxine methods need an RTX card (Frame Generation needs an RTX 40 or 50).
 
@@ -108,7 +109,7 @@ tas --input old_show.mkv --restore deh264_real anime1080fixer --encode_method x2
 tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 4x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 2x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
 
 <details>
 <summary><b>Run from source</b></summary>
@@ -123,7 +124,8 @@ python main.py -h
 | Profile | For |
 |---|---|
 | `extra-requirements-windows.txt` / `-linux.txt` | NVIDIA: CUDA, TensorRT, Maxine, plus everything in lite |
-| `extra-requirements-windows-lite.txt` / `-linux-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
+| `extra-requirements-windows-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
+| `extra-requirements-linux-lite.txt` | No CUDA: NCNN (Vulkan) and CPU |
 | `extra-requirements-linux-rocm.txt` / `-windows-rocm.txt` | AMD ROCm (experimental). On Windows install it with `--download_requirements windows-rocm`, which adds the kernels for your GPU |
 | `extra-requirements-macos.txt` | Apple Silicon (MPS, macOS 15 or newer) |
 

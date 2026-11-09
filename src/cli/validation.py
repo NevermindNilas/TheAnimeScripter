@@ -131,6 +131,44 @@ def validatePreviewPort(args):
         )
 
 
+# What VideoProcessor._selectProcessingMethod runs instead of both --moblur and
+# the chain. None of them read the mask.
+_MODES_IGNORING_MASK = ("autoclip", "depth", "segment", "obj_detect", "stabilize")
+
+
+def validateMaskPath(args):
+    """Refuse a ``--mask`` that will be read but cannot be.
+
+    ``ProtectionMask`` treats an unreadable mask as "no mask" (a warning in the
+    log file only), so a typo in the path ran the whole interpolation or motion
+    blur without the protection asked for, and exited 0. Only those two read
+    the mask, and neither runs next to a mode in ``_MODES_IGNORING_MASK``: without
+    a reader the mask is ignored, as it always was (a front end may keep sending
+    one stored mask path for every job). Reads the file
+    the way ``ProtectionMask`` does (``cv2.imread``, IMREAD_UNCHANGED), so it
+    accepts exactly what the loader can use. Called from
+    ``validator._finalizeChain``, once the chain is final.
+    """
+    mask = getattr(args, "mask", "")
+    if not mask:
+        return
+    if any(getattr(args, mode, False) for mode in _MODES_IGNORING_MASK):
+        return
+    readers = any(spec.kind == "interpolate" for spec in getattr(args, "chain", ()))
+    if not (readers or getattr(args, "moblur", False)):
+        return
+    path = os.path.abspath(mask)
+    if not os.path.isfile(path):
+        raise CliValidationError(f"--mask file not found: {path}")
+
+    import cv2
+
+    if cv2.imread(path, cv2.IMREAD_UNCHANGED) is None:
+        raise CliValidationError(
+            f"--mask is not an image that can be read (a PNG is expected): {path}"
+        )
+
+
 def interpolateFactorWarning(rawFactor, smooth, label=None):
     """Reject an interpolation factor below 1; leave 1 and above alone.
 

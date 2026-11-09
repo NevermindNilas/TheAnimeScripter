@@ -33,6 +33,32 @@ def _encodeAnchor(model, frame):
     return model.encode(frame[:, :3])
 
 
+def _staticStepFrame(model, I0, I1, timestep, height, width):
+    """One inserted frame from a --static_step reference arch, at ``timestep``.
+
+    Its forward is ``bakedTimestep``, which returns a LIST with one frame per
+    plane of ``model.timesteps`` -- or, when that is unset, per ``i / factor``
+    of its own integer ladder, which raised on the float factor every stage
+    carries. Handing it the one plane the gap planner asked for keeps the
+    planner's frame count and times, as on every other path.
+    """
+    model.timesteps = timestep.unsqueeze(0)
+    return model(I0, I1, timestep)[0][:, :, :height, :width].clone()
+
+
+def _encodeSkippedPair(model, I1):
+    """A --static_step pair that inserts nothing (factor 1) ran no forward, so a
+    reference arch's ``f1`` is still the previous pair's -- and ``f0`` unset
+    before the first forward, which ``cache()`` then failed on. Encode ``I1``
+    here, so the ``cache()`` that follows hands the next pair its real anchor."""
+    encode = getattr(model, "encode", None)
+    if encode is None:
+        return
+    model.f1 = encode(I1[:, :3])
+    if model.f0 is None:
+        model.f0 = model.f1.clone()
+
+
 class RifeCuda:
     def __init__(
         self,
@@ -553,7 +579,9 @@ class RifeCuda:
                             :, :, : self.height, : self.width
                         ].clone()
                     elif self.staticStep:
-                        output = self.model(self.I0, self.I1, frame).clone()
+                        output = _staticStepFrame(
+                            self.model, self.I0, self.I1, frame, self.height, self.width
+                        )
                     else:
                         step = (
                             self.model.flow
@@ -641,6 +669,9 @@ class RifeCuda:
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
+        if self.staticStep and not framesToInsert:
+            with torch.cuda.stream(self.normStream):
+                _encodeSkippedPair(self.model, self.I1)
         self.processFrame(None, "cache")
 
 
@@ -858,7 +889,9 @@ class RifeMPS:
 
             case "infer":
                 if self.staticStep:
-                    output = self.model(self.I0, self.I1, frame).clone()
+                    output = _staticStepFrame(
+                        self.model, self.I0, self.I1, frame, self.height, self.width
+                    )
                 else:
                     # prepare() already ran for this pair in __call__
                     step = (
@@ -919,6 +952,8 @@ class RifeMPS:
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
+        if self.staticStep and not framesToInsert:
+            _encodeSkippedPair(self.model, self.I1)
         self.processFrame(None, "cache")
 
 
@@ -1096,10 +1131,21 @@ class RifeROCm:
         )
         self._cachedTimestepValue = None
 
-        # Eager warmup, no graph capture.
+        # Eager warmup, no graph capture. A --static_step arch is warmed through
+        # the same single-timestep call the frames use.
         with torch.inference_mode():
             for _ in range(2):
-                self.model(self.I0, self.I1, self._timestep_buffer)
+                if self.staticStep:
+                    _staticStepFrame(
+                        self.model,
+                        self.I0,
+                        self.I1,
+                        self._timestep_buffer,
+                        self.height,
+                        self.width,
+                    )
+                else:
+                    self.model(self.I0, self.I1, self._timestep_buffer)
         if self.device.type == "cuda":
             torch.cuda.synchronize()
         # The warmup cached the encoder features of the all-zero frames, and the
@@ -1141,7 +1187,9 @@ class RifeROCm:
 
             case "infer":
                 if self.staticStep:
-                    output = self.model(self.I0, self.I1, frame).clone()
+                    output = _staticStepFrame(
+                        self.model, self.I0, self.I1, frame, self.height, self.width
+                    )
                 else:
                     # prepare() already ran for this pair in __call__
                     step = (
@@ -1191,4 +1239,6 @@ class RifeROCm:
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
+        if self.staticStep and not framesToInsert:
+            _encodeSkippedPair(self.model, self.I1)
         self.processFrame(None, "cache")

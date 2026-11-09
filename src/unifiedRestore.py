@@ -7,7 +7,7 @@ from src.constants import ADOBE
 
 from .infra.isCudaInit import CudaChecker
 from .infra.logAndPrint import logAndPrint, logWarning
-from .infra.providerCheck import warnIfProviderMissing
+from .infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from .model.download import resolveWeightPath
 from .model.registry import modelsMap
 
@@ -786,7 +786,7 @@ class UnifiedRestoreDirectML:
                     self.model, "OpenVINOExecutionProvider", "OpenVINO restore"
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 f"{self.restoreMethod} provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(

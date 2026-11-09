@@ -65,27 +65,42 @@ class ProtectionMask:
             )
 
         norm = 65535.0 if maskImg.dtype == "uint16" else 255.0
+        # Built in fp32 and cast once at the end: fp16 tops out at 65504, so a
+        # 16-bit mask's opaque alpha (65535) became inf before the divide and
+        # froze every opaque pixel, whatever its luma, at full protection.
 
         if maskImg.ndim == 3 and maskImg.shape[2] == 4:
             bgr = maskImg[:, :, :3]
             alpha = maskImg[:, :, 3]
             luma = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
-            alphaT = torch.from_numpy(alpha).to(device=device, dtype=dtype).div_(norm)
+            lumaT = (
+                torch.from_numpy(luma).to(device=device, dtype=torch.float32).div_(norm)
+            )
+            alphaT = (
+                torch.from_numpy(alpha)
+                .to(device=device, dtype=torch.float32)
+                .div_(norm)
+            )
             protection = alphaT * (1.0 - lumaT)
             channels = "RGBA"
         elif maskImg.ndim == 3:
             luma = cv2.cvtColor(maskImg, cv2.COLOR_BGR2GRAY)
-            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
+            lumaT = (
+                torch.from_numpy(luma).to(device=device, dtype=torch.float32).div_(norm)
+            )
             protection = 1.0 - lumaT
             channels = "RGB (no alpha, assuming opaque)"
         else:
-            gray = torch.from_numpy(maskImg).to(device=device, dtype=dtype).div_(norm)
+            gray = (
+                torch.from_numpy(maskImg)
+                .to(device=device, dtype=torch.float32)
+                .div_(norm)
+            )
             protection = 1.0 - gray
             channels = "grayscale"
 
         protection = protection.clamp_(0.0, 1.0)
-        weightTensor = (1.0 - protection).view(1, 1, height, width)
+        weightTensor = (1.0 - protection).to(dtype).view(1, 1, height, width)
 
         if not self._logged:
             logging.info(f"Loaded mask: {self.path} ({channels})")

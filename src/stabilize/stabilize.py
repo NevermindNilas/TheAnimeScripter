@@ -15,7 +15,7 @@ from src.io.ffmpegSettings import (
     createWriteBuffer,
     drainReader,
 )
-from src.io.runOutcome import truncatedDecodeError
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
@@ -36,6 +36,7 @@ class VideoStabilize:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "8bit",
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -48,6 +49,10 @@ class VideoStabilize:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
+        # width/height are a --resize target the decoder has to scale to: the
+        # render warps into a canvas of that size, so a source-size frame came
+        # out as its top-left corner instead of the whole picture scaled.
+        self.decodeResize = decodeResize
 
         self.smoothingSeconds = 2.0
         self.smoothingMethod = "grad_opt"
@@ -111,6 +116,8 @@ class VideoStabilize:
             self.processingError = e
             logging.exception(f"Something went wrong in stabilization pipeline, {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         # Neither terminal status was ever sent, so the After Effects panel sat
         # on "Analyzing and stabilizing video..." forever (issues #269, #236).
         # Keying off the exception alone is not enough: an encoder that exits 0
@@ -150,7 +157,7 @@ class VideoStabilize:
             videoInput=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             toTorch=False,
@@ -489,6 +496,10 @@ class VideoStabilize:
                 break
 
             gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            if gray.dtype != np.uint8:
+                # A >8-bit source decodes to uint16, and ORB and LK take 8-bit
+                # images only: every 10-bit video failed on its second frame.
+                gray = (gray >> 8).astype(np.uint8)
 
             if prevGray is None:
                 self.transforms.append((0.0, 0.0, 0.0))
@@ -674,7 +685,7 @@ class VideoStabilize:
             videoInput=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             toTorch=False,
@@ -756,7 +767,13 @@ class VideoStabilize:
                         .unsqueeze(0)
                         .to(torch.float32)
                     )
-                    outputTensor.mul_(1.0 / 255.0)
+                    # A >8-bit source decodes to uint16: scaled by 1/255 it
+                    # clamped to white. The reader knows its own uint16 white.
+                    outputTensor.mul_(
+                        1.0 / 255.0
+                        if stabilized.dtype == np.uint8
+                        else self.readBuffer._uint16Norm
+                    )
 
                 self.writeBuffer.write(outputTensor)
                 frameCount += 1

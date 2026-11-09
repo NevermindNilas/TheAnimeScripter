@@ -146,6 +146,38 @@ def _notifyAdobeOfFatalError(error: Exception) -> None:
         logging.exception("Failed to report the error to After Effects")
 
 
+def _flushAdobeProgress(stopServer: bool = False) -> None:
+    """Get the run's last statuses to the After Effects panel before exiting.
+
+    The comms server is a daemon child that interpreter exit terminates,
+    usually before it relays the final payload: the panel never heard the
+    last video's "completed"/"failed". Bounded (aeComms.flushProgress), so a
+    gone panel cannot hold the exit. ``stopServer`` for os._exit, which skips
+    the atexit hook that would otherwise stop the child.
+    """
+    if not cs.ADOBE:
+        return
+    try:
+        from src.server import aeComms
+    except Exception:
+        logging.exception("Failed to flush the After Effects progress")
+        return
+    try:
+        flushed = aeComms.flushProgress()
+        if stopServer and flushed and aeComms.serverProcess is not None:
+            # The relay's answer means "handed to Socket.IO", not "delivered":
+            # give its threads a moment before the process is stopped.
+            aeComms.serverProcess.join(0.3)
+    except Exception:
+        logging.exception("Failed to flush the After Effects progress")
+    finally:
+        if stopServer and aeComms.serverProcess is not None:
+            try:
+                aeComms.serverProcess.terminate()
+            except Exception:
+                pass
+
+
 def _videoFailed(
     processingError: Exception | None,
     outputPath: str,
@@ -339,12 +371,19 @@ class VideoProcessor:
         """
         logging.info("\n============== Processing Outputs ==============")
 
-        # Every interpolate stage multiplies the frame rate. The product is of
-        # the typed factors, so a single stage gives exactly fps * factor.
-        self.fpsMultiplier = 1
+        # Every interpolate stage multiplies the frame rate by its factor as the
+        # gap planner runs it (planner.factorFraction, Plan.factor): 2.5025 is
+        # written on the 5/2 grid, and stamping it at fps * 2.5025 made the
+        # video shorter than its audio. An exact factor gives exactly fps * it.
+        from src.pipeline.planner import factorFraction
+
+        factor = Fraction(1)
         for spec in self.chain:
             if spec.kind == "interpolate":
-                self.fpsMultiplier = self.fpsMultiplier * spec["factor"]
+                factor *= factorFraction(spec["factor"])
+        self.fpsMultiplier = (
+            factor.numerator if factor.denominator == 1 else float(factor)
+        )
 
         if self.slowmo:
             self.outputFPS = self.fps
@@ -736,6 +775,12 @@ class VideoProcessor:
                     executor.submit(self.writeBuffer)
                     executor.submit(self.process)
 
+            # The writer has finished now: an encoder error raised after the
+            # frame loop ended was not yet visible to process().
+            from src.io.runOutcome import recordWriterFailure
+
+            recordWriterFailure(self)
+
             elapsedTime: float = time() - starTime
 
             # The bar's last filesize sample lands before the encoder drains its
@@ -789,6 +834,11 @@ class VideoProcessor:
 
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
+            # The run failed whatever is at the output path: an earlier run's
+            # file there must not turn this into a success (exit 0) while the
+            # panel below is told it failed.
+            if self.processingError is None:
+                self.processingError = e
             if cs.ADOBE:
                 progressState.setFailed(error=str(e))
 
@@ -1040,6 +1090,15 @@ def main():
         for idx, entry in enumerate(results, 1):
             processor = None
             try:
+                if cs.ADOBE and idx > 1:
+                    # The previous video's completed/failed status is not this
+                    # one's: left in place, _notifyAdobeOfFatalError took it as
+                    # this video's report and never sent a failure raised
+                    # before start(). Reset without sending anything, so the
+                    # panel still receives that status (see beginVideo).
+                    from src.server.aeComms import progressState
+
+                    progressState.beginVideo()
                 _videoName = os.path.splitext(os.path.basename(entry["videoPath"]))[0]
                 if len(_videoName) > 60:
                     _videoName = _videoName[:57] + "..."
@@ -1160,6 +1219,12 @@ def main():
         except BaseException:
             # Must not preempt the force-exit below.
             pass
+        try:
+            _flushAdobeProgress(stopServer=True)
+        except BaseException:
+            # A second Ctrl-C during the flush must not skip the force-exit:
+            # normal shutdown would then wait on the frame-loop threads.
+            pass
         _restoreTerminalTitle()
         # Force-exit: bypass blocked thread joins (TRT inference, nelux
         # decoder/encoder) which sys.exit() would hang on.
@@ -1180,6 +1245,8 @@ def main():
         _notifyAdobeOfFatalError(e)
         sys.exit(1)
     finally:
+        # Every other way out (return, sys.exit, the exit 1 above) ends here.
+        _flushAdobeProgress()
         _restoreTerminalTitle()
 
 

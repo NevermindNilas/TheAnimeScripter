@@ -7,15 +7,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- Linux x86_64 portable release: `TAS-<version>-Linux-x86_64.tar.gz`, built and smoke-tested in CI; install a profile with `./run.sh --download_requirements linux-cuda` (or `linux-lite`, `linux-rocm`).
 - `--depth_method limbo_v3` (plus `-mps`, `-rocm`, `-tensorrt`, `-openvino`, and streaming `video_limbo_v3`, `video_limbo_v3-rocm`, `video_limbo_v3-tensorrt`): Limbo-V3, a finetune of V2 with the same setup and backends, with 12–22% less flicker than V2 in streaming depth.
 - `-rocm` methods now run on Windows through the new `windows-rocm` profile (experimental): AMD's torch 2.15 and torchvision builds plus the GPU kernels for the AMD target the installer detects, overridable with `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100`). On ROCm the encoder gets 8-bit host copies of the frames and `--decode_method nvdec` falls back to CPU decoding, since nelux's GPU paths are NVIDIA-only.
 
-### Fixed
-- The `--download_requirements` picker on Windows offered the `linux-rocm` profile.
-- The portable build left out `extra-requirements-linux-rocm.txt`, so `--download_requirements linux-rocm` failed with "Requirements file not found".
-
 ### Changed
 - `small_v2` on CUDA, ROCm and MPS no longer squashes the frame into a square at `--depth_quality low`/`medium`: it keeps the source aspect ratio like upstream Depth Anything V2 (1080p `low`: 518×518 → 924×518, 1.78× the pixels). TensorRT, DirectML and OpenVINO stay at 518×518.
+- Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte, Limbo V2/V3 and shift_lpips no longer depend on third-party locations.
+
+### Fixed
+- `rife*-ncnn` on Linux wrote pure black inserted frames and exited 0 because the model path never reached the loader (macOS took the same path). It now loads, and a model folder missing `flownet.param`/`flownet.bin` stops the run with an error.
+- `--upscale_method span-ncnn`/`shufflecugan-ncnn` crashed with `ModuleNotFoundError` on every OS. They now run on PyPI's `ncnn` wheel, on AMD, Intel and NVIDIA GPUs, tiling frames that do not fit the GPU's memory.
+- NCNN always used Vulkan device 0, even on a hybrid machine with a faster GPU; it now picks the best one. `rife*-ncnn` without a Vulkan driver segfaulted; it now stops with a message, and automatic fallback skips NCNN there.
+- Without CUDA on Linux and macOS, an automatic upscale fallback now picks `-ncnn` (GPU) instead of `-directml` (CPU there) where a sibling exists.
+- An RTX card without a working CUDA (CPU-only torch, broken driver) crashed on `--upscale` and other CUDA stages; it now falls back like any other GPU.
+- On a Linux system with no CA certificates, every model download failed with `CERTIFICATE_VERIFY_FAILED`; TAS now uses certifi's bundle there.
+- The Linux profiles no longer install non-headless OpenCV, which needed GUI libraries that minimal systems lack. The `CPU:` log line is no longer blank on Linux.
+- On Linux and macOS, a `-directml` or `-openvino` method that fell back to the CPU told users to check DirectX 12; it now says the stage is on the CPU and names `-ncnn`, `-rocm` or `-mps`. The Linux lite profile and docs no longer claim DirectML/OpenVINO support.
+- The `--download_requirements` picker on Windows offered the `linux-rocm` profile.
+- The portable build left out `extra-requirements-linux-rocm.txt`, so `--download_requirements linux-rocm` failed with "Requirements file not found".
+- A single-PNG input to `--depth`, `--segment`, `--obj_detect`, `--stabilize` or `--moblur` wrote `<name>_00000001.png` instead of `<name>.png`, so TAS reported "Processing failed" and exited 1 though the image was saved. It now writes the named file and succeeds.
+- A 16-bit RGBA `--mask` on the default half-precision path protected every opaque pixel and wrote NaN where it was transparent white: its values overflowed fp16 before being normalized.
+- `--upscale <model> 3x`/`4x` with a 2x-only model (every bundled model except `maxine-*`) is now refused at startup, naming the stage and the fix; it crashed DirectML/OpenVINO on the first frame, scrambled TensorRT output and silently stretched CUDA output. For 4x, type the stage twice: `--upscale span 2x --upscale`.
+- A fractional `--interpolate_factor` is now stamped at the rate its frames are planned on: `2.5025` on a 23.976 fps source wrote 60 fps instead of 59.94, ending 1.5 s before the audio on a 24-minute episode.
+- A run that fails before its first frame now exits 1 even when `--output` already holds an earlier run's file; it counted as a success while the AE panel was told it failed.
+- `rife*-directml`/`-openvino` reused a cached ONNX export built with the other `--ensemble` setting at the same size, silently ignoring `--ensemble`.
+- In an `--ae` batch, a video that fails before processing starts after a completed one is now reported as failed; the panel kept showing the previous video's "completed".
+- `--static_step` crashed on the first frame pair on the CUDA, ROCm and MPS RIFE paths, and was silently dropped for a whole factor given as `--interpolate_factor 2` or in `--json`.
+- A `--json` config saved with a byte-order mark (Notepad's "UTF-8 with BOM", Windows PowerShell's UTF-16) now loads instead of failing with "Unexpected UTF-8 BOM".
+- A custom ONNX upscale model on `-directml`/`-openvino` (including `artcnn_*`) now runs in its own precision and with its own tensor names; an fp32 or mixed-precision export under `--half`, or tensors not named `input`/`output`, crashed on the first frame.
+- `--upscale animesr` (CUDA, ROCm) crashed when the stage before it handed on fp32 or CPU frames (interpolation above 1080p, `scunet-directml`, any `-directml`/`-ncnn` stage).
+- `--resize 1080` (a bare number of 16 or more) is now refused as ambiguous, asking for `1080p` or `1080x`; it was taken as a 1080x scale and crashed later. Bare scales below 16 (`0.5`, `2`) are unchanged.
+- A `--json` list for a single-valued option (`"input": ["a.mp4"]`, `"upscale_method": ["span"]`) or an empty `"restore_method": []` is refused at startup naming the key, instead of crashing later or running a restore stage with no model.
+- A missing or unreadable `--mask` now stops the run at startup when interpolation or motion blur would use it; the job used to run without the protection and exit 0.
+- `--stabilize`, `--moblur`, `--obj_detect` and the `anime-tensorrt`/`-directml`/`-openvino` segment methods ignored `--resize` at decode: stabilize wrote the top-left corner of the picture, and object detection and segment failed on every frame.
+- `--stabilize` failed on every 10-bit or 16-bit source and turned a 16-bit PNG white, and `--stabilize_method dut` clamped such frames; both now keep the source's range, and 8-bit output is unchanged.
+- An uppercase `.WEBM` output (`CLIP.WEBM` input or `--output OUT.WEBM`) kept x264 and failed after processing; it now gets vp9 like `.webm`.
+- On macOS and Linux, an `--ae` render started within about a minute of the previous one reported the AE port as in use and sent the panel no progress.
+- A `.txt` batch list saved as UTF-16 or UTF-8 with a BOM, or named with an uppercase `.TXT`, aborted the batch; lists are now read by their BOM, then as UTF-8, then in the system encoding.
+- A local input whose name starts with `http` or `www` (`http_clip.mp4`, a `www` folder) was rejected as an invalid URL.
+- `--obj_detect` on a 10-bit or 16-bit source fed the model out-of-range inputs and dropped every frame with a detection, failing the run.
+- `--autoclip` with `--encode_method png` or `jpeg` wrote its cut list into a folder named `<name>-Autoclip.txt`.
+- An `--output` that names an input video now stops before processing; it overwrote the source while reading it, failing part-way and destroying the original. A single still can still be written in place.
+- The portable build left out `THIRD_PARTY_NOTICES.md`.
+- A run that encoded no frames (`--inpoint` past the end) wrote a header-only video and exited 0, or reported an older file at `--output` as its result; it now fails, as does an encoder error raised after the last frame.
+- A YouTube URL run without a terminal crashed in the quality picker with `termios.error`; it now downloads the best quality and says so.
+- `--segment` with `--encode_method png` or `jpeg` segmented every frame and then failed; the matte is written as `<name>-Segment.mov`, and an explicit `--output` that cannot hold ProRes 4444 (anything but `.mov`/`.mkv`) is refused at startup.
+- `--depth` methods that decode on the CPU, and `--autoclip` `transnetv2`/`maxxvit`, read 10-bit and 16-bit frames as if they were 8-bit (garbage depth with exit 0, a TransNetV2 crash on CPU); they now get 8-bit frames.
+- A YouTube link copied from a playlist or mix (`watch?v=...&list=...`) failed with "No valid resolutions found"; TAS now downloads just that video.
+- A `python build.py` interrupted while downloading Python left a truncated archive that broke every later build; downloads are now kept only once complete.
+- A `python build.py` interrupted while unpacking Python left an interpreter without its standard library that every later build reused; extraction is now trusted only once it has finished.
+- Portrait phone videos (stored landscape with a 90-degree rotation flag) were planned at the stored size while the decoder delivered upright frames: `--resize` wrote a squashed video, `--stabilize` a cropped one, `--autoclip transnetv2` crashed, and fixed-size models were built for the wrong shape.
+- The AE panel missed a video's "completed" or "failed" whenever another update followed it quickly (about 1 in 3 two-video `--ae` batches under load): the relay forwarded only the newest queued update. Terminal statuses are now always delivered, in order.
+- In an `--ae` run the panel never received the last video's "completed" or "failed" (the only status of a single-video run): the relay process was killed at exit before sending it. TAS now delivers it before exiting (waiting at most 1.5 s), and Ctrl-C no longer leaves the AE server running and holding its port.
 
 ### Removed
 - Every `og_*` depth method. Use `small_v2`, `video_small_v2` (`--half false` for fp32) or `large_v3`; `og_large_v3`'s metric checkpoint has no replacement.

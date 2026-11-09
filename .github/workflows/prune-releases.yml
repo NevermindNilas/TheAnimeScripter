@@ -18,7 +18,7 @@ jobs:
           script: |
             const DRY_RUN = process.env.DRY_RUN === "true";
             const KEEP_LATEST_COUNT = 3; // Number of recent releases to keep assets for
-            const DELETE_ASSET_RE = /\.(zip|7z|rar)(\.\d+)?$/i;
+            const DELETE_ASSET_RE = /\.(zip|7z|rar|tar\.gz)(\.\d+)?$/i;
             const SKIP_SOURCE_RE = /source/i;
 
             async function fetchAllReleases() {

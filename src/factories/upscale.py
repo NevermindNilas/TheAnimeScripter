@@ -11,7 +11,26 @@ buildUpscaleProcess(self, width=None, height=None) -> callable
 import logging
 
 
+def _checkUpscaleFactor(method, factor, customModel):
+    """Refuse a factor the method's model cannot produce, before it is built.
+
+    The planner sizes every later stage and the writer at ``factor``, but a
+    fixed-2x model built with ``upscaleFactor=4`` still emits 2x: DirectML and
+    OpenVINO failed on the first frame, TensorRT bound a 4x buffer to a 2x
+    engine output, and the CUDA path's 2x frames were stretched bicubic by the
+    writer or crashed the next stage. The CLI refuses this first
+    (validator._finalizeChain); this is the backstop for other entrypoints.
+    """
+    from src.model.registry import upscaleFactorRefusal
+
+    problem = upscaleFactorRefusal(method, factor, customModel)
+    if problem is not None:
+        raise ValueError(problem)
+
+
 def buildUpscaleProcess(self, width=None, height=None):
+    _checkUpscaleFactor(self.upscaleMethod, self.upscaleFactor, self.customModel)
+
     from src.upscale.pytorch import UniversalPytorch
 
     width = self.width if width is None else width

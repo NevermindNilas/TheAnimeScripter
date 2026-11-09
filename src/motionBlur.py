@@ -135,6 +135,7 @@ class MotionBlurPipeline:
         static_step=False,
         compile_mode="default",
         decode_method="cpu",
+        decode_resize=False,
     ):
         self.input = input
         self.output = output
@@ -159,6 +160,9 @@ class MotionBlurPipeline:
         self.staticStep = static_step
         self.compileMode = compile_mode
         self.decodeMethod = decode_method
+        # width/height are a --resize target: the interpolator is built at that
+        # size, so the decoder has to deliver frames at it too.
+        self.decodeResize = decode_resize
         self.useCuda = torch.cuda.is_available()
 
         # When True, only the timesteps inside the shutter window are
@@ -393,7 +397,7 @@ class MotionBlurPipeline:
             inpoint=self.inpoint,
             outpoint=self.outpoint,
             half=self.half,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             bitDepth=self.bitDepth,

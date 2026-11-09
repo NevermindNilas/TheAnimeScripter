@@ -18,10 +18,11 @@ from src.io.encodingSettings import colorSpaceOptions, matchNeluxEncoder
 from src.io.getVideoMetadata import (
     isFramePoint,
     isTrimUnset,
+    storedResizeTarget,
     trimFrameRange,
     trimPointToSeconds,
 )
-from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
+from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS, isSingleImageInput
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logWarning
 
@@ -264,6 +265,7 @@ class BuildBuffer:
         bitDepth: str = "8bit",
         toTorch: bool = True,
         decode_method: str = "cpu",
+        uint8Frames: bool = False,
     ):
         """
         Initializes the BuildBuffer class.
@@ -281,6 +283,9 @@ class BuildBuffer:
             bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
             toTorch (bool): Whether to convert frames to torch tensors.
             decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
+            uint8Frames (bool): With toTorch=False, hand over 8-bit frames even
+                for a >8-bit source (nelux decodes those to uint16), for
+                consumers written against 8-bit RGB (x / 255 model inputs).
 
         Note:
             Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
@@ -306,6 +311,7 @@ class BuildBuffer:
         # indistinguishable from a clean EOF.
         self.decodeError: Exception | None = None
         self.toTorch = toTorch
+        self.uint8Frames = uint8Frames and not toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
         self._didDecoderResize = False
@@ -414,7 +420,13 @@ class BuildBuffer:
         global CachedReaderMethod
         global CachedReaderResize
 
-        resizeTarget = (self.width, self.height) if self.resize else None
+        # In stored orientation: nelux rotates after it scales (see
+        # storedResizeTarget). The reader cache is keyed on what is passed.
+        resizeTarget = (
+            storedResizeTarget(self.videoInput, self.width, self.height)
+            if self.resize
+            else None
+        )
 
         if decodeMethod.lower() == "nvdec":
             CachedReader = None
@@ -484,6 +496,9 @@ class BuildBuffer:
                 frame = self.processFrameToTorch(
                     frame, self.normStream if self.cudaEnabled else None
                 )
+            elif self.uint8Frames and frame.dtype != "uint8":
+                # nelux's uint16 white is 65283..65535: >> 8 lands it on 255.
+                frame = (frame >> 8).astype("uint8")
             self.decodeBuffer.put(frame)
             decodedFrames += 1
             self._emittedFrames += 1
@@ -866,9 +881,12 @@ class NeluxWriteBuffer:
         self.input = input
         # png/jpeg write a numbered sequence; every other method keeps
         # `output`. A single image never gets here (createWriteBuffer hands it
-        # to SingleImageWriteBuffer).
-        self.isImageOutput = encode_method in SEQUENCE_EXTENSIONS
-        self.output = _imageOutputPath(os.path.normpath(output), encode_method, False)
+        # to SingleImageWriteBuffer). A transparent (segment) writer always
+        # encodes prores_segment (matchNeluxEncoder), which no image sequence
+        # can hold: rewriting its path to a png pattern made the encoder fail.
+        sequenceMethod = None if transparent else encode_method
+        self.isImageOutput = sequenceMethod in SEQUENCE_EXTENSIONS
+        self.output = _imageOutputPath(os.path.normpath(output), sequenceMethod, False)
         # nelux creates the parent itself (verified on 0.17.0 -- VideoEncoder's
         # constructor makes the folder), so this is belt-and-braces at TAS's
         # own boundary rather than a dependency's undocumented courtesy.
@@ -1093,6 +1111,20 @@ class NeluxWriteBuffer:
                 time.sleep(0.001)
             if self._stopNow.is_set():
                 return
+            # Not a single frame (an --inpoint past the end, a decode that gave
+            # nothing): an encoder opened now still writes a header-only file,
+            # which every "was the output written" check took for a success.
+            with self.writeBuffer.mutex:
+                noFrames = self.writeBuffer.queue[0] is None
+            if noFrames:
+                self.writeBuffer.get_nowait()
+                self._sawSentinel = True
+                self.encodeError = RuntimeError(
+                    f"No frames reached the encoder; nothing was written to "
+                    f"{self.output}."
+                )
+                logging.error(str(self.encodeError))
+                return
 
             self.encoder = nelux.VideoEncoder(
                 self.output,
@@ -1311,7 +1343,13 @@ def createWriteBuffer(encode_method: str, **kwargs):
             ...
         )
     """
-    if encode_method in SEQUENCE_EXTENSIONS and kwargs.get("single_image_output"):
+    singleImage = kwargs.get("single_image_output")
+    if singleImage is None:
+        # Only main.py says it; the standalone drivers (depth, segment, obj
+        # detect, stabilize, motion blur) do not, and wrote <name>_00000001.png
+        # where the success check looks for <name>.png, failing the run.
+        singleImage = isSingleImageInput(kwargs.get("input"))
+    if encode_method in SEQUENCE_EXTENSIONS and singleImage:
         # A single still is written with cv2 (quality 100, 4:2:0, no colour
         # chunks); the nelux sequence mapping would give a different JPEG.
         return SingleImageWriteBuffer(encode_method=encode_method, **kwargs)

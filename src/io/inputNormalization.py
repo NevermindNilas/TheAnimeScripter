@@ -3,7 +3,11 @@ import os
 from urllib.parse import urlparse
 
 import src.constants as cs
-from src.io.inputOutputHandler import SEQUENCE_EXTENSIONS
+from src.io.inputOutputHandler import (
+    SEQUENCE_EXTENSIONS,
+    isSingleImageInput,
+    isUrlInput,
+)
 
 
 class InputNormalizationError(ValueError):
@@ -86,7 +90,7 @@ def normalizeImageInput(args, processingEnabled):
         cs.AUDIO = False
         return
 
-    if args.input.lower().endswith(".png"):
+    if isSingleImageInput(args.input):
         args.input = os.path.abspath(args.input)
         cs.AUDIO = False
         args.single_image_input = True
@@ -109,7 +113,7 @@ def normalizeInputArgs(args, outputPath, processingEnabled):
     if not args.input:
         raise InputNormalizationError("No input specified")
 
-    if args.input.startswith(("http", "www")):
+    if isUrlInput(args.input):
         return processUrlInput(args, outputPath, processingEnabled)
 
     if args.input.lower().endswith((".png", ".jpg", ".jpeg")):

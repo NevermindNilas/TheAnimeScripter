@@ -8,8 +8,8 @@ import torch.nn.functional as F
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.logAndPrint import logAndPrint
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.interpolate._shared import importRifeArch
 from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
@@ -198,10 +198,13 @@ class RifeDirectML:
         )
 
         # The opset is part of the name so an existing cache exported at a
-        # different opset is not reused.
+        # different opset is not reused. So is --ensemble, whose second pass is
+        # traced into the graph: without it an ensemble run reused a plain
+        # export at the same size (or the reverse).
         self.modelPath = self.modelPath.replace(
             ".pth",
             f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}"
+            f"_{'ensemble' if self.ensemble else 'plain'}"
             f"_directml_op{self.opset}_nocache.onnx",
         )
 
@@ -260,7 +263,7 @@ class RifeDirectML:
                     self.model, "OpenVINOExecutionProvider", "OpenVINO interpolate"
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(

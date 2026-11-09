@@ -18,8 +18,7 @@ import os
 import numpy as np
 import torch
 
-from src.infra.logAndPrint import logAndPrint
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -86,10 +85,9 @@ class SceneChangeScorer6ch:
                 self.session, "DmlExecutionProvider", "DirectML scene-change 6ch"
             )
         else:
-            logAndPrint(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU. "
-                "Performance will be significantly worse.",
-                "yellow",
+                "Performance will be significantly worse."
             )
             self.session = ort.InferenceSession(
                 self.modelPath, providers=["CPUExecutionProvider"]

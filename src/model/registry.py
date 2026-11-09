@@ -1,6 +1,8 @@
 """Static model registry data without network or runtime startup imports."""
 
+import importlib.util
 import os
+import sys
 
 from src.infra.logAndPrint import logAndPrint
 
@@ -10,21 +12,6 @@ weightsBaseDir = os.path.dirname(
 weightsDir = os.path.join(weightsBaseDir, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"
-
-SUDOURL = (
-    "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
-)
-
-DEPTHV2URLSMALL = (
-    "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/"
-)
-
-TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
-
-BIREFNET_URL = (
-    "https://huggingface.co/Zarxrax/BiRefNet-Real_Anime/resolve/"
-    "608646577c85b7e5ba77b06f6e165b08c0b35a14/"
-)
 
 
 def modelsList() -> list[str]:
@@ -310,6 +297,82 @@ def modelsList() -> list[str]:
         "limbo_v2-rocm",
         "limbo_v3-rocm",
     ]
+
+
+def supportedUpscaleFactors(method: str) -> tuple[int, ...]:
+    """The ``--upscale_factor`` values a bundled upscale method can produce.
+
+    Every bundled upscale method produces exactly 2x on every backend suffix:
+    its weights, ONNX exports, NCNN zips and TensorRT engines are 2x networks,
+    except AnimeSR, a native 4x network that TAS runs at 2x (its drivers are
+    built at 2 and shrink the output). Only NVIDIA Maxine VSR takes the scale
+    as a parameter. A custom model is not covered here; its scale is the
+    file's own.
+    """
+    if method.startswith("maxine-"):
+        return (2, 3, 4)
+    return (2,)
+
+
+def upscaleFactorRefusal(method: str, factor, customModel=None) -> str | None:
+    """Why ``method`` cannot upscale ``factor``x, or None when it can.
+
+    The remedy names the factor on the stage itself (``--upscale span 2x``), so it
+    holds however the 4x reached the stage: typed on it, a long flag before every
+    stage, or inherited from an earlier 4x stage. Only an ``--upscale_factor``
+    bound to the stage would still override it, so the message says to drop it.
+    """
+    if customModel:
+        return None
+    factor = int(factor)
+    supported = supportedUpscaleFactors(method)
+    if factor in supported:
+        return None
+    shown = "/".join(f"{value}x" for value in supported)
+    message = (
+        f"{method} is a {shown} upscale model and cannot upscale {factor}x. "
+        f"Give the stage 2x (--upscale {method} 2x, dropping any "
+        f"--upscale_factor {factor} that follows it)"
+    )
+    if factor == 4:
+        message += f"; for 4x, type it twice: --upscale {method} 2x --upscale"
+    else:
+        message += f"; only the maxine-* methods or a custom model take {factor}x"
+    return message + "."
+
+
+NCNN_UPSCALE_PACKAGE = "ncnn"
+
+# Same-model siblings worth suggesting in place of -ncnn, per platform.
+_NCNN_UPSCALE_ALTERNATIVES = {
+    "win32": ("", "-tensorrt", "-directml"),
+    "cygwin": ("", "-tensorrt", "-directml"),
+    "darwin": ("-mps",),
+}
+_NCNN_UPSCALE_ALTERNATIVES_DEFAULT = ("", "-tensorrt", "-rocm")
+
+
+def ncnnUpscaleRefusal(method: str) -> str | None:
+    """Why the NCNN upscale ``method`` cannot run here, or None when it can.
+
+    Every requirements profile installs the package, so it is missing only from
+    an install made before it was added.
+    """
+    if not method.endswith("-ncnn"):
+        return None
+    if importlib.util.find_spec(NCNN_UPSCALE_PACKAGE) is not None:
+        return None
+    base = method.removesuffix("-ncnn")
+    known = set(modelsList())
+    suffixes = _NCNN_UPSCALE_ALTERNATIVES.get(
+        sys.platform, _NCNN_UPSCALE_ALTERNATIVES_DEFAULT
+    )
+    alternatives = [base + s for s in suffixes if base + s in known]
+    return (
+        f"{method} needs the Python package '{NCNN_UPSCALE_PACKAGE}', which is not "
+        "installed; run TAS with --download_requirements to add it. "
+        f"Use {' or '.join(alternatives)} instead."
+    )
 
 
 def modelsMap(

@@ -393,6 +393,7 @@ class DepthV3MPS(DepthRunOutcome):
                 half=self.half,
                 resize=decodeResize,
                 toTorch=False,
+                uint8Frames=True,
             )
 
             self.writeBuffer = createWriteBuffer(

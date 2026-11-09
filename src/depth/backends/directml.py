@@ -20,9 +20,9 @@ from src.depth.backends._shared import (
     limboResolution,
 )
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
     createWriteBuffer,
@@ -171,7 +171,7 @@ class DepthDirectMLV2(DepthRunOutcome):
                     self.model, "OpenVINOExecutionProvider", "OpenVINO depth"
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
@@ -373,7 +373,7 @@ class LimboOpenVino(DepthDirectMLV2):
                 self.model, "OpenVINOExecutionProvider", "OpenVINO depth"
             )
         else:
-            logWarning(
+            warnCpuFallback(
                 "OpenVINO provider not available, falling back to CPU, expect "
                 "significantly worse performance"
             )

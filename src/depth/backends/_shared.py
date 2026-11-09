@@ -89,9 +89,12 @@ class DepthRunOutcome:
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
     def reportOutcome(self) -> None:
-        """Tell the AE panel how the run ended. Safe to call more than once."""
+        """Settle the run's outcome and tell the AE panel. Safe to call more
+        than once; every backend calls it after its threads have finished."""
         from src.constants import ADOBE
+        from src.io.runOutcome import recordWriterFailure
 
+        recordWriterFailure(self)
         if not ADOBE:
             return
         from src.server.aeComms import reportTerminalStatus

@@ -6,11 +6,7 @@ import os
 from src.infra.logAndPrint import logAndPrint
 
 from .registry import (
-    BIREFNET_URL,
-    DEPTHV2URLSMALL,
-    SUDOURL,
     TASURL,
-    TRANSNETV2URL,
     modelsMap,
     weightsDir,
 )
@@ -276,47 +272,5 @@ def downloadModels(
     folderPath = os.path.join(weightsDir, folderName)
     os.makedirs(folderPath, exist_ok=True)
 
-    if registryModel in [
-        "shift_lpips-tensorrt",
-        "shift_lpips-directml",
-    ]:
-        fullUrl = f"{SUDOURL}{filename}"
-        try:
-            # Just adds a redundant check if sudo decides to nuke his models.
-            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
-        except Exception as e:
-            logging.warning(f"Failed to download from SUDOURL: {e}")
-            fullUrl = f"{TASURL}{filename}"
-            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
-
-    elif registryModel.split("-")[0] == "cyte":
-        fullUrl = (
-            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
-            f"Cyte-V1-SuperUltraCompact/{filename}"
-        )
-
-    elif (limboBase := registryModel.split("-")[0].removesuffix("_43")) in {
-        "limbo_v2",
-        "limbo_v3",
-    }:
-        # Keep versioned cache names: upstream uses the same filenames as v1.
-        version = limboBase.removeprefix("limbo_v")
-        remoteFilename = filename.replace(f"LimboV{version}", "Limbo", 1)
-        fullUrl = (
-            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
-            f"Limbo-V{version}/{remoteFilename}"
-        )
-
-    elif registryModel == "transnetv2":
-        fullUrl = f"{TRANSNETV2URL}{filename}"
-
-    elif registryModel == "small_v2":
-        fullUrl = f"{DEPTHV2URLSMALL}{filename}"
-
-    elif registryModel == "birefnet":
-        fullUrl = f"{BIREFNET_URL}{filename}"
-
-    else:
-        fullUrl = f"{TASURL}{filename}"
-
+    fullUrl = f"{TASURL}{filename}"
     return downloadAndLog(downloadModel, filename, fullUrl, folderPath)

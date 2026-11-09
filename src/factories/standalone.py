@@ -5,6 +5,18 @@ read/process/write pipeline to completion.
 """
 
 
+def _decodeResize(self) -> bool:
+    """Whether the decoder must scale to ``self.width``/``self.height``.
+
+    VideoProcessor already shrank those to a standalone run's one ``--resize``;
+    a driver that decodes at the source size and builds or writes at these
+    dimensions crops the picture (stabilize), feeds a model frames of a size
+    it was not built for (motion blur) or hands the encoder frames it refuses
+    (object detection).
+    """
+    return any(spec.kind == "resize" for spec in getattr(self, "chain", ()))
+
+
 def objectDetection(self):
     if "directml" in self.objDetectMethod or "openvino" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionDML
@@ -23,6 +35,7 @@ def objectDetection(self):
             self.objDetectMethod,
             self.totalFrames,
             self.objDetectDisableAnnotations,
+            decodeResize=_decodeResize(self),
         )
     elif "tensorrt" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionTensorRT
@@ -41,6 +54,7 @@ def objectDetection(self):
             self.objDetectMethod,
             self.totalFrames,
             self.objDetectDisableAnnotations,
+            decodeResize=_decodeResize(self),
         )
     else:
         from src.objectDetection.objectDetection import ObjectDetection
@@ -153,6 +167,7 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
             segment_batch=self.segmentBatch,
+            decodeResize=_decodeResize(self),
         )
     elif self.segmentMethod == "anime-directml":
         from src.segment.animeSegment import AnimeSegmentDirectML
@@ -168,6 +183,7 @@ def segment(self):
             self.encodeMethod,
             self.benchmark,
             self.totalFrames,
+            decodeResize=_decodeResize(self),
         )
     elif self.segmentMethod == "anime-rocm":
         from src.segment.animeSegment import AnimeSegmentROCm
@@ -199,6 +215,7 @@ def segment(self):
             self.encodeMethod,
             self.benchmark,
             self.totalFrames,
+            decodeResize=_decodeResize(self),
         )
     elif self.segmentMethod in ("birefnet", "birefnet-rocm"):
         from src.segment.birefnetSegment import BiRefNetSegment
@@ -794,6 +811,7 @@ def motionBlur(self):
         static_step=self.staticStep,
         compile_mode=self.compileMode,
         decode_method=self.decodeMethod,
+        decode_resize=_decodeResize(self),
     )
     # No processingError read-back: MotionBlurPipeline re-raises, so this line
     # would be unreachable on failure and always None on success. main()'s
@@ -818,6 +836,7 @@ def stabilize(self):
         self.benchmark,
         self.totalFrames,
         self.bitDepth,
+        decodeResize=_decodeResize(self),
     )
     # VideoStabilize swallows its own pipeline exception, and this path never
     # reaches start(), so this is what lets main.py count the video as failed.

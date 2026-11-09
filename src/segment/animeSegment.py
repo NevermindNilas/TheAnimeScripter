@@ -8,15 +8,15 @@ import torch.nn.functional as F
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
     closeWriterAndDrainReader,
     createWriteBuffer,
 )
-from src.io.runOutcome import truncatedDecodeError
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -109,6 +109,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -350,6 +352,7 @@ class AnimeSegmentTensorRT:
         benchmark=False,
         totalFrames=0,
         segment_batch: int = 1,
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -365,6 +368,10 @@ class AnimeSegmentTensorRT:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.segmentBatch = max(1, int(segment_batch))
+        # A --resize target: the model's fixed I/O buffers are built at
+        # width x height, so the decoder has to deliver frames at that size
+        # (decoded at the source size, every frame failed to fit them).
+        self.decodeResize = decodeResize
 
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -384,6 +391,9 @@ class AnimeSegmentTensorRT:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -415,6 +425,8 @@ class AnimeSegmentTensorRT:
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -585,6 +597,7 @@ class AnimeSegmentDirectML:
         encode_method="x264",
         benchmark=False,
         totalFrames=0,
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -599,6 +612,10 @@ class AnimeSegmentDirectML:
         self.encode_method = encode_method
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        # A --resize target: the model's fixed I/O buffers are built at
+        # width x height, so the decoder has to deliver frames at that size
+        # (decoded at the source size, every frame failed to fit them).
+        self.decodeResize = decodeResize
 
         import onnxruntime as ort
 
@@ -611,6 +628,9 @@ class AnimeSegmentDirectML:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -646,6 +666,8 @@ class AnimeSegmentDirectML:
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -671,7 +693,7 @@ class AnimeSegmentDirectML:
             logging.info("DirectML provider available. Defaulting to DirectML")
             provider = "DmlExecutionProvider"
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             provider = "CPUExecutionProvider"
@@ -814,6 +836,7 @@ class AnimeSegmentOpenVino:
         encode_method="x264",
         benchmark=False,
         totalFrames=0,
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -828,6 +851,10 @@ class AnimeSegmentOpenVino:
         self.encode_method = encode_method
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        # A --resize target: the model's fixed I/O buffers are built at
+        # width x height, so the decoder has to deliver frames at that size
+        # (decoded at the source size, every frame failed to fit them).
+        self.decodeResize = decodeResize
 
         logAndPrint(
             "OpenVINO backend is an experimental feature, please report any issues you encounter.",
@@ -853,6 +880,9 @@ class AnimeSegmentOpenVino:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -888,6 +918,8 @@ class AnimeSegmentOpenVino:
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -914,7 +946,7 @@ class AnimeSegmentOpenVino:
             logging.info("OpenVINO provider available. Defaulting to OpenVINO")
             provider = "OpenVINOExecutionProvider"
         else:
-            logWarning(
+            warnCpuFallback(
                 "OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
             )
             provider = "CPUExecutionProvider"

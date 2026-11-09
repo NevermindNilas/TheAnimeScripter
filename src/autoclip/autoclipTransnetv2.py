@@ -5,9 +5,11 @@ import nelux
 import torch
 
 import src.constants as cs
+from src.autoclip._frames import eightBit
 from src.autoclip._results import writeCutResults
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
+from src.io.getVideoMetadata import storedResizeTarget
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -144,7 +146,8 @@ class AutoClipTransnetv2:
             self.input,
             backend="pytorch",
             decode_accelerator="cpu",
-            resize=(self.W, self.H),
+            # Stored orientation: nelux rotates a portrait clip after scaling.
+            resize=storedResizeTarget(self.input, self.W, self.H),
             prefetch=True,
         )
         fps = reader.fps
@@ -202,7 +205,7 @@ class AutoClipTransnetv2:
                 break
         if not chunk:
             return None
-        return torch.stack(chunk, dim=0)
+        return eightBit(torch.stack(chunk, dim=0))
 
     def _run(self):
         decoderIter, fps, startFrame, endFrame = self._openDecoder()

@@ -493,6 +493,7 @@ class VideoDepthTensorRT(DepthRunOutcome):
                 half=self.half,
                 resize=False,
                 toTorch=False,
+                uint8Frames=True,
             )
 
             self.writeBuffer = createWriteBuffer(

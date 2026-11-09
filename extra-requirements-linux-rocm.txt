@@ -15,7 +15,8 @@ einops==0.8.2
 onnx==1.23.2
 onnxruntime
 safetensors==0.8.0
-scenedetect[opencv]
+scenedetect[opencv-headless]==0.6.7
 yt-dlp==2026.8.19
 vmaf-torch
 https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp314-cp314-manylinux1_x86_64.whl
+ncnn==1.0.20261020
