@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - The `--download_requirements` picker on Windows offered the `linux-rocm` profile.
 - The portable build left out `extra-requirements-linux-rocm.txt`, so `--download_requirements linux-rocm` failed with "Requirements file not found".
 
+### Changed
+- `small_v2` on CUDA, ROCm and MPS no longer squashes the frame into a square at `--depth_quality low`/`medium`: it keeps the source aspect ratio like upstream Depth Anything V2 (1080p `low`: 518×518 → 924×518, 1.78× the pixels). TensorRT, DirectML and OpenVINO stay at 518×518.
+
+### Removed
+- Every `og_*` depth method. Use `small_v2`, `video_small_v2` (`--half false` for fp32) or `large_v3`; `og_large_v3`'s metric checkpoint has no replacement.
+
 ## [3.0.0] - 2026-11-01
 
 ### Added

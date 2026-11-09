@@ -321,71 +321,6 @@ def _depth(self):
                 self.depthQuality,
             )
 
-        case "og_small_v2":
-            from src.depth.backends.cuda import OGDepthV2CUDA
-
-            driver = OGDepthV2CUDA(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                compileMode=self.compileMode,
-                depth_batch=self.depthBatch,
-            )
-
-        case "og_small_v2-mps":
-            from src.depth.backends.mps import OGDepthV2MPS
-
-            driver = OGDepthV2MPS(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                compileMode=self.compileMode,
-                depth_batch=self.depthBatch,
-            )
-
-        case "og_video_small_v2":
-            from src.depth.backends.video import VideoDepthAnythingCUDA
-
-            driver = VideoDepthAnythingCUDA(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                compileMode=self.compileMode,
-            )
-
         case "video_small_v2":
             from src.depth.backends.video import VideoDepthAnythingTorch
 
@@ -453,31 +388,10 @@ def _depth(self):
                 depth_window=self.depthWindow,
             )
 
-        case "og_small_v2-tensorrt" | "video_small_v2-tensorrt":
-            from src.depth.backends.tensorrt import OGDepthV2TensorRT
+        case "video_small_v2-tensorrt":
+            from src.depth.backends.tensorrt import VideoDepthTensorRT
 
-            driver = OGDepthV2TensorRT(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                depth_batch=self.depthBatch,
-            )
-
-        case "og_small_v2-openvino":
-            from src.depth.backends.directml import OGDepthV2DirectML
-
-            driver = OGDepthV2DirectML(
+            driver = VideoDepthTensorRT(
                 self.input,
                 self.output,
                 self.width,
@@ -494,10 +408,10 @@ def _depth(self):
                 self.depthQuality,
             )
 
-        case "small_v3" | "base_v3" | "large_v3" | "og_large_v3":
-            from src.depth.backends.cuda import OGDepthV3Cuda
+        case "small_v3" | "base_v3" | "large_v3":
+            from src.depth.backends.cuda import DepthV3Cuda
 
-            driver = OGDepthV3Cuda(
+            driver = DepthV3Cuda(
                 self.input,
                 self.output,
                 self.width,
@@ -516,10 +430,10 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "small_v3-mps" | "base_v3-mps" | "large_v3-mps" | "og_large_v3-mps":
-            from src.depth.backends.mps import OGDepthV3MPS
+        case "small_v3-mps" | "base_v3-mps" | "large_v3-mps":
+            from src.depth.backends.mps import DepthV3MPS
 
-            driver = OGDepthV3MPS(
+            driver = DepthV3MPS(
                 self.input,
                 self.output,
                 self.width,
@@ -730,49 +644,6 @@ def _depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case "og_small_v2-rocm":
-            from src.depth.backends.rocm import OGDepthV2ROCm
-
-            driver = OGDepthV2ROCm(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                compileMode=self.compileMode,
-                depth_batch=self.depthBatch,
-            )
-
-        case "og_video_small_v2-rocm":
-            from src.depth.backends.rocm import VideoDepthAnythingROCm
-
-            driver = VideoDepthAnythingROCm(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                compileMode=self.compileMode,
-            )
-
         case "video_small_v2-rocm":
             from src.depth.backends.rocm import VideoDepthTorchROCm
 
@@ -839,10 +710,10 @@ def _depth(self):
                 depth_window=self.depthWindow,
             )
 
-        case "small_v3-rocm" | "base_v3-rocm" | "large_v3-rocm" | "og_large_v3-rocm":
-            from src.depth.backends.rocm import OGDepthV3ROCm
+        case "small_v3-rocm" | "base_v3-rocm" | "large_v3-rocm":
+            from src.depth.backends.rocm import DepthV3ROCm
 
-            driver = OGDepthV3ROCm(
+            driver = DepthV3ROCm(
                 self.input,
                 self.output,
                 self.width,

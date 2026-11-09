@@ -34,9 +34,8 @@ possible; no upstream reconstruction accuracy or memory benchmark is claimed.
 
 ## Why not `video_large_v3`?
 
-Our `large_v3` selects **DA3Mono-Large**, and `og_large_v3` selects
-**DA3Metric-Large**. Both checkpoints are Apache-2.0 and remain available for
-monocular video processing. Their backbone configuration has `alt_start: -1`,
+Our `large_v3` selects **DA3Mono-Large**, an Apache-2.0 checkpoint that remains
+available for monocular video processing. Its backbone configuration has `alt_start: -1`,
 disabling attention across views, and lacks the camera decoders needed by the
 upstream streaming alignment. Chunking these models does not add learned
 temporal context. **DA3-Large (any-view)** is a different checkpoint, licensed

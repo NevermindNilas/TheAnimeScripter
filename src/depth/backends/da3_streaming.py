@@ -5,12 +5,12 @@ import logging
 import numpy as np
 import torch
 
-from src.depth.backends.cuda import LimboCuda, OGDepthV3Cuda
+from src.depth.backends.cuda import DepthV3Cuda, LimboCuda
 from src.depth.chunk_stream import streamDepthChunks
 from src.infra.progressBarLogic import ProgressBarLogic
 
 
-class DA3StreamingCuda(OGDepthV3Cuda):
+class DA3StreamingCuda(DepthV3Cuda):
     def __init__(self, *args, depth_window=32, **kwargs):
         if depth_window not in (4, 8, 16, 32):
             raise ValueError("DA3 streaming window must be 4, 8, 16 or 32 frames")

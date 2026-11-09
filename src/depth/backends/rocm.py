@@ -9,9 +9,9 @@ drivers synchronize the same way. compileMode is ignored like the MPS backends
 
 import logging
 
-from src.depth.backends.cuda import DepthCuda, LimboCuda, OGDepthV2CUDA, OGDepthV3Cuda
+from src.depth.backends.cuda import DepthCuda, DepthV3Cuda, LimboCuda
 from src.depth.backends.da3_streaming import DA3StreamingCuda, LimboStreamingCuda
-from src.depth.backends.video import VideoDepthAnythingCUDA, VideoDepthAnythingTorch
+from src.depth.backends.video import VideoDepthAnythingTorch
 from src.infra.logAndPrint import logAndPrint
 
 
@@ -68,88 +68,6 @@ class DepthROCm(DepthCuda):
             depthQuality,
             _ignoreCompileMode(compileMode, depth_method),
             depth_batch,
-        )
-
-
-class OGDepthV2ROCm(OGDepthV2CUDA):
-    """og_small_v2-rocm."""
-
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        half,
-        inpoint=0,
-        outpoint=0,
-        encode_method="x264",
-        depth_method="og_small_v2-rocm",
-        benchmark=False,
-        totalFrames=0,
-        bitDepth="16bit",
-        depthQuality="high",
-        compileMode="default",
-        depth_batch=1,
-    ):
-        super().__init__(
-            input,
-            output,
-            width,
-            height,
-            fps,
-            half,
-            inpoint,
-            outpoint,
-            encode_method,
-            _stripRocm(depth_method),
-            benchmark,
-            totalFrames,
-            bitDepth,
-            depthQuality,
-            _ignoreCompileMode(compileMode, depth_method),
-            depth_batch,
-        )
-
-
-class VideoDepthAnythingROCm(VideoDepthAnythingCUDA):
-    """og_video_small_v2-rocm."""
-
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        half,
-        inpoint=0,
-        outpoint=0,
-        encode_method="x264",
-        depth_method="og_video_small_v2-rocm",
-        benchmark=False,
-        totalFrames=0,
-        bitDepth="16bit",
-        depthQuality="high",
-        compileMode="default",
-    ):
-        super().__init__(
-            input,
-            output,
-            width,
-            height,
-            fps,
-            half,
-            inpoint,
-            outpoint,
-            encode_method,
-            _stripRocm(depth_method),
-            benchmark,
-            totalFrames,
-            bitDepth,
-            depthQuality,
-            _ignoreCompileMode(compileMode, depth_method),
         )
 
 
@@ -231,8 +149,8 @@ class LimboStreamingROCm(LimboStreamingCuda):
         super().__init__(*args, depth_window=depth_window, **kwargs)
 
 
-class OGDepthV3ROCm(OGDepthV3Cuda):
-    """small_v3-rocm / base_v3-rocm / large_v3-rocm / og_large_v3-rocm."""
+class DepthV3ROCm(DepthV3Cuda):
+    """small_v3-rocm / base_v3-rocm / large_v3-rocm."""
 
     def __init__(
         self,

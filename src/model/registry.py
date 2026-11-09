@@ -265,9 +265,6 @@ def modelsList() -> list[str]:
         "transnetv2",
         "flownets",
         "dut",
-        "og_small_v2-mps",
-        "og_video_small_v2",
-        "og_video_small_v2-tensorrt",
         "video_small_v2-tensorrt",
         "video_small_v2",
         "video_small_v3",
@@ -287,11 +284,9 @@ def modelsList() -> list[str]:
         "small_v3",
         "base_v3",
         "large_v3",
-        "og_large_v3",
         "small_v3-mps",
         "base_v3-mps",
         "large_v3-mps",
-        "og_large_v3-mps",
         "limbo",
         "limbo-mps",
         "limbo-tensorrt",
@@ -302,8 +297,6 @@ def modelsList() -> list[str]:
         "limbo_v3-mps",
         "limbo_v3-tensorrt",
         "small_v2-rocm",
-        "og_small_v2-rocm",
-        "og_video_small_v2-rocm",
         "video_small_v2-rocm",
         "video_small_v3-rocm",
         "video_base_v3-rocm",
@@ -313,7 +306,6 @@ def modelsList() -> list[str]:
         "small_v3-rocm",
         "base_v3-rocm",
         "large_v3-rocm",
-        "og_large_v3-rocm",
         "limbo-rocm",
         "limbo_v2-rocm",
         "limbo_v3-rocm",
@@ -1048,9 +1040,6 @@ def modelsMap(
         case "small_v2":
             return "depth_anything_v2_vits.pth"
 
-        case "og_small_v2":
-            return "depth_anything_v2_vits.pth"
-
         case "small_v2-directml" | "small_v2-tensorrt":
             if half:
                 return "depth_anything_v2_vits_fp16.onnx"
@@ -1084,7 +1073,7 @@ def modelsMap(
             if modelType == "pth":
                 return "video_depth_anything_vits.pth"
 
-        case "og_video_small_v2-tensorrt" | "video_small_v2-tensorrt":
+        case "video_small_v2-tensorrt":
             if modelType == "onnx":
                 if half:
                     return "video_depth_anything_vits_fp16_op20_slim.onnx"
@@ -1104,14 +1093,10 @@ def modelsMap(
         # renamed from `depth_anything_v3_vitl.safetensors`, which until
         # 2026-10-16 held a copy with 50 of 64 head tensors zeroed (a flat
         # depth map); the new name makes cached copies of it miss and
-        # re-download. `og_large_v3` is the separate DA3METRIC-LARGE checkpoint.
+        # re-download.
         case "large_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitl_mono.safetensors"
-
-        case "og_large_v3":
-            if modelType == "pth":
-                return "depth_anything_v3_vitl_metric.safetensors"
 
         # Limbo is an anime finetune of DA3-small, exported at two fixed input
         # resolutions rather than a dynamic one. The CLI methods are "limbo"

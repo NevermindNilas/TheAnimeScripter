@@ -19,6 +19,7 @@ from src.depth.backends._shared import (
     STDTENSOR,
     STDTENSOR_HALF,
     DepthRunOutcome,
+    aspectKeepingInputSize,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -155,7 +156,7 @@ class DepthCuda(DepthRunOutcome):
         self.model = self.model.to(checker.device).eval()
         torch.cuda.empty_cache()
 
-        self.newHeight, self.newWidth = calculateAspectRatio(
+        self.newHeight, self.newWidth = aspectKeepingInputSize(
             self.width, self.height, self.depthQuality
         )
 
@@ -382,7 +383,9 @@ class LimboCuda(DepthCuda):
         return gray
 
 
-class OGDepthV2CUDA(DepthRunOutcome):
+class DepthV3Cuda(DepthRunOutcome):
+    """Depth Anything 3 on CUDA, one frame per scene; base of the streaming classes."""
+
     def __init__(
         self,
         input,
@@ -394,7 +397,7 @@ class OGDepthV2CUDA(DepthRunOutcome):
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        depth_method="small",
+        depth_method="small_v3",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -421,10 +424,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
 
         self.handleModels()
 
-        if not hasattr(self, "newHeight") or not hasattr(self, "newWidth"):
-            self.newHeight, self.newWidth = calculateAspectRatio(
-                self.width, self.height, self.depthQuality
-            )
         decodeW = getattr(self, "_decodeWidth", self.width)
         decodeH = getattr(self, "_decodeHeight", self.height)
         decodeResize = getattr(self, "_decodeResize", False)
@@ -440,11 +439,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
                 toTorch=False,
             )
 
-            # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
-            # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
-            # --encode_method said, ignored --bit_depth,
-            # and dropped the source audio. createWriteBuffer is what every other
-            # depth backend uses, OGDepthV2TensorRT included.
             self.writeBuffer = createWriteBuffer(
                 self.encode_method,
                 input=self.input,
@@ -466,106 +460,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
             logging.exception(f"Something went wrong, {e}")
 
         self.reportOutcome()
-
-    def handleModels(self):
-        from ..og_dpt_v2 import DepthAnythingV2
-
-        match self.depth_method:
-            case "og_small_v2":
-                method = "vits"
-                toDownload = "small_v2"
-            case _:
-                raise ValueError(f"Unsupported CUDA depth method: {self.depth_method}")
-
-        modelType = "pth"
-        self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
-
-        modelPath = resolveWeightPath(
-            toDownload,
-            self.filename,
-            half=self.half,
-            modelType=modelType,
-        )
-
-        modelConfigs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-        }
-
-        self.model = DepthAnythingV2(**modelConfigs[method])
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-
-        self.model = self.model.to(checker.device).eval()
-
-        self.newHeight, self.newWidth = calculateAspectRatio(
-            self.width, self.height, self.depthQuality
-        )
-
-        if self.half and checker.cudaAvailable:
-            self.model = self.model.half()
-        else:
-            self.model = self.model.float()
-
-        self.normStream = torch.cuda.Stream()
-        self.stream = torch.cuda.Stream()
-
-        if self.compileMode != "default":
-            try:
-                if self.compileMode == "max":
-                    self.model.compile(mode="max-autotune-no-cudagraphs")
-                elif self.compileMode == "max-graphs":
-                    self.model.compile(
-                        mode="max-autotune-no-cudagraphs", fullgraph=True
-                    )
-            except Exception as e:
-                logging.error(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
-                )
-                logAndPrint(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
-                    "red",
-                )
-
-            self.compileMode = "default"
-
-    @torch.inference_mode()
-    def processBatch(self, frames):
-        try:
-            # per-frame preprocess (cv2 resize/normalize), then one batched forward
-            tensors = []
-            sizes = []
-            for frame in frames:
-                image, (h, w) = self.model.image2tensor(frame, self.newHeight)
-                image = image.half() if self.half else image.float()
-                tensors.append(image)
-                sizes.append((h, w))
-
-            batch = tensors[0] if len(tensors) == 1 else torch.cat(tensors, dim=0)
-            depth = self.model.forward(batch)
-            # og DepthAnythingV2 squeezes to [B,H,W]
-            if depth.dim() == 3:
-                depth = depth.unsqueeze(1)
-            else:
-                depth = depth[:, :1]
-
-            for i, (h, w) in enumerate(sizes):
-                d = F.interpolate(
-                    depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
-                )
-                minVal = d.min()
-                d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
-                # The writer takes [1, C, H, W] in [0, 1] and quantizes once,
-                # to 8 or 16 bit per --bit_depth, instead of the byte() cast
-                # this path used to hardcode. Land on the CPU first: the writer
-                # copies on its own private stream and never waits on ours, so
-                # .cpu() is both the handoff and the sync.
-                self.writeBuffer.write(d.float().cpu())
-        except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
@@ -590,8 +484,6 @@ class OGDepthV2CUDA(DepthRunOutcome):
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
 
-
-class OGDepthV3Cuda(OGDepthV2CUDA):
     def handleModels(self):
         from .. import depth_anything_3 as depth_anything_3_pkg
 
@@ -604,7 +496,6 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             "small_v3": "da3-small",
             "base_v3": "da3-base",
             "large_v3": "da3mono-large",
-            "og_large_v3": "da3metric-large",
         }
         modelName = modelMap[toDownload]
 
@@ -629,9 +520,6 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         fold_layerscale_(self.model)
         installLeanHead(self.model)
 
-        self.newHeight, self.newWidth = calculateAspectRatio(
-            self.width, self.height, self.depthQuality
-        )
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )

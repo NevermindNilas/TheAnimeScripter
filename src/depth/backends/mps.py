@@ -15,6 +15,7 @@ from src.constants import ADOBE
 from src.depth.backends._batch import iterBatches
 from src.depth.backends._shared import (
     DepthRunOutcome,
+    aspectKeepingInputSize,
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
@@ -192,7 +193,7 @@ class DepthMPS(DepthRunOutcome):
         self.model.load_state_dict(stateDict)
         del stateDict
 
-        self.newHeight, self.newWidth = calculateAspectRatio(
+        self.newHeight, self.newWidth = aspectKeepingInputSize(
             self.width, self.height, self.depthQuality
         )
         self._finalizeModelPrecision()
@@ -281,7 +282,7 @@ class LimboMPS(DepthMPS):
             self.width, self.height, self.depthQuality
         )
 
-        # fp32 whatever --half says, matching OGDepthV3MPS: DA3's forward only
+        # fp32 whatever --half says, matching DepthV3MPS: DA3's forward only
         # autocasts on CUDA, so a halved model would run the whole DINOv2 stack
         # in pure fp16 on MPS. The other v3 methods do not take that risk.
         self.model = self.model.float().eval().to(self.device)
@@ -331,7 +332,9 @@ class LimboMPS(DepthMPS):
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
 
-class OGDepthV2MPS(DepthRunOutcome):
+class DepthV3MPS(DepthRunOutcome):
+    """Depth Anything 3 on MPS, one frame per scene."""
+
     def __init__(
         self,
         input,
@@ -343,7 +346,7 @@ class OGDepthV2MPS(DepthRunOutcome):
         inpoint=0,
         outpoint=0,
         encode_method="x264",
-        depth_method="og_small_v2-mps",
+        depth_method="small_v3-mps",
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -377,10 +380,6 @@ class OGDepthV2MPS(DepthRunOutcome):
 
         self.handleModels()
 
-        if not hasattr(self, "newHeight") or not hasattr(self, "newWidth"):
-            self.newHeight, self.newWidth = calculateAspectRatio(
-                self.width, self.height, self.depthQuality
-            )
         decodeW = getattr(self, "_decodeWidth", self.width)
         decodeH = getattr(self, "_decodeHeight", self.height)
         decodeResize = getattr(self, "_decodeResize", False)
@@ -396,10 +395,6 @@ class OGDepthV2MPS(DepthRunOutcome):
                 toTorch=False,
             )
 
-            # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
-            # every og_* and *_v3 depth run wrote MPEG-4 Part 2 no matter what
-            # --encode_method said, and ignored --bit_depth. createWriteBuffer is
-            # what every other depth backend uses.
             self.writeBuffer = createWriteBuffer(
                 self.encode_method,
                 input=self.input,
@@ -422,104 +417,6 @@ class OGDepthV2MPS(DepthRunOutcome):
 
         self.reportOutcome()
 
-    def _finalizeModelPrecision(self):
-        self.model = self.model.eval()
-        if self.half:
-            try:
-                self.model = self.model.half()
-                self.dtype = torch.float16
-            except Exception as e:
-                logging.warning(f"Falling back to fp32 for MPS depth model: {e}")
-                self.model = self.model.float()
-                self.half = False
-                self.dtype = torch.float32
-        else:
-            self.model = self.model.float()
-            self.dtype = torch.float32
-
-        self.model = self.model.to(self.device)
-
-        if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
-                "yellow",
-            )
-            self.compileMode = "default"
-
-    def handleModels(self):
-        from ..og_dpt_v2 import DepthAnythingV2
-
-        if ADOBE:
-            progressState.update(
-                {"status": f"Loading MPS depth model: {self.depth_method}..."}
-            )
-
-        match self.baseMethod:
-            case "og_small_v2":
-                method = "vits"
-                toDownload = "small_v2"
-            case _:
-                raise ValueError(f"Unsupported MPS depth method: {self.depth_method}")
-
-        modelType = "pth"
-        self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
-        modelPath = resolveWeightPath(
-            toDownload,
-            self.filename,
-            half=self.half,
-            modelType=modelType,
-        )
-
-        modelConfigs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-        }
-
-        self.model = DepthAnythingV2(**modelConfigs[method])
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-
-        self.newHeight, self.newWidth = calculateAspectRatio(
-            self.width, self.height, self.depthQuality
-        )
-        self._finalizeModelPrecision()
-
-    @torch.inference_mode()
-    def processBatch(self, frames):
-        try:
-            tensors = []
-            sizes = []
-            for frame in frames:
-                image, (h, w) = self.model.image2tensor(frame, self.newHeight)
-                image = image.to(self.device, dtype=self.dtype)
-                tensors.append(image)
-                sizes.append((h, w))
-
-            batch = tensors[0] if len(tensors) == 1 else torch.cat(tensors, dim=0)
-            depth = self.model.forward(batch)
-            torch.mps.synchronize()
-            if depth.dim() == 3:
-                depth = depth.unsqueeze(1)
-            else:
-                depth = depth[:, :1]
-            depth = depth.cpu()
-
-            for i, (h, w) in enumerate(sizes):
-                d = F.interpolate(
-                    depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
-                )
-                minVal = d.min()
-                d = (d - minVal) / (d.max() - minVal).clamp_min(1e-6)
-                # The writer takes [1, C, H, W] in [0, 1] and quantizes once,
-                # to 8 or 16 bit per --bit_depth, instead of the byte() cast
-                # this path used to hardcode.
-                self.writeBuffer.write(d.float().cpu())
-        except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
-
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
@@ -531,8 +428,6 @@ class OGDepthV2MPS(DepthRunOutcome):
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
 
-
-class OGDepthV3MPS(OGDepthV2MPS):
     def handleModels(self):
         if ADOBE:
             progressState.update(
@@ -551,7 +446,6 @@ class OGDepthV3MPS(OGDepthV2MPS):
             "small_v3": "da3-small",
             "base_v3": "da3-base",
             "large_v3": "da3mono-large",
-            "og_large_v3": "da3metric-large",
         }
         modelName = modelMap[self.baseMethod]
 
@@ -573,9 +467,6 @@ class OGDepthV3MPS(OGDepthV2MPS):
 
         fold_layerscale_(self.model)
 
-        self.newHeight, self.newWidth = calculateAspectRatio(
-            self.width, self.height, self.depthQuality
-        )
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )

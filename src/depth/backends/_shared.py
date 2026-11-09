@@ -132,6 +132,30 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
     return newHeight, newWidth
 
 
+def aspectKeepingInputSize(width, height, depthQuality="low"):
+    """Model input as (height, width) for the torch ``small_v2`` backends.
+
+    Upstream Depth Anything V2's ``lower_bound`` resize: the shortest side
+    reaches the quality's size, the other side follows the aspect ratio, and
+    both land on a multiple of 14. ``high`` keeps the source-size grid. The ONNX
+    backends stay on calculateAspectRatio's 518x518: their graphs are fixed to it.
+    """
+    if depthQuality == "high":
+        return calculateAspectRatio(width, height, depthQuality)
+
+    target = 700 if depthQuality == "medium" else 518
+    scale = target / min(width, height)
+
+    def snap(side):
+        scaled = side * scale / 14
+        snapped = round(scaled) * 14
+        return snapped if snapped >= target else math.ceil(scaled) * 14
+
+    newHeight, newWidth = snap(height), snap(width)
+    logging.info(f"Depth Padding: {newWidth}x{newHeight}")
+    return newHeight, newWidth
+
+
 def videoDepthInputSize(width, height, depthQuality="low"):
     """Shortest-side target for VideoDepthAnything's ``input_size``.
 

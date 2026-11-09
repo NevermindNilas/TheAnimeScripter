@@ -254,7 +254,6 @@ def downloadModels(
         downloadModel = downloadModel.removesuffix("-tensorrt")
         modelType = "pth"  # The multi-view ONNX is generated locally on first use.
     registryModel = {
-        "og_small_v2": "small_v2",
         "video_small_v3": "small_v3",
         "video_base_v3": "base_v3",
         "video_limbo": "limbo",

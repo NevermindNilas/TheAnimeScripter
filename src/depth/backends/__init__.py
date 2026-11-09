@@ -3,45 +3,37 @@ from typing import TYPE_CHECKING
 
 __all__ = [
     "DepthCuda",
-    "OGDepthV2CUDA",
-    "OGDepthV3Cuda",
+    "DepthV3Cuda",
     "DA3StreamingCuda",
     "LimboStreamingCuda",
     "DepthMPS",
-    "OGDepthV2MPS",
-    "OGDepthV3MPS",
+    "DepthV3MPS",
     "DepthTensorRTV2",
-    "OGDepthV2TensorRT",
+    "VideoDepthTensorRT",
     "DepthDirectMLV2",
-    "OGDepthV2DirectML",
-    "VideoDepthAnythingCUDA",
     "VideoDepthAnythingTorch",
 ]
 
 _EXPORTS = {
     "DepthCuda": ".cuda",
-    "OGDepthV2CUDA": ".cuda",
-    "OGDepthV3Cuda": ".cuda",
+    "DepthV3Cuda": ".cuda",
     "DA3StreamingCuda": ".da3_streaming",
     "LimboStreamingCuda": ".da3_streaming",
     "DepthMPS": ".mps",
-    "OGDepthV2MPS": ".mps",
-    "OGDepthV3MPS": ".mps",
+    "DepthV3MPS": ".mps",
     "DepthTensorRTV2": ".tensorrt",
-    "OGDepthV2TensorRT": ".tensorrt",
+    "VideoDepthTensorRT": ".tensorrt",
     "DepthDirectMLV2": ".directml",
-    "OGDepthV2DirectML": ".directml",
-    "VideoDepthAnythingCUDA": ".video",
     "VideoDepthAnythingTorch": ".video",
 }
 
 if TYPE_CHECKING:
-    from .cuda import DepthCuda, OGDepthV2CUDA, OGDepthV3Cuda
+    from .cuda import DepthCuda, DepthV3Cuda
     from .da3_streaming import DA3StreamingCuda, LimboStreamingCuda
-    from .directml import DepthDirectMLV2, OGDepthV2DirectML
-    from .mps import DepthMPS, OGDepthV2MPS, OGDepthV3MPS
-    from .tensorrt import DepthTensorRTV2, OGDepthV2TensorRT
-    from .video import VideoDepthAnythingCUDA, VideoDepthAnythingTorch
+    from .directml import DepthDirectMLV2
+    from .mps import DepthMPS, DepthV3MPS
+    from .tensorrt import DepthTensorRTV2, VideoDepthTensorRT
+    from .video import VideoDepthAnythingTorch
 
 
 def __getattr__(name):
