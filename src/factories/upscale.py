@@ -177,7 +177,7 @@ def buildUpscaleProcess(self, width=None, height=None):
                 height,
             )
 
-        case "shufflecugan-ncnn" | "adore-ncnn" | "span-ncnn":
+        case "shufflecugan-ncnn" | "span-ncnn":
             from src.upscale.ncnn import UniversalNCNN
 
             return UniversalNCNN(

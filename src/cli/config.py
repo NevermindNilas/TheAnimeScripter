@@ -40,19 +40,6 @@ def _actionsByDest(parser):
     return cached
 
 
-def _publicActionsByDest(parser):
-    """Cached action map minus the ``help``/``version`` pseudo-actions."""
-    cached = getattr(parser, "_tas_public_actions_by_dest", None)
-    if cached is None:
-        cached = {
-            action.dest: action
-            for action in parser._actions
-            if action.dest not in ("help", "version")
-        }
-        parser._tas_public_actions_by_dest = cached
-    return cached
-
-
 def _defaultsByDest(parser):
     """Cached ``{dest: default}`` map for a parser (built once, then reused)."""
     cached = getattr(parser, "_tas_defaults_by_dest", None)
@@ -289,11 +276,6 @@ class CliConfig:
 
     def optionWasProvided(self, optionName):
         return optionName in self.providedOptions or optionName in self.jsonKeys
-
-    @property
-    def parserActionsByDest(self):
-        # Reuses the parser-level cache: no per-access rebuild.
-        return _publicActionsByDest(self.parser)
 
     @property
     def parserDefaults(self):

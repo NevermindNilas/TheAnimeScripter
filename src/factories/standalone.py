@@ -57,20 +57,8 @@ def objectDetection(self):
             decodeResize=_decodeResize(self),
         )
     else:
-        from src.objectDetection.objectDetection import ObjectDetection
-
-        driver = ObjectDetection(
-            self.input,
-            self.output,
-            self.width,
-            self.height,
-            self.fps,
-            self.inpoint,
-            self.outpoint,
-            self.encodeMethod,
-            self.benchmark,
-            self.totalFrames,
-            self.half,
+        raise ValueError(
+            f"No object detection backend is wired up for method '{self.objDetectMethod}'."
         )
 
     # These drivers swallow their own pipeline exception, and this path never
@@ -200,22 +188,6 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
             segment_batch=self.segmentBatch,
-        )
-    elif self.segmentMethod == "anime-openvino":
-        from src.segment.animeSegment import AnimeSegmentOpenVino
-
-        driver = AnimeSegmentOpenVino(
-            self.input,
-            self.output,
-            self.width,
-            self.height,
-            self.fps,
-            self.inpoint,
-            self.outpoint,
-            self.encodeMethod,
-            self.benchmark,
-            self.totalFrames,
-            decodeResize=_decodeResize(self),
         )
     elif self.segmentMethod in ("birefnet", "birefnet-rocm"):
         from src.segment.birefnetSegment import BiRefNetSegment

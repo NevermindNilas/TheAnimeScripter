@@ -217,9 +217,8 @@ class SceneChangeMSE(_MSEBase):
 
 
 class SceneChangeScorer6chDetector:
-    """Wrap the shared 6-channel ONNX classifier (maxxvit / differential /
-    shift_lpips) as a streaming detector. Cut when cut-probability >
-    threshold."""
+    """Wrap the shared 6-channel ONNX classifier (maxxvit) as a streaming
+    detector. Cut when cut-probability > threshold."""
 
     def __init__(self, method, threshold=0.5, half=True, size=224):
         from src.sceneChange.scorer6ch import SceneChangeScorer6ch

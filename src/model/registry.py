@@ -76,7 +76,6 @@ def modelsList() -> list[str]:
         "shufflecugan",
         "adore",
         "adore-tensorrt",
-        "adore-ncnn",
         "adore-directml",
         "adore-openvino",
         "segment",
@@ -87,7 +86,6 @@ def modelsList() -> list[str]:
         "scunet-tensorrt",
         "scunet-directml",
         "gater3",
-        "gater3-tensorrt",
         "gater3-directml",
         "deepdeband-f",
         "dpir",
@@ -123,7 +121,6 @@ def modelsList() -> list[str]:
         "distildrba",
         "distildrba-lite",
         "rife4.6-tensorrt",
-        "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
         "rife4.18-tensorrt",
         "rife4.20-tensorrt",
@@ -246,9 +243,6 @@ def modelsList() -> list[str]:
         "small_v2-tensorrt",
         "maxxvit-tensorrt",
         "maxxvit-directml",
-        "shift_lpips-tensorrt",
-        "shift_lpips-directml",
-        "differential-tensorrt",
         "transnetv2",
         "flownets",
         "dut",
@@ -568,13 +562,7 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
 
-        case (
-            "adore"
-            | "adore-tensorrt"
-            | "adore-ncnn"
-            | "adore-directml"
-            | "adore-openvino"
-        ):
+        case "adore" | "adore-tensorrt" | "adore-directml" | "adore-openvino":
             if modelType == "pth":
                 return "adore.pth"
             elif modelType == "onnx":
@@ -696,7 +684,7 @@ def modelsMap(
                 else:
                     return "1x_DeH264_SPAN_fp32_op20_slim.onnx"
 
-        case "gater3" | "gater3-tensorrt" | "gater3-directml":
+        case "gater3" | "gater3-directml":
             if modelType == "pth":
                 return "1x_umzi_adc_gater3_v1.safetensors"
             elif modelType == "onnx":
@@ -711,7 +699,6 @@ def modelsMap(
         case (
             "rife4.25-heavy"
             | "rife4.25-heavy-tensorrt"
-            | "rife4.25-heavy-ncnn"
             | "rife4.25-heavy-directml"
             | "rife4.25-heavy-openvino"
         ):
@@ -742,7 +729,7 @@ def modelsMap(
             if modelType in ("pth", "onnx"):
                 return "rife426_heavy.pth"
 
-        case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
+        case "rife_elexor" | "rife_elexor-tensorrt":
             if modelType in ("pth", "onnx"):
                 return "rife_elexor.pth"
             elif modelType == "ncnn":
@@ -751,7 +738,6 @@ def modelsMap(
         case (
             "rife4.25-lite"
             | "rife4.25-lite-tensorrt"
-            | "rife4.25-lite-ncnn"
             | "rife4.25-lite-directml"
             | "rife4.25-lite-openvino"
         ):
@@ -769,11 +755,7 @@ def modelsMap(
             return "v2_lite.pkl"
 
         case (
-            "rife4.25"
-            | "rife4.25-tensorrt"
-            | "rife4.25-ncnn"
-            | "rife4.25-directml"
-            | "rife4.25-openvino"
+            "rife4.25" | "rife4.25-tensorrt" | "rife4.25-directml" | "rife4.25-openvino"
         ):
             if modelType == "pth":
                 return "rife425.pth"
@@ -794,9 +776,6 @@ def modelsMap(
                         )
                     else:
                         return "rife425_fp32_op21_slim.onnx"
-
-            elif modelType == "ncnn":
-                pass
 
         case (
             "rife4.22-lite"
@@ -999,7 +978,7 @@ def modelsMap(
                 else:
                     return "rife-v4.17-ncnn.zip"
 
-        case "rife4.15-lite" | "rife4.15-lite-tensorrt" | "rife4.15-lite-ncnn":
+        case "rife4.15-lite" | "rife4.15-lite-ncnn":
             if modelType == "pth":
                 return "rife415_lite.pth"
             elif modelType == "onnx":
@@ -1029,11 +1008,7 @@ def modelsMap(
                     return "rife-v4.16-lite-ncnn.zip"
 
         case (
-            "rife4.15"
-            | "rife4.15-tensorrt"
-            | "rife4.15-ncnn"
-            | "rife4.15-directml"
-            | "rife4.15-openvino"
+            "rife4.15" | "rife4.15-tensorrt" | "rife4.15-directml" | "rife4.15-openvino"
         ):
             if modelType == "pth":
                 return "rife415.pth"
@@ -1087,15 +1062,6 @@ def modelsMap(
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_fp16_op17_onnxslim.onnx"
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
-
-        case "shift_lpips-tensorrt" | "shift_lpips-directml":
-            if half:
-                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_fp16_onnxslim.onnx"
-            else:
-                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_onnxslim.onnx"
-
-        case "differential-tensorrt":
-            return "scene_change_nilas.onnx"
 
         case "transnetv2":
             return "transnetv2-pytorch-weights.pth"

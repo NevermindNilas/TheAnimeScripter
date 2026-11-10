@@ -1,6 +1,5 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
 
 import cv2
 import numpy as np
@@ -16,7 +15,6 @@ from src.io.ffmpegSettings import (
     drainReader,
 )
 from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
-from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
     from src.server.aeComms import progressState, reportTerminalStatus
@@ -67,14 +65,6 @@ class VideoStabilize:
         self.orbScaleFactor = 1.2
         self.orbLevels = 8
         self.orbRatioTest = 0.8
-        self.superPointMatchThreshold = 0.3
-        self.superPointMaxKeypoints = 4096
-        self.superPointDetectionThreshold = 0.01
-        self.superPointModel = None
-        self.superPointDevice = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu"
-        )
-        self.superPointOptimizationIterations = 50
 
         self.transforms = []
         self.meanMatchScores = []
@@ -87,8 +77,8 @@ class VideoStabilize:
         # this call's currGray and next call's prevGray (same object). Caching
         # (keypoints, descriptors) for the frame just processed as curr lets the
         # next iteration reuse it as prev, so each frame's detectAndCompute runs
-        # once instead of twice. Keyed on object identity, so a miss (e.g. the
-        # SuperPoint path served the pair) simply recomputes -- never stale.
+        # once instead of twice. Keyed on object identity, so a miss simply
+        # recomputes -- never stale.
         self._orbCacheGray = None
         self._orbCacheKp = None
         self._orbCacheDes = None
@@ -102,7 +92,6 @@ class VideoStabilize:
             fastThreshold=15,
         )
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-        self._initSuperPoint()
 
         # Recorded, not merely logged: --stabilize bypasses start(), so this is
         # the only place a pipeline failure can be observed. main.py decides the
@@ -182,46 +171,7 @@ class VideoStabilize:
             f"Stabilization analysis complete: {len(self.transforms)} transforms, {len(self.meanMatchScores)} match scores"
         )
 
-    def _initSuperPoint(self):
-        # SuperPoint is disabled: the published superpoint_v6_from_tf
-        # checkpoint's key names (backbone.*.conv/bn) do not match this
-        # architecture's Sequential (.0/.2) naming, so .load() always raises
-        # and every run fell back to ORB/LK — after torch.hub downloading a
-        # ~5MB checkpoint on cold runs (a hard network dependency offline)
-        # and paying ~23ms warm, all for a path that can never activate.
-        # Re-enable by restoring the load once a matching checkpoint ships;
-        # note that would CHANGE stabilization output, which today always
-        # comes from the ORB/LK path.
-        self.superPointModel = None
-        logging.info(
-            "SuperPoint disabled (checkpoint/arch mismatch); using ORB/LK path"
-        )
-
-    def _grayToSuperPointTensor(self, gray):
-        h, w = gray.shape[:2]
-        maxDim = max(h, w)
-        resizeScale = 1.0
-
-        if maxDim > self.analysisWidth:
-            resizeScale = self.analysisWidth / float(maxDim)
-            newW = max(32, int(round(w * resizeScale)))
-            newH = max(32, int(round(h * resizeScale)))
-            gray = cv2.resize(gray, (newW, newH), interpolation=cv2.INTER_AREA)
-
-        tensor = (
-            torch.from_numpy(gray)
-            .to(self.superPointDevice, dtype=torch.float32)
-            .div(255.0)
-            .unsqueeze(0)
-            .unsqueeze(0)
-        )
-        return tensor, resizeScale
-
     def _estimateTransform(self, prevGray, currGray):
-        superPointResult = self._estimateTransformSuperPoint(prevGray, currGray)
-        if superPointResult is not None:
-            return superPointResult
-
         orbResult = self._estimateTransformORB(prevGray, currGray)
         if orbResult is not None:
             return orbResult
@@ -282,97 +232,6 @@ class VideoStabilize:
                 matchScore = float(np.clip(matchScore, 0.0, 1.0))
 
         return dx, dy, da, matchScore
-
-    def _estimateTransformSuperPoint(self, prevGray, currGray):
-        if self.superPointModel is None:
-            return None
-
-        prevTensor, resizeScale = self._grayToSuperPointTensor(prevGray)
-        currTensor, _ = self._grayToSuperPointTensor(currGray)
-
-        try:
-            autocastCtx = (
-                torch.autocast(device_type=self.superPointDevice.type)
-                if self.superPointDevice.type != "cpu"
-                else nullcontext()
-            )
-            with torch.inference_mode(), autocastCtx:
-                kpBatch = self.superPointModel.infer(
-                    torch.cat([prevTensor, currTensor], dim=0)
-                )
-
-            kp1 = kpBatch[0]
-            kp2 = kpBatch[1]
-            if kp1["keypoints"].shape[0] < 10 or kp2["keypoints"].shape[0] < 10:
-                return None
-
-            idx1, idx2, scores = find_match_index(
-                kp1,
-                kp2,
-                threshold=self.superPointMatchThreshold,
-                return_score=True,
-            )
-
-            if idx1.numel() < 10:
-                return None
-
-            pts1Torch = kp1["keypoints"][idx1].detach().float()
-            pts2Torch = kp2["keypoints"][idx2].detach().float()
-            scoreVals = scores.detach().float().cpu().numpy()
-            center = [
-                float(prevTensor.shape[3]) * 0.5,
-                float(prevTensor.shape[2]) * 0.5,
-            ]
-
-            try:
-                shift, _, angle, _ = find_transform(
-                    pts1Torch,
-                    pts2Torch,
-                    center=center,
-                    iteration=self.superPointOptimizationIterations,
-                    sigma=2.0,
-                    disable_scale=True,
-                )
-                dx = float(shift[0].item())
-                dy = float(shift[1].item())
-                da = float(angle.item())
-                inlierRatio = 1.0
-            except Exception:
-                pts1 = pts1Torch.cpu().numpy()
-                pts2 = pts2Torch.cpu().numpy()
-                matrix, inliers = cv2.estimateAffinePartial2D(
-                    pts1,
-                    pts2,
-                    method=cv2.RANSAC,
-                    ransacReprojThreshold=2.5,
-                    confidence=0.995,
-                )
-                if matrix is None:
-                    return None
-
-                dx = float(matrix[0, 2])
-                dy = float(matrix[1, 2])
-                da = float(np.arctan2(matrix[1, 0], matrix[0, 0]))
-                if inliers is None:
-                    inlierRatio = 0.0
-                else:
-                    inlierRatio = float(np.mean(inliers.astype(np.float32)))
-
-            if resizeScale != 1.0:
-                invScale = 1.0 / resizeScale
-                dx *= invScale
-                dy *= invScale
-
-            descriptorScore = float(np.mean(scoreVals)) if scoreVals.size > 0 else 0.0
-            matchScore = float(
-                np.clip(0.6 * descriptorScore + 0.4 * inlierRatio, 0.0, 1.0)
-            )
-            return dx, dy, da, matchScore
-        except Exception as e:
-            logging.warning(
-                f"SuperPoint estimation failed, using ORB/LK fallback ({e})"
-            )
-            return None
 
     def _estimateTransformORB(self, prevGray, currGray):
         prevH, prevW = prevGray.shape[:2]

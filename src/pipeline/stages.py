@@ -42,7 +42,7 @@ STATELESS_UPSCALE_ALLOWLIST = {
         f"{method}-rocm" for method in _BASE_STATELESS_UPSCALE_METHODS
     ),
     "UniversalDirectML": _ORT_STATELESS_UPSCALE_METHODS,
-    "UniversalNCNN": frozenset({"shufflecugan-ncnn", "adore-ncnn", "span-ncnn"}),
+    "UniversalNCNN": frozenset({"shufflecugan-ncnn", "span-ncnn"}),
     "UniversalTensorRT": frozenset(
         f"{method}-tensorrt" for method in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
     ),

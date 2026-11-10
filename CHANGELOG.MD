@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Changed
 - `small_v2` on CUDA, ROCm and MPS no longer squashes the frame into a square at `--depth_quality low`/`medium`: it keeps the source aspect ratio like upstream Depth Anything V2 (1080p `low`: 518×518 → 924×518, 1.78× the pixels). TensorRT, DirectML and OpenVINO stay at 518×518.
-- Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte, Limbo V2/V3 and shift_lpips no longer depend on third-party locations.
+- Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte and Limbo V2/V3 no longer depend on third-party locations.
 
 ### Fixed
 - `rife*-ncnn` on Linux wrote pure black inserted frames and exited 0 because the model path never reached the loader (macOS took the same path). It now loads, and a model folder missing `flownet.param`/`flownet.bin` stops the run with an error.

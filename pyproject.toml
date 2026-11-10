@@ -19,7 +19,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
-"src/segment/train.py" = ["F821"]    # training-only path; InSPyReNet arch not vendored for inference
 "src/io/ffmpegSettings.py" = ["E402", "I001"]  # nelux raises if imported before torch and after macOS link repair
 
 [tool.ruff.format]

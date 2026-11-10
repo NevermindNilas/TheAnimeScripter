@@ -187,7 +187,6 @@ class VideoDownloader:
     def downloadVideo(self):
         from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
-        self.downloadedFile = None
         # One bar per stream: bestvideo+bestaudio downloads video, then audio.
         bar = None
         done = 0
@@ -220,7 +219,6 @@ class VideoDownloader:
                     done = downloaded
 
             elif status == "finished":
-                self.downloadedFile = d.get("filename")
                 if bar is not None:
                     # End on the real size so the bar closes at 100%.
                     bar.updateTotal(max(done, downloaded))

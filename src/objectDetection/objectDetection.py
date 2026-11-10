@@ -28,7 +28,6 @@ if ADOBE:
 checker = CudaChecker()
 
 __all__ = [
-    "ObjectDetection",
     "ObjectDetectionDML",
     "ObjectDetectionTensorRT",
     "draw_detections",
@@ -697,25 +696,3 @@ class ObjectDetectionTensorRT:
             if decodeError is not None and self.processingError is None:
                 self.processingError = decodeError
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
-
-
-class ObjectDetection:
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        inpoint=0,
-        outpoint=0,
-        encodeMethod="x264",
-        benchmark=False,
-        totalFrames=0,
-        half=False,
-        disableAnnotations=False,
-    ):
-        logging.error("CUDA object detection not yet implemented")
-        raise NotImplementedError(
-            "CUDA object detection is not yet implemented. Please use DirectML backend with --obj_detect_method yolov9_small-directml"
-        )

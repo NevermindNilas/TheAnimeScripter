@@ -207,8 +207,7 @@ class MotionBlurPipeline:
 
         match self.interpolateMethod:
             case (
-                "rife"
-                | "rife4.6"
+                "rife4.6"
                 | "rife4.15-lite"
                 | "rife4.16-lite"
                 | "rife4.17"
@@ -246,8 +245,7 @@ class MotionBlurPipeline:
                 self.windowed = self.interpolateProcess.useGraph
 
             case (
-                "rife-mps"
-                | "rife4.6-mps"
+                "rife4.6-mps"
                 | "rife4.15-lite-mps"
                 | "rife4.16-lite-mps"
                 | "rife4.17-mps"
@@ -295,8 +293,7 @@ class MotionBlurPipeline:
                 # Eager ROCm has no graph windowing either; keep full samples.
 
             case (
-                "rife-ncnn"
-                | "rife4.6-ncnn"
+                "rife4.6-ncnn"
                 | "rife4.15-lite-ncnn"
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
@@ -318,10 +315,8 @@ class MotionBlurPipeline:
                 )
 
             case (
-                "rife-tensorrt"
-                | "rife4.6-tensorrt"
+                "rife4.6-tensorrt"
                 | "rife4.15-tensorrt"
-                | "rife4.15-lite-tensorrt"
                 | "rife4.17-tensorrt"
                 | "rife4.18-tensorrt"
                 | "rife4.20-tensorrt"
