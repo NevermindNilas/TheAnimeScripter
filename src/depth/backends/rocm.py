@@ -11,6 +11,7 @@ import logging
 
 from src.depth.backends.cuda import DepthCuda, DepthV3Cuda, LimboCuda
 from src.depth.backends.da3_streaming import DA3StreamingCuda, LimboStreamingCuda
+from src.depth.backends.moge3 import MoGe3Cuda
 from src.depth.backends.video import VideoDepthAnythingTorch
 from src.infra.logAndPrint import logAndPrint
 
@@ -228,6 +229,48 @@ class LimboROCm(LimboCuda):
             outpoint,
             encode_method,
             base,
+            benchmark,
+            totalFrames,
+            bitDepth,
+            depthQuality,
+            _ignoreCompileMode(compileMode, depth_method),
+            depth_batch,
+        )
+
+
+class MoGe3ROCm(MoGe3Cuda):
+    """moge3-rocm: the torch path needs no Triton, so it runs as is on HIP."""
+
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="moge3-rocm",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth="16bit",
+        depthQuality="high",
+        compileMode="default",
+        depth_batch=1,
+    ):
+        super().__init__(
+            input,
+            output,
+            width,
+            height,
+            fps,
+            half,
+            inpoint,
+            outpoint,
+            encode_method,
+            _stripRocm(depth_method),
             benchmark,
             totalFrames,
             bitDepth,

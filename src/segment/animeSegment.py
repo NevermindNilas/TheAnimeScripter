@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -155,6 +156,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
         self.cudaGraph = None
         try:
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 # 3 warmup iters before capture: cudnn.benchmark is False (no algo
                 # autotune), so 3 is enough to JIT the cudnn kernels and allocate
@@ -183,6 +185,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
         The batch is concatenated *inside* self.stream. Building it on the default
         stream instead would let the forward read it before the copy landed."""
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             input_img = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             input_img = input_img.to(checker.device).float()
@@ -496,6 +499,7 @@ class AnimeSegmentTensorRT:
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -508,6 +512,7 @@ class AnimeSegmentTensorRT:
     def normFrame(self, frames):
         """frames: list of segmentBatch decoded tensors [1, 3, H, W]. Builds the
         [B, 3, paddedH, paddedW] engine input and returns the padded batch."""
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             batch = F.pad(
@@ -520,6 +525,7 @@ class AnimeSegmentTensorRT:
 
     @torch.inference_mode()
     def outputNorm(self, batch, i):
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             frameWithMask = torch.cat(
                 (batch[i : i + 1], self.dummyOutput[i : i + 1]), dim=1

@@ -154,7 +154,7 @@ class MotionBlurPipeline:
         self.moblurStrength = moblur_strength
         self.shutterAngle = max(0.0, min(360.0, float(moblur_shutter_angle)))
         self.moblurGamma = bool(moblur_gamma)
-        self.mask = ProtectionMask(mask)
+        self.mask = ProtectionMask.forRun(mask, fps, inpoint, outpoint)
         self.ensemble = ensemble
         self.dynamicScale = dynamic_scale
         self.staticStep = static_step
@@ -542,6 +542,7 @@ class MotionBlurPipeline:
         collector = FrameCollector()
 
         prevFrame = None
+        framesRead = 0
         currFrame = None
         # Hold the whole previous segment (not just its large-t slice) so each
         # interpolated clone lives two iterations, matching the original
@@ -562,6 +563,7 @@ class MotionBlurPipeline:
                     nextFrame = self.readBuffer.read()
                     if nextFrame is None:
                         break
+                    framesRead += 1
 
                     if prevFrame is None:
                         # Prime interp state (firstRun stores I0, returns nothing).
@@ -603,7 +605,14 @@ class MotionBlurPipeline:
                             # leading edge: small-t samples of the CURRENT segment
                             window.extend(segs[kPos[k]] for k in smallKs)
 
-                        blended = self.mask.apply(blender(window), currFrame)
+                        # The frame being blurred is the one before the frame
+                        # just read, and its window reaches both neighbours.
+                        blurred = framesRead - 2
+                        blended = self.mask.apply(
+                            blender(window),
+                            currFrame,
+                            (blurred - 1, blurred, blurred + 1),
+                        )
 
                         if self.useCuda:
                             torch.cuda.current_stream().synchronize()

@@ -7,6 +7,7 @@ import torch
 import src.constants as cs
 from src.autoclip._frames import eightBit
 from src.autoclip._results import writeCutResults
+from src.infra.cudaStreams import waitForCaller
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.getVideoMetadata import storedResizeTarget
@@ -105,6 +106,7 @@ class AutoClipTransnetv2:
                 device=self.device,
             )
             self.cudaStream = torch.cuda.Stream()
+            waitForCaller(self.cudaStream)
             with torch.cuda.stream(self.cudaStream):
                 with torch.inference_mode():
                     for _ in range(3):
@@ -181,6 +183,7 @@ class AutoClipTransnetv2:
         """One inference call. window: [WINDOW, H, W, 3] uint8 CPU tensor."""
         batched = window.unsqueeze(0)
         if self.cudaGraph is not None:
+            waitForCaller(self.cudaStream)
             with torch.cuda.stream(self.cudaStream):
                 self.staticInput.copy_(batched, non_blocking=True)
                 self.cudaGraph.replay()

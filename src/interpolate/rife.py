@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.interpolate._padding import _padMultiple
@@ -394,6 +395,7 @@ class RifeCuda:
                 # Self-check: replay must match a fresh eager forward on the same
                 # inputs, else disable the graph (protects arches where capture
                 # silently misbehaves).
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     self._timestep_buffer.fill_(0.5)
                     self.I1.copy_(self.I0)
@@ -407,6 +409,7 @@ class RifeCuda:
                 self.normStream.synchronize()
                 if not torch.allclose(eagerRef, graphOut, rtol=1e-3, atol=1e-3):
                     raise RuntimeError("graph replay output != eager forward")
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     self._timestep_buffer.zero_()
                     self.I1.zero_()
@@ -524,6 +527,7 @@ class RifeCuda:
     def processFrame(self, frame, toNorm):
         match toNorm:
             case "I0":
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     frame = frame.to(
                         device=checker.device,
@@ -536,6 +540,7 @@ class RifeCuda:
                 self.normStream.synchronize()
 
             case "I1":
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     frame = frame.to(
                         device=checker.device,
@@ -552,6 +557,7 @@ class RifeCuda:
                 self.normStream.synchronize()
 
             case "cache":
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     self.I0.copy_(self.I1, non_blocking=True)
                     self.model.cache()
@@ -560,6 +566,7 @@ class RifeCuda:
             case "prepare":
                 # Per-pair half of the forward (encoder refresh + warp-source
                 # staging), once before the pair's timesteps.
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     if self.pairGraph is not None:
                         self.pairGraph.replay()
@@ -568,6 +575,7 @@ class RifeCuda:
                 self.normStream.synchronize()
 
             case "infer":
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     if self.useGraph:
                         # `frame` here is self._timestep_buffer (filled in-place
@@ -595,6 +603,7 @@ class RifeCuda:
                 return output
 
             case "model":
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     self.model.cacheReset(frame)
                 self.normStream.synchronize()
@@ -623,6 +632,7 @@ class RifeCuda:
         f0 = getattr(self.model, "f0", None)
         if f0 is None:
             return
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             f0.copy_(_encodeAnchor(self.model, self.I0), non_blocking=True)
         self.normStream.synchronize()
@@ -662,6 +672,7 @@ class RifeCuda:
             t = interpolateTimestep(i, framesToInsert, timesteps)
             # The common 2x path uses the same 0.5 timestep every frame. Avoid
             # refilling the full HxW tensor unless the requested timestep changes.
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 self._cachedTimestepValue = fillTimestepBuffer(
                     self._timestep_buffer, self._cachedTimestepValue, t
@@ -670,6 +681,7 @@ class RifeCuda:
             interpQueue.put(output)
 
         if self.staticStep and not framesToInsert:
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 _encodeSkippedPair(self.model, self.I1)
         self.processFrame(None, "cache")

@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -563,6 +564,7 @@ class ObjectDetectionTensorRT:
             else:
                 self.context.set_tensor_address(tensorName, self.dummyOutput.data_ptr())
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -617,10 +619,12 @@ class ObjectDetectionTensorRT:
         )
         self.dummyOutput.zero_()
 
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(inputTensorTorch, non_blocking=True)
             self.normStream.synchronize()
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()

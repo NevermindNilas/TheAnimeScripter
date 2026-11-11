@@ -24,6 +24,7 @@ from src.depth.backends._shared import (
     limboDisparity,
     limboResolution,
 )
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -202,6 +203,7 @@ class DepthCuda(DepthRunOutcome):
         synchronized here. Without it the writer can read the block before the
         kernels land and, because the allocator recycles the tensor freed two
         frames earlier, emit a byte-exact duplicate of frame N-2."""
+        waitForCaller(self.outputNormStream)
         with torch.cuda.stream(self.outputNormStream):
             # clamp_min guards the divide only when the map is perfectly
             # flat; any real frame has a range far above it and comes out
@@ -214,6 +216,7 @@ class DepthCuda(DepthRunOutcome):
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 # Produce the batch on the stream that reads it.
                 batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
@@ -341,6 +344,7 @@ class LimboCuda(DepthCuda):
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 # Produce the batch on the stream that reads it.
                 batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
@@ -370,6 +374,7 @@ class LimboCuda(DepthCuda):
         Synchronized here for the same reason DepthCuda._normalizeDepth is: the
         writer thread copies on its own private stream and never waits on ours.
         """
+        waitForCaller(self.outputNormStream)
         with torch.cuda.stream(self.outputNormStream):
             gray = limboDisparity(depth)
             if gray.shape[-2:] != (self.height, self.width):

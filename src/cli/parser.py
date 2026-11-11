@@ -1147,7 +1147,8 @@ def _addMaskOptions(argParser):
         "--mask",
         type=str,
         default="",
-        help="Path to a transparent PNG marking regions to protect. Paint opaque dark pixels on a transparent "
+        help="Path to a transparent PNG marking regions to protect, or a folder of per-frame images named by "
+        "source frame (000123.png) for a mask that moves. Paint opaque dark pixels on a transparent "
         "background -- those areas stay sharp and static (HUD/text/subtitles), transparent areas are processed "
         "normally. Applies to --moblur (protected areas are not blurred) and --interpolate (protected areas are "
         "not morphed between source frames).",
@@ -1174,6 +1175,17 @@ def _addSegmentationOptions(argParser):
             "birefnet-rocm",
         ],
         help="Segmentation method",
+    )
+    segmentationGroup.add_argument(
+        "--segment_mask",
+        type=str,
+        default="",
+        help="Rotoscoping: a folder of per-frame mattes named by source frame (000123.png; white is "
+        "the object, black is background, grey is partial), or a .json roto document that adds "
+        "hand-drawn shapes and edge refinement (feather, contrast, shift edge, reduce chatter, specks, "
+        "holes, decontaminate) to such a folder. Cuts the objects out with an alpha channel instead of "
+        "running --segment_method. A frame without a matte is fully transparent. --sam_session writes "
+        "the folders for a front end's click-to-track tool. Implies --segment.",
     )
     segmentationGroup.add_argument(
         "--segment_batch",
@@ -1293,6 +1305,12 @@ def _addDepthOptions(argParser):
         "limbo_v3-rocm",
         "limbo_v3-tensorrt",
         "limbo_v3-openvino",
+        "moge3",
+        "moge3-mps",
+        "moge3-rocm",
+        "moge3-tensorrt",
+        "moge3-directml",
+        "moge3-openvino",
     ]
 
     depthGroup.add_argument(

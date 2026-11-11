@@ -4,6 +4,7 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
@@ -227,6 +228,7 @@ class UniversalPytorch:
 
         self.stream = torch.cuda.Stream()
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             # 3 warmup iters before CUDA-graph capture: cudnn.benchmark is False
             # (no algo autotune), so 3 is sufficient to JIT cudnn kernels +
@@ -292,6 +294,7 @@ class UniversalPytorch:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             if self.padding[1] or self.padding[3]:
                 frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
@@ -304,6 +307,7 @@ class UniversalPytorch:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             if self.compileMode == "default":
                 self.cudaGraph.replay()

@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.interpolate._shared import importRifeArch
@@ -571,6 +572,7 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             match name:
                 case "I0":
@@ -639,18 +641,21 @@ class RifeTensorRT:
         self.processFrame(frame, "I1")
         if self.split:
             # per-pair engine: encode img1, build the warp source
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self.pairGraph.replay()
             self.stream.synchronize()
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self._cachedTimestepValue = fillTimestepBuffer(
                     self.dummyTimeStep, self._cachedTimestepValue, t
                 )
                 self.cudaGraph.replay()
             self.stream.synchronize()
+            waitForCaller(self.outputStream)
             with torch.cuda.stream(self.outputStream):
                 output = self.dummyOutput.clone()
             self.outputStream.synchronize()

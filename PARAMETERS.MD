@@ -108,6 +108,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 - `--smooth_dedup_method` → auto-enables `--smooth_dedup` (which in turn enables `--interpolate` and disables `--dedup`)
 - `--restore_method` → auto-enables `--restore`
 - `--segment_method` → auto-enables `--segment`
+- `--segment_mask` → auto-enables `--segment`
 - `--depth_method` → auto-enables `--depth`
 - `--obj_detect_method` → auto-enables `--obj_detect`
 
@@ -537,9 +538,10 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | `--segment` | flag | False | **Background/foreground separation** — automatically enabled when `--segment_method` is specified |
 | `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) — specifying a non-default method auto-enables segmentation |
 | `--segment_batch` | int | 1 | **Frames per model forward** for segmentation. `>1` batches independent frames to amortize kernel-launch overhead, at a proportional VRAM cost. ISNet (`anime`) and BiRefNet (`birefnet`) process frames independently. `1` matches the previous one-frame path exactly. **CUDA, ROCm** (`anime`) always runs the model in a fixed 1024-box, so the gain is resolution-independent: RTX 3090, 402 frames, ~**+10%** at `4` (24.2 → 26.7 FPS end-to-end); `8` is usually a regression at 720p+ (peak model VRAM 0.95 → 3.2 GB at `4`, 6.2 GB at `8`). **TensorRT** (`anime-tensorrt`) runs at the native `/64`-padded resolution, so batching pays only at low resolution: at 640×360 `4` gives **+57%** (93.8 → 147.1 FPS), while at 1280×720 it is already compute-bound and gains nothing (38.4 → 38.6). A batch-`N` engine is a separate build cached under a batch-aware filename. Forced to `1` for DirectML/OpenVINO, where batching measured *slower*. |
+| `--segment_mask` | str | "" | **Rotoscope from tracked mattes**: a folder of one matte per source frame (`000123.png`, white is the object), or a `.json` roto document adding shapes and edge refinement to one, cut out with alpha instead of running `--segment_method`. Auto-enables segmentation |
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
-| `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. Limbo (`limbo*`, `video_limbo*`) is exempt on every backend: `medium`/`high` export its ONNX locally at that size. For `video_small_v2`, and for `small_v2` on CUDA, ROCm and MPS, it sets the shortest side and keeps the source aspect ratio: 518 / 700 / native. |
+| `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. Limbo (`limbo*`, `video_limbo*`) and MoGe-3 (`moge3*`) are exempt on every backend: `medium`/`high` export their ONNX locally at that size. For `video_small_v2`, and for `small_v2` on CUDA, ROCm and MPS, it sets the shortest side and keeps the source aspect ratio: 518 / 700 / native. |
 | `--depth_window` | int | 32 | **Video depth window**, one of `32/16/8/4`. For `video_small_v3`, `video_base_v3`, `video_limbo`, `video_limbo_v2`, `video_limbo_v3`, and their TensorRT variants, this is the chunk size with 50% overlap; smaller values reduce memory and lookahead latency. For `video_small_v2`, this controls attended history (32 = full window; 32 frames are retained regardless). Ignored by image depth methods. |
 | `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA, ROCm image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt`/`limbo_v3-tensorrt` (all forced to `1`). |
 
@@ -555,6 +557,21 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 `birefnet` uses [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime). It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
 
 > **Note:** There is no MPS segmentation path.
+
+### Rotoscoping from tracked mattes
+
+`--segment_mask <folder>` replaces the segmentation model with mattes made ahead of time, one per source frame, named by frame number in the untrimmed input (`000123.png` is frame 123). White is the object, black is background and grey is a partial edge; colour images are read by luma and an alpha channel multiplies in. A frame with no image is written fully transparent, and a matte of another size is stretched to the frame. TAS's SAM 2 session mode writes these folders for a front end's click-to-track tool (several objects merge into one matte). No model is loaded, so the run costs one image read per frame on any backend.
+
+```bash
+python main.py --input clip.mp4 --output clip.mov --segment_mask masks/tracked/0123456789abcdef
+```
+
+`--segment_mask` also takes a `.json` roto document (`src/segment/rotoDoc.py` has the format) that names such a folder in `mattes` (or `null` for shapes alone) and adds, in order:
+
+- **Shapes**: Bezier polygons and painted strokes that add to or cut from the matte on a span of frames. A polygon can carry keyframes and is interpolated between them.
+- **Refine edge**, applied to every frame: remove specks and fill holes smaller than an area, reduce chatter (the edge averaged over up to 5 neighbouring frames), shift edge (grow or shrink in pixels), contrast and feather. `decontaminate` pulls the colour of soft edge pixels toward the object next to them, so the old background does not fringe the cutout.
+
+A front end's preview runs the same code, through the SAM 2 session's `composite` command.
 
 #### 🎯 Depth Models
 
@@ -576,8 +593,11 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | **limbo v1** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Depth Anything 3 small finetuned on an anime corpus (`--depth_method limbo`) | CUDA, ROCm, TRT, OpenVINO, MPS |
 | **limbo v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Limbo successor, same setup (`--depth_method limbo_v2`) | CUDA, ROCm, TRT, OpenVINO, MPS |
 | **limbo v3** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — finetune of v2, steadier video depth, same setup (`--depth_method limbo_v3`) | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **moge3** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 1.2-2GB | MoGe-3 ViT-L: fine-detail geometry from a sparse 3D refiner, relative depth output (`--depth_method moge3`) | CUDA, ROCm, TRT, DirectML, OpenVINO, MPS |
 
 > **🎨 limbo v1 / v2 / v3:** anime-specialised DA3-small finetunes (v1: 34.3M params). At `--depth_quality low` (the default) they run at the size they were trained at, picking the aspect closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer (portrait is stretched to `504x378`). `medium` and `high` keep the source aspect with the longest side at 700 px or at the source's own, like the other `*_v3` methods; the TensorRT and OpenVINO backends then export their own ONNX at that size from the checkpoint on first use into `weights/limbo*/streaming/` — a one-time cost per size, up to about 3 minutes with the TensorRT engine build at 1080p `high` on an RTX 3090. `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt`/`limbo_v3-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 and v3 mirror them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino` and `limbo_v3`, `limbo_v3-mps`, `limbo_v3-tensorrt`, `limbo_v3-openvino` (every one also has a `-rocm` CUDA-path twin). Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
+
+> **moge3:** Methods are `moge3`, `moge3-mps`, `moge3-rocm`, `moge3-tensorrt`, `moge3-directml`, `moge3-openvino`. `--depth_quality` sets the ViT token count (`low` 1200, `medium` 2400, `high` 3600; about 736x416 / 1040x592 / 1280x720 voxels at 16:9) on every backend, including TensorRT, DirectML and OpenVINO. Those three export their ONNX from the checkpoint into `weights/moge3/onnx/` on first use for each size and precision. `--depth_batch` is forced to `1`: refinement is per frame. TensorRT runs the voxel refiner in torch on the same GPU. DirectML and OpenVINO build the voxel tables on the CPU each step, so expect them to be much slower than CUDA. Under `--half` the DINOv2 encoder runs in fp16 (its weights are stored in fp16 on NVIDIA CUDA), and the FlexGEMM refiner (`moge3`, `moge3-tensorrt`) runs its two coarsest levels in fp16; every other refiner route (ROCm, DirectML, OpenVINO, the plain fallback) is fp32, and MPS is fp32 throughout. `moge3` and `moge3-tensorrt` refine through vendored FlexGEMM (Triton) when its kernels compile here (NVIDIA CUDA, a C compiler, Python headers); the first run compiles them and tunes for about 15 s, later runs start in under a second. Anywhere else, including the Windows portable build for now, the plain torch refiner runs instead (about 4x slower refiner, same weights); `-mps`, `-rocm`, `-directml` and `-openvino` always use it. RTX 3090, 720p source: about 10.2 fps CUDA and 11.6 fps TensorRT at `low`, 4.4 at `high`; peak VRAM about 1.1 GB at `low` and 1.8 GB at `high` (TensorRT adds its engine). MIT licensed; provenance in `src/depth/moge/NOTICE.md`.
 
 **DA3 streaming:** `video_small_v3` and `video_base_v3` use Apache-2.0 Small/Base weights with attention across overlapping chunks. CUDA only; memory depends on resolution and window size. This depth-video adaptation excludes camera reconstruction and loop closure. `large_v3` (DA3Mono-Large) remains an independent-frame model. See [implementation and licenses](docs/DA3_STREAMING.md).
 
@@ -623,6 +643,8 @@ Example: `python main.py --input input/Raw.mp4 --depth --depth_method video_limb
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--mask` | str | "" | path | **Protect regions** — transparent PNG; opaque dark areas stay sharp and static, transparent areas process normally |
+
+`--mask` also takes a folder holding one image per source frame, named by frame number (`000123.png` is frame 123 of the untrimmed input), for a mask that moves. A frame with no image is not protected, and a generated frame is protected everywhere the object is at either source frame around it.
 
 One mask covers both `--moblur` and `--interpolate`. Paint the regions you want left alone — a HUD, hardsubs, a watermark, a logo — as opaque dark pixels on a transparent background. RGB (no alpha) and grayscale images work too: dark = protected. The mask is resized to match the frame if the dimensions differ.
 

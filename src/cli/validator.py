@@ -149,6 +149,7 @@ def _handleDepthSettings(args):
         cs.AUDIO = False
 
     isLimbo = args.depth_method.removeprefix("video_").split("-")[0].startswith("limbo")
+    isMoGe = args.depth_method.startswith("moge3")
 
     # "openvino" belongs here too: it is not a separate backend, it is a
     # provider branch inside the same DepthDirectMLV2 class the "-directml"
@@ -161,6 +162,7 @@ def _handleDepthSettings(args):
         args.depth_quality not in ["low"]
         and backend in ["tensorrt", "directml", "openvino"]
         and not isLimbo
+        and not isMoGe
     ):
         logAndPrint(
             f"{args.depth_quality.upper()} depth estimation quality is incompatible "
@@ -175,7 +177,14 @@ def _handleDepthSettings(args):
 
     if args.depth_batch > 1:
         backend = args.depth_method.split("-")[-1]
-        if "video" in args.depth_method:
+        if isMoGe:
+            logAndPrint(
+                "--depth_batch is not supported for MoGe-3 (voxel refinement is "
+                "per frame), using 1",
+                "yellow",
+            )
+            args.depth_batch = 1
+        elif "video" in args.depth_method:
             logAndPrint(
                 "--depth_batch is not supported for video depth methods, using 1",
                 "yellow",
@@ -204,6 +213,10 @@ def _handleSegmentSettings(args):
     # Normalize once so every later read is safe, including for args objects
     # built by other entrypoints that never define segment_batch.
     args.segment_batch = max(1, int(getattr(args, "segment_batch", 1)))
+
+    from src.cli.validation import validateSegmentMask
+
+    validateSegmentMask(args)
 
     if args.segment_batch > 1:
         backend = args.segment_method.split("-")[-1]

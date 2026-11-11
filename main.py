@@ -261,6 +261,7 @@ class VideoProcessor:
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
         self.segmentBatch: int = getattr(args, "segment_batch", 1)
+        self.segmentMask: str = getattr(args, "segment_mask", "") or ""
         self.objDetectMethod: str = args.obj_detect_method
         self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
@@ -519,7 +520,9 @@ class VideoProcessor:
 
             # One mask (its weight tensors are cached per frame size, device
             # and dtype), one sink per interpolate stage.
-            mask = ProtectionMask(self.maskPath)
+            mask = ProtectionMask.forRun(
+                self.maskPath, self.fps, self.inpoint, self.outpoint
+            )
 
             def maskedSinkFactory():
                 return MaskedSink(mask)
@@ -1021,6 +1024,13 @@ def main():
         cs.SYSTEM = system()
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
+
+        # A long-lived helper a front end talks to over stdin/stdout, not a
+        # render, so it has no --input to parse or validate.
+        if "--sam_session" in sys.argv:
+            from src.sam.session import runSession
+
+            sys.exit(runSession())
 
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
             from src.cli.parser import createParser

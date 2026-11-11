@@ -290,6 +290,8 @@ def modelsList() -> list[str]:
         "limbo-rocm",
         "limbo_v2-rocm",
         "limbo_v3-rocm",
+        "moge3",
+        "moge3-mps",
     ]
 
 
@@ -1141,6 +1143,10 @@ def modelsMap(
 
         case "video_limbo_v3-tensorrt":
             return "LimboV3.safetensors"
+
+        case "moge3":
+            if modelType == "pth":
+                return "moge3_vitl.safetensors"
 
         case "limbo" | "video_limbo":
             if modelType == "pth":

@@ -3,6 +3,7 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
@@ -224,6 +225,7 @@ class UniversalTensorRT:
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -243,6 +245,7 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             if self.padding[1] or self.padding[3]:
                 frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
@@ -256,6 +259,7 @@ class UniversalTensorRT:
     def __call__(self, frame, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
             output = self.dummyOutput.clone()
@@ -484,6 +488,7 @@ class AnimeSRTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             paddedFrame = self.padFrame(frame)
             # Copy current frame to currFrame buffer
@@ -514,15 +519,18 @@ class AnimeSRTensorRT:
         self.normStream.synchronize()
 
         # TensorRT execution - no torch.cat needed, TRT receives separate buffers
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             self.context.execute_async_v3(stream_handle=self.outputStream.cuda_stream)
         self.outputStream.synchronize()
 
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             self.state.copy_(self.stateOutput, non_blocking=False)
             self.prevFrame.copy_(paddedFrame, non_blocking=False)
         self.normStream.synchronize()
 
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             # Crop the reflect-padded border before resizing; resizing the
             # padded frame whole squeezes the content and leaves a mirrored

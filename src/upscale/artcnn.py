@@ -4,6 +4,7 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
@@ -192,6 +193,7 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -213,17 +215,20 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         # Split on normStream so the sync below covers y, cb and cr: the copy
         # and the chroma upscale run on streams that never wait on the caller's.
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             frame = frame.to(dtype=self.dtype)
             y, cb, cr = self._rgbToYCbCr(frame)
             self.dummyInput.copy_(y, non_blocking=True)
         self.normStream.synchronize()
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
             yUp = self.dummyOutput.clone()
         self.stream.synchronize()
 
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             cbUp = self._upscaleChroma(cb)
             crUp = self._upscaleChroma(cr)

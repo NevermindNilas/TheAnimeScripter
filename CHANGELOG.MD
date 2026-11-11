@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `--depth_method moge3` (plus `-mps`, `-rocm`, `-tensorrt`, `-directml`, `-openvino`): MoGe-3 ViT-L depth with its sparse 3D refiner, using vendored FlexGEMM on CUDA and TensorRT where Triton can compile (on an RTX 3090 at 720p about 10.2 and 11.6 fps at `--depth_quality low`, 4.4 at `high`, with 1.1 to 1.8 GB peak VRAM; 15 s of first-run setup) and a plain torch refiner elsewhere, including macOS. Refiner output matches upstream to about 1e-4 in log depth.
+- `--mask` accepts a folder of per-frame masks named by source frame (`000123.png`), for protecting an object that moves.
+- `--segment_mask <folder or roto.json>`: rotoscoping. Cuts objects out with alpha from one matte per source frame (white is the object) instead of running a segmentation model. A roto document adds keyframed Bezier and painted shapes plus Refine Edge (feather, contrast, shift edge, reduce chatter, specks, holes, edge colour decontamination).
+- `--sam_session` tracks forward or backward from a frame onto a copy of an earlier track, stops at scene cuts on request, and previews a roto document's final matte (`composite`).
+- `--sam_session`: a SAM 2.1 click-to-track session a front end drives over stdin and stdout. It writes `--segment_mask` folders with soft edges. Weights are the Meta Base+ release or an anime finetune, both Apache-2.0, downloaded from the TAS model host on first use.
 - Linux x86_64 portable release: `TAS-<version>-Linux-x86_64.tar.gz`, built and smoke-tested in CI; install a profile with `./run.sh --download_requirements linux-cuda` (or `linux-lite`, `linux-rocm`).
 - `--depth_method limbo_v3` (plus `-mps`, `-rocm`, `-tensorrt`, `-openvino`, and streaming `video_limbo_v3`, `video_limbo_v3-rocm`, `video_limbo_v3-tensorrt`): Limbo-V3, a finetune of V2 with the same setup and backends, with 12–22% less flicker than V2 in streaming depth.
 - `-rocm` methods now run on Windows through the new `windows-rocm` profile (experimental): AMD's torch 2.15 and torchvision builds plus the GPU kernels for the AMD target the installer detects, overridable with `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100`). On ROCm the encoder gets 8-bit host copies of the frames and `--decode_method nvdec` falls back to CPU decoding, since nelux's GPU paths are NVIDIA-only.
@@ -16,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte and Limbo V2/V3 no longer depend on third-party locations.
 
 ### Fixed
+- GPU stages could read a frame before the work producing it had finished: their private CUDA streams never waited for the caller's stream. Every stage now does (`src/infra/cudaStreams.waitForCaller`), with unchanged speed and bit-identical output on renders that were already correct. The SCUNet and AutoCAS restore paths were the ones where it showed (garbage restores in the padding tests).
+- `--segment_mask` refuses a run whose trimmed frames have no mattes or shapes, instead of writing a fully transparent video and exiting 0, and logs how many frames it leaves transparent when coverage is partial.
+- `--mask` refuses a `--sam_session` track folder: a track is white on the object, so read as a protect mask it protected everything except the object.
 - `rife*-ncnn` on Linux wrote pure black inserted frames and exited 0 because the model path never reached the loader (macOS took the same path). It now loads, and a model folder missing `flownet.param`/`flownet.bin` stops the run with an error.
 - `--upscale_method span-ncnn`/`shufflecugan-ncnn` crashed with `ModuleNotFoundError` on every OS. They now run on PyPI's `ncnn` wheel, on AMD, Intel and NVIDIA GPUs, tiling frames that do not fit the GPU's memory.
 - NCNN always used Vulkan device 0, even on a hybrid machine with a faster GPU; it now picks the best one. `rife*-ncnn` without a Vulkan driver segfaulted; it now stops with a message, and automatic fallback skips NCNN there.

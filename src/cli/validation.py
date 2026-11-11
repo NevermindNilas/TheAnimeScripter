@@ -158,15 +158,74 @@ def validateMaskPath(args):
     if not (readers or getattr(args, "moblur", False)):
         return
     path = os.path.abspath(mask)
+    from src.masking import listMaskFrames, readMaskImage
+
+    if os.path.isdir(path):
+        if os.path.isfile(os.path.join(path, "session.json")):
+            # A --sam_session track is a matte, white on the object: read as a protect
+            # mask it would protect everything but the object.
+            raise CliValidationError(
+                f"--mask folder is a rotoscope track (white is the object). Use it with "
+                f"--segment_mask instead: {path}"
+            )
+        frames = listMaskFrames(path)
+        if not frames:
+            raise CliValidationError(
+                "--mask folder has no per-frame images (expected names like "
+                f"000123.png, numbered by source frame): {path}"
+            )
+        first = frames[min(frames)]
+        if readMaskImage(first) is None:
+            raise CliValidationError(f"--mask image cannot be read: {first}")
+        return
     if not os.path.isfile(path):
         raise CliValidationError(f"--mask file not found: {path}")
 
-    import cv2
-
-    if cv2.imread(path, cv2.IMREAD_UNCHANGED) is None:
+    if readMaskImage(path) is None:
         raise CliValidationError(
             f"--mask is not an image that can be read (a PNG is expected): {path}"
         )
+
+
+def validateSegmentMask(args):
+    """Refuse a ``--segment_mask`` that is not a folder of readable mattes or a roto
+    document that can be drawn.
+
+    The matte replaces the segmentation model, so a typo in the path would
+    otherwise write a fully transparent video and exit 0.
+    """
+    folder = getattr(args, "segment_mask", "")
+    if not folder or not getattr(args, "segment", False):
+        return
+    path = os.path.abspath(folder)
+    from src.masking import listMaskFrames, readMaskImage
+
+    if os.path.isfile(path):
+        from src.segment.rotoDoc import RotoDocError, loadRotoDoc
+
+        try:
+            doc = loadRotoDoc(path)
+        except RotoDocError as error:
+            raise CliValidationError(str(error)) from None
+        if doc["mattes"] is None:
+            if not doc["shapes"]:
+                raise CliValidationError(
+                    f"--segment_mask document has no mattes and no shapes: {path}"
+                )
+            return
+        path = os.path.abspath(doc["mattes"])
+    if not os.path.isdir(path):
+        raise CliValidationError(f"--segment_mask folder not found: {path}")
+
+    frames = listMaskFrames(path)
+    if not frames:
+        raise CliValidationError(
+            "--segment_mask folder has no per-frame mattes (expected names like "
+            f"000123.png, numbered by source frame): {path}"
+        )
+    first = frames[min(frames)]
+    if readMaskImage(first) is None:
+        raise CliValidationError(f"--segment_mask image cannot be read: {first}")
 
 
 def interpolateFactorWarning(rawFactor, smooth, label=None):

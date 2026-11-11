@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from queue import Empty, Queue
 
 import torch  # this has to be always before nelux!
+from src.infra.cudaStreams import waitForCaller
 from torch.nn import functional as F
 
 # Every nelux wheel (>= 0.17.0) carries its own FFmpeg libraries, so nothing
@@ -1219,6 +1220,7 @@ class NeluxWriteBuffer:
                 # for the GPU here, and the convert does not queue behind the
                 # inference on the default stream. CPU/DirectML/MPS hosts have
                 # no stream and run the same steps directly.
+                waitForCaller(self.CudaStream)
                 with torch.cuda.stream(self.CudaStream) if onStream else nullcontext():
                     converted = frame
                     if needsResize:

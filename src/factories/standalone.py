@@ -124,7 +124,25 @@ def segment(self):
     # rate would stamp the container with 2x (or interpolateFactor x) the rate
     # it actually wrote -- a matte that plays fast and drifts off its audio.
     # Every other standalone driver already passes self.fps.
-    if self.segmentMethod == "anime":
+    if getattr(self, "segmentMask", ""):
+        # Rotoscoping: mattes tracked ahead of time stand in for the model.
+        from src.segment.trackedMatte import TrackedMatteSegment
+
+        driver = TrackedMatteSegment(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.benchmark,
+            self.totalFrames,
+            segment_batch=self.segmentBatch,
+            matteFolder=self.segmentMask,
+        )
+    elif self.segmentMethod == "anime":
         from src.segment.animeSegment import AnimeSegment
 
         driver = AnimeSegment(
@@ -741,6 +759,113 @@ def _depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depth_batch=self.depthBatch,
+            )
+
+        case "moge3":
+            from src.depth.backends.moge3 import MoGe3Cuda
+
+            driver = MoGe3Cuda(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "moge3-mps":
+            from src.depth.backends.moge3 import MoGe3MPS
+
+            driver = MoGe3MPS(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "moge3-rocm":
+            from src.depth.backends.rocm import MoGe3ROCm
+
+            driver = MoGe3ROCm(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depth_batch=self.depthBatch,
+            )
+
+        case "moge3-tensorrt":
+            from src.depth.backends.moge3 import MoGe3TensorRT
+
+            driver = MoGe3TensorRT(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                depth_batch=self.depthBatch,
+            )
+
+        case "moge3-directml" | "moge3-openvino":
+            from src.depth.backends.moge3 import MoGe3DirectML
+
+            driver = MoGe3DirectML(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
             )
 
         case _:

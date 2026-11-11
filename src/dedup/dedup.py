@@ -1,6 +1,7 @@
 import torch
 from torch.functional import F
 
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.model.download import resolveWeightPath
 from src.model.modelOptimizer import ModelOptimizer
@@ -381,6 +382,7 @@ class DedupFlownetS:
         ).to(memory_format=torch.channels_last)
 
         self.stream = torch.cuda.Stream()
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(3):
                 output = self.model(self.dummyInput)
@@ -411,11 +413,13 @@ class DedupFlownetS:
     @torch.inference_mode()
     def __call__(self, frame):
         if self.prevFrame is None:
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 self.prevFrame = self.prepareFrame(frame)
             self.normStream.synchronize()
             return False
 
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             frame = self.prepareFrame(frame)
             self.dummyInput.copy_(
@@ -423,6 +427,7 @@ class DedupFlownetS:
             )
         self.normStream.synchronize()
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
@@ -440,6 +445,7 @@ class DedupFlownetS:
         # comparison always reset to the immediately preceding frame instead of
         # the last kept one, and the whole move vanished from the output.
         if not isDuplicate:
+            waitForCaller(self.outputStream)
             with torch.cuda.stream(self.outputStream):
                 self.prevFrame.copy_(frame, non_blocking=True)
             self.outputStream.synchronize()

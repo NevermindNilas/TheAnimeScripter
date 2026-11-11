@@ -18,6 +18,7 @@ from src.depth.backends._shared import (
     limboOnnxPath,
     limboResolution,
 )
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -226,6 +227,7 @@ class DepthTensorRTV2(DepthRunOutcome):
         # A dynamic-batch engine lazily allocates device memory on its first
         # execute; that cudaMalloc must happen BEFORE graph capture or the
         # capture is invalidated. Warm up once, then capture.
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
@@ -236,6 +238,7 @@ class DepthTensorRTV2(DepthRunOutcome):
     @torch.inference_mode()
     def normFrame(self, frames):
         # frames: list of B decoded tensors [1, 3, H, W]; build the [B,3,H,W] input
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             batch = F.interpolate(
@@ -254,6 +257,7 @@ class DepthTensorRTV2(DepthRunOutcome):
     def normOutputFrame(self, i):
         # per-frame min-max on slice i so a batched forward is
         # bit-equivalent to one-frame-at-a-time
+        waitForCaller(self.outputNormStream)
         with torch.cuda.stream(self.outputNormStream):
             depth = F.interpolate(
                 self.dummyOutput[i : i + 1],
@@ -274,6 +278,7 @@ class DepthTensorRTV2(DepthRunOutcome):
             if real < self._batch:
                 frames = frames + [frames[-1]] * (self._batch - real)
             self.normFrame(frames)
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
@@ -403,6 +408,7 @@ class LimboTensorRT(DepthTensorRTV2):
 
     @torch.inference_mode()
     def normFrame(self, frames):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             batch = batch.float()
@@ -421,6 +427,7 @@ class LimboTensorRT(DepthTensorRTV2):
 
     @torch.inference_mode()
     def normOutputFrame(self, i):
+        waitForCaller(self.outputNormStream)
         with torch.cuda.stream(self.outputNormStream):
             gray = limboDisparity(self.dummyOutput[i : i + 1].unsqueeze(1))
             if gray.shape[-2:] != (self.height, self.width):
@@ -607,6 +614,7 @@ class VideoDepthTensorRT(DepthRunOutcome):
     def initTorchCudaGraph(self):
         # warm up once so a dynamic-batch engine's lazy device-memory alloc
         # happens before capture (a cudaMalloc during capture invalidates it)
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
@@ -616,6 +624,7 @@ class VideoDepthTensorRT(DepthRunOutcome):
 
     @torch.inference_mode()
     def normFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             frame = torch.from_numpy(frame).to(checker.device)
             frame = frame.permute(2, 0, 1).unsqueeze(0)
@@ -658,6 +667,7 @@ class VideoDepthTensorRT(DepthRunOutcome):
     def processFrame(self, frame):
         try:
             self.normFrame(frame)
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()

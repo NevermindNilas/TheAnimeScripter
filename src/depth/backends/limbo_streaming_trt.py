@@ -8,6 +8,7 @@ import torch
 
 from src.depth.backends._shared import limboResolution
 from src.depth.backends.da3_streaming import DA3StreamingCuda
+from src.infra.cudaStreams import waitForCaller
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -103,6 +104,7 @@ class LimboStreamingTensorRT(DA3StreamingCuda):
         ):
             raise RuntimeError("TensorRT rejected the streaming view count")
         # Every tail uses its real length. Duplicate padding changes attention.
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             images = (
                 torch.from_numpy(np.stack(frames))

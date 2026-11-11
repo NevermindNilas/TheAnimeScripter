@@ -18,6 +18,7 @@ import os
 import numpy as np
 import torch
 
+from src.infra.cudaStreams import waitForCaller
 from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
@@ -151,6 +152,7 @@ class SceneChangeScorer6ch:
             if self.engine.get_tensor_mode(tensorName) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensorName, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -168,6 +170,7 @@ class SceneChangeScorer6ch:
         """Prepass path: nelux HWC uint8 -> CHW [0,1] (numpy for DML, torch GPU
         for TRT)."""
         if self.backend == "tensorrt":
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 t = (
                     hwcTensor.to(device=self.device, non_blocking=True)
@@ -221,6 +224,7 @@ class SceneChangeScorer6ch:
 
     @torch.inference_mode()
     def scoreTensorRT(self, prev, curr):
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.dummyInput.copy_(torch.cat((prev, curr), dim=0), non_blocking=True)
             self.cudaGraph.replay()

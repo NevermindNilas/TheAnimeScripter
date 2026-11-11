@@ -3,6 +3,7 @@ import logging
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
@@ -311,6 +312,7 @@ class AnimeSR:
         # resolution that is not a multiple of 4 this raised "The size of tensor
         # a (856) must match the size of tensor b (854)" on the very first frame.
         # The TensorRT and DirectML siblings already pad before copying.
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             # The arch takes `frame` itself next to the fp16/fp32 buffers, so it
             # must match them: a stage before this one may hand on fp32 frames
@@ -329,6 +331,7 @@ class AnimeSR:
             self.nextFrame.copy_(paddedNext, non_blocking=False)
         self.normStream.synchronize()
 
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             self.dummyOutput, state = self.model(
                 self.prevFrame,
@@ -341,6 +344,7 @@ class AnimeSR:
             self.state = state
         self.outputStream.synchronize()
 
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             self.prevFrame.copy_(frame, non_blocking=False)
         self.normStream.synchronize()
@@ -350,6 +354,7 @@ class AnimeSR:
         # squeezes the real content and leaves a mirrored strip along the
         # right/bottom edge (~4px and a 0.23% squeeze at 854x480). No-op when
         # the input is already a multiple of 4.
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             output = torch.nn.functional.interpolate(
                 self.dummyOutput[:, :, : self.height * 4, : self.width * 4],
