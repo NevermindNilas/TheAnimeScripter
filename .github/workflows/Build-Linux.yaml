@@ -2,17 +2,6 @@ name: Build-Linux
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "build.py"
-      - "src/build_support/**"
-      - "extra-requirements-linux.txt"
-      - "extra-requirements-linux-lite.txt"
-      - "extra-requirements-linux-rocm.txt"
-      - "requirements.txt"
-      - ".github/scripts/smoke-linux-bundle.sh"
 
 permissions:
   contents: read
