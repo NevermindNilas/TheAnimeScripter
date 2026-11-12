@@ -1408,6 +1408,15 @@ def _addMiscOptions(argParser):
         help="Enable torch.profiler to analyze GPU/CPU performance bottlenecks",
     )
     miscGroup.add_argument(
+        "--low_cpu",
+        action="store_true",
+        help=(
+            "Sleep through most of each wait on the GPU instead of keeping a CPU "
+            "core busy-waiting (NVIDIA CUDA only): up to ~80%% less CPU at "
+            "~0.5-1%% lower FPS, ~1%% faster when the CPU is the limit"
+        ),
+    )
+    miscGroup.add_argument(
         "--ae",
         type=str,
         default="",

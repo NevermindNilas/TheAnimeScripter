@@ -50,6 +50,7 @@ class UniversalTensorRT:
             customModel (str): The path to a custom model file
         """
         from src.model.trtHandler import (
+            bindContextMemory,
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -57,6 +58,7 @@ class UniversalTensorRT:
         from src.utils.tensorrt_import import trt
 
         self.trt = trt
+        self.bindContextMemory = bindContextMemory
         self.tensorRTEngineCreator = tensorRTEngineCreator
         self.tensorRTEngineLoader = tensorRTEngineLoader
         self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
@@ -110,6 +112,7 @@ class UniversalTensorRT:
             inputsOpt=inputShape,
             inputsMax=[1, 3, 1080, 1920],
             forceStatic=self.forceStatic,
+            userManagedMemory=True,
         )
         if self.engine is not None and self.context is not None:
             return
@@ -130,6 +133,7 @@ class UniversalTensorRT:
             inputsOpt=inputShape,
             inputsMax=inputShape,
             forceStatic=True,
+            userManagedMemory=True,
         )
         if self.engine is None or self.context is None:
             raise RuntimeError(_tensorRTBuildFailureMessage(self.modelPath))
@@ -189,7 +193,11 @@ class UniversalTensorRT:
             optInputShape=[1, 3, self.paddedHeight, self.paddedWidth],
         )
 
-        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        # The dynamic profile reaches 1080p; a default context would hold the
+        # activation memory of that max shape whatever the input size.
+        self.engine, self.context = self.tensorRTEngineLoader(
+            enginePath, userManagedMemory=True
+        )
         if (
             self.engine is None
             or self.context is None
@@ -224,6 +232,8 @@ class UniversalTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        # Sized for the shape just set, not the profile's max.
+        self.contextMemory = self.bindContextMemory(self.context)
 
         waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):

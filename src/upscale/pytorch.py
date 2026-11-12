@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 
@@ -229,7 +230,17 @@ class UniversalPytorch:
         self.stream = torch.cuda.Stream()
 
         waitForCaller(self.stream)
-        with torch.cuda.stream(self.stream):
+        # no_grad, not inference_mode (see _detectRequiredMultiple): with grad
+        # on, every warmup forward recorded an autograd graph holding all of
+        # its activations (span at 714p fp16: 4.6 GiB peak instead of 1.7).
+        # TorchScript models (rtmosr) keep the caller's grad mode, as before:
+        # the profiling executor specializes on grad mode, and a no_grad
+        # warmup lets the fuser pick different kernels, changing the output.
+        scripted = any(
+            isinstance(m, torch.jit.ScriptModule) for m in self.model.modules()
+        )
+        gradMode = contextlib.nullcontext() if scripted else torch.no_grad()
+        with torch.cuda.stream(self.stream), gradMode:
             # 3 warmup iters before CUDA-graph capture: cudnn.benchmark is False
             # (no algo autotune), so 3 is sufficient to JIT cudnn kernels +
             # allocate workspace before capture (PyTorch-documented minimum).

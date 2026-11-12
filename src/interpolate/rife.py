@@ -196,6 +196,12 @@ class RifeCuda:
             torch.cuda.empty_cache()
         self.model = self.model.to(memory_format=torch.channels_last)
 
+        # One-pass conv epilogues and a flow/mask-only last tail (bit-identical,
+        # ~12% of a 1080p pair). Not under torch.compile, which fuses on its own.
+        if self.compileMode == "default" and hasattr(self.model, "enableFusedEpilogue"):
+            if not self.model.enableFusedEpilogue():
+                logging.info("RIFE fused conv epilogue unavailable; using unfused ops")
+
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
@@ -370,6 +376,13 @@ class RifeCuda:
                         getattr(self.model, "f0", None),
                         getattr(self.model, "f1", None),
                     )
+                elif split and pairFeats is not None and pairFeats[1] is not None:
+                    # Later scales reuse the one pair graph, but this scale's
+                    # warmup reassigned f1 to an eager tensor. A step graph that
+                    # reads f1 (the generic path: scale 2.0, or every scale with
+                    # --ensemble) must capture the
+                    # pair graph's, or it replays stale, later freed memory.
+                    self.model.f0, self.model.f1 = pairFeats
                 step = self.model.flow if split else self.model
                 if pool is None:
                     with torch.cuda.graph(graph, stream=self.normStream):
@@ -553,15 +566,17 @@ class RifeCuda:
                         # I0 still holds the previous frame, so this is the pair
                         # the upcoming infer(s) will run on.
                         self._pickDynamicScale()
-                # Sync only when data must be ready for inference
-                self.normStream.synchronize()
+                # No host sync: everything up to the pair's last output runs on
+                # normStream in order, and the "infer" sync (or __call__'s own,
+                # when the gap has no frames) finishes this read of ``frame``.
 
             case "cache":
                 waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     self.I0.copy_(self.I1, non_blocking=True)
                     self.model.cache()
-                self.normStream.synchronize()
+                # No host sync: only normStream reads I0/I1/f0, and every use
+                # of them (the next pair, cacheFrameReset) is queued after this.
 
             case "prepare":
                 # Per-pair half of the forward (encoder refresh + warp-source
@@ -572,7 +587,9 @@ class RifeCuda:
                         self.pairGraph.replay()
                     else:
                         self.model.prepare(self.I0, self.I1)
-                self.normStream.synchronize()
+                # No host sync: the "infer" that follows runs after it on
+                # normStream. Each sync idled the GPU while the host queued
+                # the next step (~5% of the pair at 1080p).
 
             case "infer":
                 waitForCaller(self.normStream)
@@ -685,6 +702,11 @@ class RifeCuda:
             with torch.cuda.stream(self.normStream):
                 _encodeSkippedPair(self.model, self.I1)
         self.processFrame(None, "cache")
+        if not framesToInsert:
+            # No "infer" synchronized normStream, so the read of ``frame``
+            # queued by "I1" may still be pending; finish it before the caller
+            # can release the frame.
+            self.normStream.synchronize()
 
 
 class RifeMPS:

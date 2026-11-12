@@ -1,4 +1,3 @@
-import contextlib
 import math
 import os
 
@@ -8,36 +7,10 @@ import logging
 
 import torch
 
+from src.infra.cudaAllocator import expandableSegments  # noqa: F401  (re-export)
 from src.infra.isCudaInit import CudaChecker
 
 checker = CudaChecker()
-
-
-@contextlib.contextmanager
-def expandableSegments():
-    """Back new CUDA allocations with expandable segments for one depth run.
-
-    The depth heads allocate a few large, differently sized maps per frame;
-    with fixed segments the caching allocator reserves far past the live peak
-    (large_v3 at 1080p high: 6.2 GB reserved for a 3.7 GB peak, 3.9 GB with
-    this). Output is unaffected. Restored afterwards so the next video in a
-    batch -- possibly a CUDA-graph interpolation run -- gets the default.
-    CUDA only; a user's own PYTORCH_CUDA_ALLOC_CONF choice wins.
-    """
-    setSettings = getattr(torch._C, "_accelerator_setAllocatorSettings", None)
-    if (
-        setSettings is None
-        or not torch.cuda.is_available()
-        or torch.version.cuda is None
-        or "expandable_segments" in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "")
-    ):
-        yield
-        return
-    setSettings("expandable_segments:True")
-    try:
-        yield
-    finally:
-        setSettings("expandable_segments:False")
 
 
 class DepthRunOutcome:
@@ -100,6 +73,134 @@ class DepthRunOutcome:
         from src.server.aeComms import reportTerminalStatus
 
         reportTerminalStatus(self.processingError, self.output, self.benchmark)
+
+
+class _Finished:
+    """A result whose producing GPU work is queued up to ``event``.
+
+    Stands where a ``Future`` would in ``OrderedFrameSink``: ``result()``
+    blocks the host only until that event, so the stream keeps running the work
+    queued after it (the next forward) while the frame is handed on.
+    """
+
+    def __init__(self, value, event=None, check=None):
+        self._value = value
+        self._event = event
+        self._check = check
+
+    def result(self):
+        if self._event is not None:
+            self._event.synchronize()
+        if self._check is not None:
+            self._check()
+        return self._value
+
+
+class _Failed:
+    def __init__(self, error: Exception):
+        self._error = error
+
+    def result(self):
+        raise self._error
+
+
+def _readyEvent(value):
+    """An event marking the end of the work queued for ``value``'s device, or None.
+
+    Only CUDA (and ROCm's HIP, which torch reports as "cuda") queues work; a CPU
+    tensor is finished when it exists.
+    """
+    device = getattr(value, "device", None)
+    if device is None or device.type != "cuda":
+        return None
+    event = torch.cuda.Event()
+    event.record(torch.cuda.current_stream(device))
+    return event
+
+
+class OrderedFrameSink:
+    """Depth frames written in decode order, a few frames behind the GPU.
+
+    The depth post-process (1/depth, a two-percentile stretch, the chunk
+    alignment of the streaming methods) runs on the model's device, queued
+    behind the forward that produced it. Writing a frame the moment it is
+    queued would have to wait for the GPU and leave it idle until the next
+    forward is issued, so each frame is held here, with an event marking the end
+    of its work, until ``maxPending`` newer ones arrive: by then the next
+    forward is queued and the wait overlaps it. The writer copies on its own
+    stream and never waits on ours, so a frame is only written once its event
+    has passed.
+
+    Every result, and every failure, is delivered on the caller's thread in
+    submission order. With ``recordFailure`` a failure is recorded and the run
+    goes on; with None it is raised from the call that delivers it, and nothing
+    queued after it is written.
+    """
+
+    def __init__(self, write, recordFailure, progress=None, maxPending=3):
+        from collections import deque
+
+        self._write = write
+        self._recordFailure = recordFailure
+        self._progress = progress
+        self._maxPending = max(1, maxPending)
+        self._pending = deque()
+        self._raised = False
+
+    def submit(self, values, check=None) -> None:
+        """Queue frames whose work is already issued on the current stream.
+
+        ``check`` runs once the first of them is ready, before it is written; a
+        raise there stands for a failure of that frame.
+        """
+        values = list(values)
+        if not values:
+            return
+        event = _readyEvent(values[0])
+        for index, value in enumerate(values):
+            self._push(_Finished(value, event, check if index == 0 else None), 1)
+
+    def fail(self, error: Exception, frames: int) -> None:
+        """Queue a failure that stands for ``frames`` decoded frames."""
+        self._push(_Failed(error), frames)
+
+    def _push(self, pending, frames: int) -> None:
+        self._pending.append((pending, frames))
+        while len(self._pending) > self._maxPending:
+            self._emit(*self._pending.popleft())
+
+    def _emit(self, pending, frames: int) -> None:
+        try:
+            result = pending.result()
+            if result is not None:
+                self._write(result)
+        except Exception as e:
+            if self._recordFailure is None:
+                self._raised = True
+                raise
+            self._recordFailure(e)
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+        if self._progress is not None:
+            self._progress(frames)
+
+    def close(self) -> None:
+        """Write everything still pending.
+
+        Frames queued before a failure the caller raised were already written
+        by the serial loop, so they are written here too; after a failure this
+        sink raised, nothing more is."""
+        try:
+            while self._pending and not self._raised:
+                self._emit(*self._pending.popleft())
+        finally:
+            self._pending.clear()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
 
 
 MEANTENSOR = (
@@ -247,28 +348,119 @@ def limboOnnxPath(depthMethod, height, width, half, backend):
     )
 
 
+# Elements the stretch works on at once: its elementwise temporaries run to
+# ~8x the maps' own float32 size, so a 16-map block of 720p ``*_v3`` maps is
+# stretched a couple of maps at a time rather than holding ~0.5 GB at once.
+_STRETCH_ELEMENTS = 1 << 21
+
+
+def _mapPercentiles(sample, qs):
+    """``qs`` quantiles of each [H, W] map of ``sample``, NaN skipped.
+
+    One tensor per quantile, shaped ``[..., 1, 1]`` to broadcast against the
+    maps. Linear interpolation over the ``(n - 1) * q`` rank, as
+    ``np.percentile`` does. A quantile vector sorts each map once for both.
+
+    One map per call: a batched ``dim=-1`` call runs a segmented sort that is
+    slower on the GPU (4.0 vs 2.9 ms for 16 Limbo-sized maps on an RTX 3090)
+    and needs ~20x the memory, for bit-identical results.
+    """
+    lead = sample.shape[:-2]
+    rows = sample.reshape(-1, sample.shape[-2] * sample.shape[-1])
+    q = rows.new_tensor(qs)
+    bounds = torch.stack([torch.nanquantile(row, q) for row in rows], dim=1)
+    return [bound.reshape(*lead, 1, 1) for bound in bounds]
+
+
+def _stretchMaps(depth, minValid, widenFlat, depthFloor):
+    depth = torch.nan_to_num(depth.float(), nan=0.0, posinf=0.0, neginf=0.0)
+    valid = depth > 0
+
+    safe = depth if depthFloor is None else depth.clamp_min(depthFloor)
+    disparity = torch.where(valid, 1.0 / safe, torch.zeros_like(depth))
+
+    sample = torch.where(valid, disparity, torch.full_like(disparity, float("nan")))
+    low, high = _mapPercentiles(sample, [0.02, 0.98])
+    del sample
+    if widenFlat:
+        flat = low == high
+        low = torch.where(flat, low - 1e-6, low)
+        high = torch.where(flat, high + 1e-6, high)
+        gray = (disparity - low) / (high - low)
+    else:
+        gray = (disparity - low) / (high - low).clamp_min(1e-6)
+    # An all-invalid map makes both quantiles NaN; write black rather than
+    # letting a NaN reach the writer's quantization.
+    gray = torch.nan_to_num(gray, nan=0.0, posinf=0.0, neginf=0.0).clamp(0.0, 1.0)
+    if minValid:
+        enough = valid.flatten(-2).sum(-1) > minValid
+        gray = torch.where(enough[..., None, None], gray, torch.zeros_like(gray))
+    return gray
+
+
+def disparityStretch(depth, *, minValid=0, widenFlat=False, depthFloor=1e-6):
+    """Positive depth -> [0, 1] disparity, each [H, W] map stretched on its own.
+
+    1/depth on the valid (finite, > 0) pixels, then the 2nd and 98th
+    percentiles of those map to 0 and 1; invalid pixels are 0. Runs on the
+    tensor's own device and never reads a value back to the host: the
+    percentiles come from ``nanquantile`` over a NaN-masked copy rather than a
+    boolean gather, which would need the valid count on the host every frame.
+    A batch of maps is stretched ``_STRETCH_ELEMENTS`` at a time.
+
+    The knobs keep each caller's established semantics:
+
+    - ``minValid``: a map with this many valid pixels or fewer is all 0 (the
+      ``*_v3`` methods use 10; Limbo none, an all-invalid map is 0 either way).
+    - ``widenFlat``: a map whose bounds coincide is stretched over
+      ``[low - 1e-6, high + 1e-6]`` (the ``*_v3`` image methods) rather than
+      dividing by a range floored at 1e-6 (Limbo and the streaming methods).
+    - ``depthFloor``: Limbo clamps depth to it before the reciprocal; None
+      takes 1/depth as is.
+    """
+    perMap = depth.shape[-2] * depth.shape[-1]
+    if depth.ndim < 3 or depth.numel() <= max(perMap, _STRETCH_ELEMENTS):
+        return _stretchMaps(depth, minValid, widenFlat, depthFloor)
+    maps = depth.reshape(-1, *depth.shape[-2:])
+    step = max(1, _STRETCH_ELEMENTS // perMap)
+    gray = torch.empty(maps.shape, dtype=torch.float32, device=depth.device)
+    for i in range(0, len(maps), step):
+        gray[i : i + step] = _stretchMaps(
+            maps[i : i + step], minValid, widenFlat, depthFloor
+        )
+    return gray.reshape(depth.shape)
+
+
 def limboDisparity(depth):
     """Limbo's positive depth -> a [0, 1] disparity map, as a torch tensor.
 
     Limbo is a Depth Anything 3 finetune, so it emits positive depth (further =
     larger) exactly like every ``*_v3`` method and gets the same 1/depth +
-    2/98-percentile stretch those use. Written against torch rather than the
-    numpy the v3 CUDA/MPS drivers use so the CUDA and TensorRT backends can run
-    it on the frame's own device without a round trip.
-
-    `nanquantile` over a NaN-masked copy rather than boolean indexing keeps the
-    whole thing free of device syncs: a masked gather would have to read the
-    valid-pixel count back to the host every frame.
+    2/98-percentile stretch those use, on the frame's own device.
     """
-    depth = torch.nan_to_num(depth.float(), nan=0.0, posinf=0.0, neginf=0.0)
-    valid = depth > 0
+    return disparityStretch(depth)
 
-    disparity = torch.where(valid, 1.0 / depth.clamp_min(1e-6), torch.zeros_like(depth))
 
-    sample = torch.where(valid, disparity, torch.full_like(disparity, float("nan")))
-    # A quantile vector sorts the map once for both bounds.
-    low, high = torch.nanquantile(sample.flatten(), sample.new_tensor([0.02, 0.98]))
-    gray = (disparity - low) / (high - low).clamp_min(1e-6)
-    # An all-invalid frame makes both quantiles NaN; write black rather than
-    # letting a NaN reach the writer's quantization.
-    return torch.nan_to_num(gray, nan=0.0, posinf=0.0, neginf=0.0).clamp(0.0, 1.0)
+def toDevice(frame, device):
+    """One decoded frame (numpy or a CPU tensor) on ``device``, without blocking.
+
+    A pageable host-to-device copy blocks the host until it lands, which on a
+    stream the GPU is busy with means until everything queued before it has
+    run. Staged through pinned memory, the copy is only queued: it runs in
+    stream order (a few ms per 32-frame chunk, against a forward of ~100 ms)
+    and the caching host allocator keeps the staging buffer until it has. The
+    staging copy is numpy's, on this thread: ``Tensor.pin_memory`` copies on
+    the OpenMP pool, which then spins a dozen cores.
+    """
+    tensor = frame if isinstance(frame, torch.Tensor) else torch.from_numpy(frame)
+    device = torch.device(device)
+    if device.type != "cuda" or tensor.device.type != "cpu":
+        return tensor.to(device)
+    staged = torch.empty(tensor.shape, dtype=tensor.dtype, pin_memory=True)
+    staged.numpy()[...] = tensor.numpy()
+    return staged.to(device, non_blocking=True)
+
+
+def stackFrames(frames, device):
+    """Decoded [H, W, 3] frames -> one [N, H, W, 3] tensor on ``device``."""
+    return torch.stack([toDevice(frame, device) for frame in frames])

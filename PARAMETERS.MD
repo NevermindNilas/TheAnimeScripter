@@ -311,6 +311,7 @@ C:\Videos\episode3.mp4
 | `--preview_port` | int | **Preview server port** (default 5000). Port 5000 is heavily contested — Flask/uvicorn dev servers use it, and macOS AirPlay Receiver owns it by default. Left at the default, TAS falls back to an OS-assigned free port and prints the real URL; set explicitly, it reports the port as busy instead of silently moving | None |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 | `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
+| `--low_cpu` | flag | **Lower CPU usage** - On NVIDIA CUDA, the thread feeding the GPU sleeps through most of each wait for a frame instead of busy-waiting on a full core; it learns each wait's length and spins only the last few ms | Steady CPU of a 1080p `span` upscale 110% → 19% of a core at 0.5-1% lower FPS (720p `shufflecugan`: 1.1%); 1080p `rife4.26` uses ~19% less CPU at 0.7% lower FPS (little change at 720p); with x264 on 4 cores, ~1% higher FPS. Applies to every CUDA stream wait in the process; non-NVIDIA backends are unchanged |
 | `--profile` | flag | **Developer profiling** - Runs under `torch.profiler` and writes a trace for finding GPU/CPU bottlenecks | Large; profiling only |
 
 ---

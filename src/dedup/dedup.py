@@ -383,7 +383,9 @@ class DedupFlownetS:
 
         self.stream = torch.cuda.Stream()
         waitForCaller(self.stream)
-        with torch.cuda.stream(self.stream):
+        # no_grad: a grad-mode warmup keeps every activation for a backward
+        # that never runs (see UniversalPytorch's warmup).
+        with torch.cuda.stream(self.stream), torch.no_grad():
             for _ in range(3):
                 output = self.model(self.dummyInput)
                 self.stream.synchronize()

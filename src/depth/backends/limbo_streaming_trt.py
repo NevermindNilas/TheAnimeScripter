@@ -3,10 +3,9 @@
 import logging
 from pathlib import Path
 
-import numpy as np
 import torch
 
-from src.depth.backends._shared import limboResolution
+from src.depth.backends._shared import limboResolution, stackFrames
 from src.depth.backends.da3_streaming import DA3StreamingCuda
 from src.infra.cudaStreams import waitForCaller
 from src.model.download import resolveWeightPath
@@ -74,6 +73,7 @@ class LimboStreamingTensorRT(DA3StreamingCuda):
         self.context.set_input_shape(
             "image", (self.depthWindow, 3, self.newHeight, self.newWidth)
         )
+        self._viewCount = self.depthWindow
         self.bindings = {}
         for name in self.engine:
             dtype = self.engine.get_tensor_dtype(name)
@@ -94,28 +94,34 @@ class LimboStreamingTensorRT(DA3StreamingCuda):
         self.std = torch.tensor([0.229, 0.224, 0.225], device="cuda").view(1, 3, 1, 1)
         self.stream.wait_stream(torch.cuda.current_stream())
 
+    def _modelDevice(self):
+        return torch.device("cuda")
+
     @torch.inference_mode()
     def _inferChunk(self, frames):
         count = len(frames)
         if not 1 <= count <= self.depthWindow:
             raise ValueError("Frame count is outside the streaming engine profile")
-        if not self.context.set_input_shape(
-            "image", (count, 3, self.newHeight, self.newWidth)
-        ):
-            raise RuntimeError("TensorRT rejected the streaming view count")
+        if count != self._viewCount:
+            # Only the tail chunk changes the view count. The previous chunk's
+            # enqueue is not waited for anywhere else, so let it finish before
+            # the context's shape changes under it.
+            self.stream.synchronize()
+            if not self.context.set_input_shape(
+                "image", (count, 3, self.newHeight, self.newWidth)
+            ):
+                raise RuntimeError("TensorRT rejected the streaming view count")
+            self._viewCount = count
         # Every tail uses its real length. Duplicate padding changes attention.
+        # Also orders this enqueue after the caller's reads of the previous
+        # chunk's depth binding.
         waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
-            images = (
-                torch.from_numpy(np.stack(frames))
-                .to("cuda")
-                .permute(0, 3, 1, 2)
-                .float()
-                / 255
-            )
+            images = stackFrames(frames, "cuda").permute(0, 3, 1, 2).float() / 255
             self.bindings["image"][:count].copy_((images - self.mean) / self.std)
             if not self.context.execute_async_v3(self.stream.cuda_stream):
                 raise RuntimeError("Limbo streaming TensorRT inference failed")
-            depth = self.bindings["depth"][:count].float().cpu()
-        self.stream.synchronize()
-        return depth.numpy()
+        # The depth is read on the caller's stream, after the engine and without
+        # a host wait; copied out, since the next chunk reuses the binding.
+        torch.cuda.current_stream().wait_stream(self.stream)
+        return self.bindings["depth"][:count].to(torch.float32, copy=True)

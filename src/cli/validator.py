@@ -871,6 +871,12 @@ def prepareRuntimeArgs(args, outputPath, parser):
             print(message)
             sys.exit(1)
 
+    # Parsed (JSON merged, chain built) and torch not imported yet: a run that
+    # will open CUDA has the driver make its context while torch imports.
+    from src.infra.cudaWarmup import startCudaContextWarmup
+
+    startCudaContextWarmup(args)
+
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
 

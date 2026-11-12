@@ -123,6 +123,92 @@ def _isPow2Int(s):
     return s >= 1 and s == int(s) and (int(s) & (int(s) - 1)) == 0
 
 
+# -----------------------------------------------------------------------------
+# fused conv epilogue (CUDA, opt-in: _FastIFNet.enableFusedEpilogue)
+#
+# cuDNN runs a biased conv as the conv plus a separate in-place bias add, and
+# every conv but the tails is followed by LeakyReLU(0.2) (in _ResConv after a
+# residual add too): two or three full passes over each activation, ~20% of a
+# 1080p pair. One jiterator kernel (NVRTC; torch compiles it once per machine
+# and caches it on disk) does the bias add, the residual add and the LeakyReLU
+# in one pass. jiterator computes fp16 inputs in float, so each add is rounded
+# back to fp16 where the unfused add_/add kernels store it: bit-identical.
+# -----------------------------------------------------------------------------
+
+_EPILOGUES: dict = {}
+
+
+def _epilogues(dtype):
+    """(bias+LeakyReLU, bias+residual+LeakyReLU) kernels for fp16 or fp32."""
+    kernels = _EPILOGUES.get(dtype)
+    if kernels is None:
+        if dtype == torch.float16:
+            tag = "Half"
+
+            def rnd(e):
+                return f"static_cast<float>(at::Half({e}))"
+        elif dtype == torch.float32:
+            tag = "Float"
+
+            def rnd(e):
+                return f"({e})"
+        else:
+            raise TypeError(f"no fused epilogue for {dtype}")
+        biasAdd = rnd("static_cast<float>(y) + static_cast<float>(b)")
+        # torch's leaky_relu: x > 0 ? x : x * float(negative_slope)
+        leaky = "return v > 0.f ? v : v * 0.2f;"
+        create = torch.cuda.jiterator._create_jit_fn
+        kernels = (
+            create(
+                f"template <typename T> T tasBiasLeaky{tag}(T y, T b) "
+                f"{{ float v = {biasAdd}; {leaky} }}"
+            ),
+            create(
+                f"template <typename T> T tasBiasResLeaky{tag}(T y, T b, T x) "
+                f"{{ float s = {biasAdd}; "
+                f"float v = {rnd('s + static_cast<float>(x)')}; {leaky} }}"
+            ),
+        )
+        _EPILOGUES[dtype] = kernels
+    return kernels
+
+
+@torch.no_grad()
+def _epiloguesMatch(dtype, device) -> bool:
+    """Whether the fused kernels reproduce the unfused ops bit for bit here.
+
+    Probed once per model on channels_last activations with a broadcast bias,
+    the layout the blocks run (signed zeros and an fp16 overflow included),
+    which also compiles the kernels before any CUDA-graph capture."""
+    g = torch.Generator(device="cpu").manual_seed(0)
+    y = (torch.randn((2, 24, 9, 11), generator=g) * 300).to(device, dtype)
+    x = (torch.randn((2, 24, 9, 11), generator=g) * 300).to(device, dtype)
+    b = (torch.randn((24,), generator=g) * 300).to(device, dtype)
+    y[0, :, 0] = 0.0
+    y[0, :, 1] = -0.0
+    y[1, :, 0] = 60000.0
+    x[1, :, 0] = 60000.0
+    y = y.contiguous(memory_format=torch.channels_last)
+    x = x.contiguous(memory_format=torch.channels_last)
+    b4 = b.view(1, -1, 1, 1)
+    biasLeaky, biasResLeaky = _epilogues(dtype)
+    ref = F.leaky_relu(y.clone().add_(b4), 0.2, inplace=True)
+    refRes = F.leaky_relu(y.clone().add_(b4) + x, 0.2, inplace=True)
+    return torch.equal(biasLeaky(y, b4), ref) and torch.equal(
+        biasResLeaky(y, b4, x), refRes
+    )
+
+
+def _convBiasLeaky(conv, x, residual=None):
+    """LeakyReLU(0.2)(conv(x) [+ residual]) with the epilogue in one kernel."""
+    y = conv._conv_forward(x, conv.weight, None)
+    biasLeaky, biasResLeaky = _epilogues(y.dtype)
+    b = conv.bias.view(1, -1, 1, 1)
+    if residual is None:
+        return biasLeaky(y, b)
+    return biasResLeaky(y, b, residual)
+
+
 class _ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super().__init__()
@@ -165,6 +251,8 @@ class _IFBlock(nn.Module):
         self.paddedIn = inPlanes
         # flow scale already folded into lastconv's flow rows at load
         self.flowScale = 1.0
+        # set by _FastIFNet.enableFusedEpilogue
+        self.fusedEpilogue = False
 
     def padInput(self, x):
         if x.size(1) < self.paddedIn:
@@ -174,11 +262,29 @@ class _IFBlock(nn.Module):
             x = torch.cat((x, z), 1)
         return x
 
-    def core(self, x):
-        """Block-resolution input (already padded) -> lastOutCh channels at block res."""
-        feat = self.convblock(self.conv0(x))
+    def core(self, x, flowMaskOnly=False):
+        """Block-resolution input (already padded) -> lastOutCh channels at block res.
+
+        ``flowMaskOnly`` (the last pass, which reads flow and mask only): on the
+        fused path the tail's bias add and depth-to-space then cover just those
+        5 channels and the result has 5 channels. The tail conv itself still
+        computes every row, so cuDNN runs the same kernel as before."""
+        if self.fusedEpilogue:
+            for unit in self.conv0:
+                x = _convBiasLeaky(unit[0], x)
+            for res in self.convblock:
+                x = _convBiasLeaky(res.conv, x, residual=x)
+            feat = x
+        else:
+            feat = self.convblock(self.conv0(x))
         if isinstance(self.lastconv, nn.ConvTranspose2d):
             return F.pixel_shuffle(self.lastconv(feat), 2)
+        if flowMaskOnly and self.fusedEpilogue and self.lastOutCh > 5:
+            # after _d2sPerm, rows c*16 .. c*16+15 make output channel c
+            rows = 16 * 5
+            conv = self.lastconv
+            out = conv._conv_forward(feat, conv.weight, None)[:, :rows]
+            return F.pixel_shuffle(out + conv.bias[:rows].view(1, -1, 1, 1), 4)
         return F.pixel_shuffle(self.lastconv(feat), 4)
 
     def forward(self, x, flow=None, scale=1):
@@ -226,8 +332,17 @@ class _Head(nn.Module):
         # baseline: ConvTranspose2d(midC, outC, 4, 2, 1). Repacked: Conv2d(midC, 4*outC, 3, 1, 1) + PS(2)
         self.cnn3 = nn.Conv2d(midC, 4 * outC, 3, 1, 1)
         self.relu = nn.LeakyReLU(0.2, True)
+        self.fusedEpilogue = False  # set by _FastIFNet.enableFusedEpilogue
 
     def forward(self, x, feat=False):
+        if self.fusedEpilogue and not feat:
+            x = _convBiasLeaky(self.cnn0, x)
+            x = _convBiasLeaky(self.cnn1, x)
+            x = _convBiasLeaky(self.cnn2, x)
+            x3 = self.cnn3(x)
+            if not isinstance(self.cnn3, nn.ConvTranspose2d):
+                x3 = F.pixel_shuffle(x3, 2)
+            return x3
         x0 = self.cnn0(x)
         x = self.relu(x0)
         x1 = self.cnn1(x)
@@ -534,6 +649,37 @@ class _FastIFNet(nn.Module):
             if isinstance(m, _ResConv):
                 m.foldBeta()
         self._repacked = True
+
+    @torch.no_grad()
+    def enableFusedEpilogue(self):
+        """CUDA runtime path (RifeCuda): fused conv epilogues, and a last pass
+        that finishes only the flow and mask channels it is read for.
+
+        Call once the weights are loaded and repacked (ResConv beta folded).
+        Bit-identical to the unfused ops; a probe checks the kernels on this
+        device first. Returns whether it was enabled. Never enabled for export
+        (_ExportIFNet), MPS or ROCm, which keep the plain ops."""
+        p = next(self.parameters())
+        if (
+            not p.is_cuda
+            or torch.version.hip is not None
+            or p.dtype not in (torch.float16, torch.float32)
+            or not self._repacked
+            or not hasattr(torch.cuda, "jiterator")
+        ):
+            return False
+        try:
+            if not _epiloguesMatch(p.dtype, p.device):
+                return False
+        except Exception:  # no NVRTC, or a kernel that does not compile
+            return False
+        for blk in self.blocks:
+            blk.fusedEpilogue = True
+        # Not the encoder under --ensemble: there it costs ~250 MiB more
+        # reserved VRAM at 1080p for under 1% fps.
+        if isinstance(self.encode, _Head) and not self.ensemble:
+            self.encode.fusedEpilogue = True
+        return True
 
     # ---- runtime helpers ---------------------------------------------------
 
@@ -906,9 +1052,10 @@ class _FastIFNet(nn.Module):
                     if self._usesFeat:
                         parts.append(feat if s == 1 else ds(feat, s))
                 parts.append(flow if s == 1 else ds(flow, s) * (1.0 / s))
-            tmp = blk.core(self._fill(i, blk, parts, h, w, img0))
-
             last = i == npass - 1
+            # the last pass reads only flow and mask (fullC == 5 below)
+            tmp = blk.core(self._fill(i, blk, parts, h, w, img0), flowMaskOnly=last)
+
             # The tail is back at block resolution unless the block resolution
             # was not a multiple of 4 (rife_elexor's 1/32 pass at 1088 rows:
             # 34 -> 17 -> 9 -> 36); then it is resized straight to full res, as

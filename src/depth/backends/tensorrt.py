@@ -653,6 +653,8 @@ class VideoDepthTensorRT(DepthRunOutcome):
 
     @torch.inference_mode()
     def normOutputFrame(self):
+        """The window's newest depth -> its 1/99-percentile stretch, quantized
+        to 8 bits as a uint8 [H, W] map on the engine's device."""
         depthTensor = self.dummyOutput[0, -1].float()
         depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
         flatTensor = depthTensor.flatten()
@@ -661,7 +663,7 @@ class VideoDepthTensorRT(DepthRunOutcome):
         )
         denom = (upperBound - lowerBound).clamp_min(1e-6)
         depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
-        return (depthTensor * 255.0).byte().cpu().numpy()
+        return (depthTensor * 255.0).byte()
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -671,13 +673,10 @@ class VideoDepthTensorRT(DepthRunOutcome):
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            depth = self.normOutputFrame()
+            # The 8-bit quantization stays (it is what this method has always
+            # written); the round trip through the host it used to take does not.
             depthTensor = (
-                torch.from_numpy(depth)
-                .to(checker.device, dtype=torch.float32)
-                .unsqueeze(0)
-                .unsqueeze(0)
-                .mul(1 / 255)
+                self.normOutputFrame().float().unsqueeze(0).unsqueeze(0).mul(1 / 255)
             )
             # The writer reads on its own stream; finish the final multiply.
             torch.cuda.current_stream(depthTensor.device).synchronize()

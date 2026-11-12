@@ -7,7 +7,6 @@ import importlib
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -19,10 +18,13 @@ from src.depth.backends._shared import (
     STDTENSOR,
     STDTENSOR_HALF,
     DepthRunOutcome,
+    OrderedFrameSink,
     aspectKeepingInputSize,
     calculateAspectRatio,
+    disparityStretch,
     limboDisparity,
     limboResolution,
+    stackFrames,
 )
 from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
@@ -39,6 +41,37 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 checker = CudaChecker()
+
+
+def _resizeDepth(depth, height, width):
+    """One raw DA3 depth map [h, w] at the frame's own (height, width), fp32.
+
+    The decoder already scales to the model's size, so this only resizes after
+    its OpenCV fallback (which does not scale): bilinear with half-pixel
+    centres, as the cv2 INTER_LINEAR it replaces.
+    """
+    depth = depth.float()
+    if tuple(depth.shape[-2:]) != (height, width):
+        depth = F.interpolate(
+            depth[None, None], (height, width), mode="bilinear", align_corners=False
+        )[0, 0]
+    return depth
+
+
+def _disparityGray(depth):
+    """DA3 depth [..., H, W] -> [0, 1] disparity with a 2/98-percentile stretch.
+
+    The ``*_v3`` semantics: 10 valid pixels or fewer is a black map, and a map
+    whose bounds coincide is widened by 1e-6 either side.
+    """
+    return disparityStretch(depth, minValid=10, widenFlat=True, depthFloor=None)
+
+
+def _grayMaps(depths):
+    """``_disparityGray`` of each map, batched when they share a size."""
+    if len({tuple(d.shape) for d in depths}) == 1:
+        return list(_disparityGray(torch.stack(depths)))
+    return [_disparityGray(d) for d in depths]
 
 
 class DepthCuda(DepthRunOutcome):
@@ -471,24 +504,39 @@ class DepthV3Cuda(DepthRunOutcome):
         frameCount = 0
         batchSize = self.depthBatch
         with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            while True:
-                frames = []
-                for _ in range(batchSize):
-                    frame = self.readBuffer.read()
-                    if frame is None:
+            # Each batch's post-process is queued on the GPU behind its forward
+            # and written once the next batch's forward is queued too, so the
+            # wait for it overlaps that forward; frames still reach the writer
+            # in decode order.
+            with OrderedFrameSink(
+                self._writeGray, self.recordFailure, bar, maxPending=batchSize
+            ) as sink:
+                while True:
+                    frames = []
+                    for _ in range(batchSize):
+                        frame = self.readBuffer.read()
+                        if frame is None:
+                            break
+                        frames.append(frame)
+                    if frames:
+                        self._submitBatch(frames, sink)
+                        frameCount += len(frames)
+                    # A short read means the decoder's single None sentinel was
+                    # just consumed; another read() would block forever.
+                    if len(frames) < batchSize:
                         break
-                    frames.append(frame)
-                if frames:
-                    self.processBatch(frames)
-                    frameCount += len(frames)
-                    bar(len(frames))
-                # A short read means the decoder's single None sentinel was just
-                # consumed; another read() would block forever.
-                if len(frames) < batchSize:
-                    break
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
+
+    @torch.inference_mode()
+    def _submitBatch(self, frames, sink):
+        try:
+            grays = _grayMaps(self._inferBatch(frames))
+        except Exception as e:
+            sink.fail(e, len(frames))
+            return
+        sink.submit(grays)
 
     def handleModels(self):
         from .. import depth_anything_3 as depth_anything_3_pkg
@@ -560,66 +608,79 @@ class DepthV3Cuda(DepthRunOutcome):
 
             self.compileMode = "default"
 
-    @torch.inference_mode()
     def _inferBatch(self, frames):
+        """DA3 mono depth for a list of frames in ONE forward, as raw fp32 depth
+        maps on the model's device, resized to each frame's own resolution."""
+        return [_resizeDepth(depth, h, w) for depth, (h, w) in self._inferRaw(frames)]
+
+    def _modelInput(self, frames):
+        """Decoded RGB frames -> the normalized [N, 3, H, W] fp32 model input.
+
+        The decoder scales to the model's size, which DA3's ``input_processor``
+        (a PIL round trip on the CPU) would leave as it is: its resize only
+        fires off that size, and its ToTensor + ImageNet normalization is done
+        here on the device instead, bit-identically (a true division by 255, as
+        ToTensor's; CUDA turns a division by a Python scalar into a reciprocal
+        multiply). A frame at another size -- the decoder's OpenCV fallback does
+        not scale -- still goes through ``input_processor``.
+        """
+        device = self._modelDevice()
+        size = (
+            getattr(self, "_decodeHeight", None),
+            getattr(self, "_decodeWidth", None),
+        )
+        if all(tuple(frame.shape[:2]) == size for frame in frames):
+            # Contiguous NCHW like ToTensor's; in place on that fresh tensor,
+            # since a 32-view 1080p chunk is ~0.8 GB per fp32 copy.
+            rgb = stackFrames(frames, device).permute(0, 3, 1, 2).contiguous()
+            rgb = rgb.float().div_(torch.tensor(255.0, device=device))
+            return rgb.sub_(MEANTENSOR.to(device)).div_(STDTENSOR.to(device))
+        host = [
+            frame.cpu().numpy() if isinstance(frame, torch.Tensor) else frame
+            for frame in frames
+        ]
+        images = [
+            self.model.input_processor(
+                [frame], None, None, self.processRes, self.processResMethod
+            )[0]
+            for frame in host
+        ]  # [1, C, H, W] each
+        return torch.cat(images).to(device, non_blocking=True).float()
+
+    def _modelDevice(self):
+        return self.model._get_model_device()
+
+    @torch.inference_mode()
+    def _inferRaw(self, frames):
         """DA3 mono depth for a list of frames in ONE forward. Each frame is a
         separate scene with a single view ([B, 1, C, H, W]); the batch dim is
         per-frame independent (no cross-view attention couples them, verified
-        empirically incl. sky-mask models). Returns a list of raw depth maps
-        (np float32) resized to each frame's original resolution."""
-        imgsList = []
-        sizes = []
-        for frame in frames:
-            imgsCpu, _, _ = self.model.input_processor(
-                [frame], None, None, self.processRes, self.processResMethod
-            )
-            imgsList.append(imgsCpu)  # [1, C, H, W]
-            sizes.append(frame.shape[:2])  # (H, W)
-
-        device = self.model._get_model_device()
-        batch = torch.stack(imgsList, dim=0).to(device, non_blocking=True).float()
-        prediction = self.model.output_processor(self.model.forward(batch))
-
-        depths = []
-        for i, (h, w) in enumerate(sizes):
-            depth = np.asarray(prediction.depth[i]).squeeze()  # [h', w']
-            if depth.shape[0] != h or depth.shape[1] != w:
-                depth = cv2.resize(depth, (w, h), interpolation=cv2.INTER_LINEAR)
-            depths.append(
-                np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-            )
-        return depths
+        empirically incl. sky-mask models). Returns (depth at model resolution
+        on the model's device, the frame's (H, W)) per frame; ``_resizeDepth``
+        takes it from there."""
+        batch = self._modelInput(frames).unsqueeze(1)
+        # output_processor's depth, without its copy of every output to numpy.
+        depth = self.model.forward(batch)["depth"].squeeze(0).squeeze(-1)
+        return [
+            (depth[i].squeeze(), tuple(frame.shape[:2]))
+            for i, frame in enumerate(frames)
+        ]
 
     @torch.inference_mode()
     def processBatch(self, frames):
+        """One batch, inferred, post-processed and written on this thread."""
         try:
-            rawDepths = self._inferBatch(frames)
+            grays = _grayMaps(self._inferBatch(frames))
         except Exception as e:
             self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
             return
 
-        # per-frame disparity + percentile postproc (unchanged), in decode order
-        for depth in rawDepths:
+        # The writer copies on its own stream and never waits on ours.
+        if grays and grays[0].is_cuda:
+            torch.cuda.current_stream(grays[0].device).synchronize()
+        for gray in grays:
             try:
-                depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
-                validMask = depth > 0
-
-                if validMask.sum() <= 10:
-                    self._writeGray(np.zeros(depth.shape, dtype=np.float32))
-                    continue
-
-                disparity = np.zeros_like(depth, dtype=np.float32)
-                disparity[validMask] = 1.0 / depth[validMask]
-
-                # Two scalar calls on purpose: one call with a q array interpolates
-                # in a different precision and moves the 98th percentile by ~1e-6.
-                disp_min = np.percentile(disparity[validMask], 2)
-                disp_max = np.percentile(disparity[validMask], 98)
-                if disp_min == disp_max:
-                    disp_min -= 1e-6
-                    disp_max += 1e-6
-                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
                 self._writeGray(gray)
             except Exception as e:
                 self.recordFailure(e)
@@ -630,10 +691,9 @@ class DepthV3Cuda(DepthRunOutcome):
     def _writeGray(self, gray):
         """[H, W] float in [0, 1] -> the [1, 1, H, W] frame the writer expects.
 
-        The writer resizes a frame that does not match the output dimensions,
-        so the cv2.resize the old encode thread did here is not needed."""
-        self.writeBuffer.write(
-            torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))
-            .unsqueeze(0)
-            .unsqueeze(0)
-        )
+        Handed over on its device, at the model's size: the writer resizes it
+        to the output on its own CUDA stream. The caller has finished the work
+        that produced it (``OrderedFrameSink`` waits for its event)."""
+        if not isinstance(gray, torch.Tensor):
+            gray = torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))
+        self.writeBuffer.write(gray.float()[None, None])

@@ -319,6 +319,11 @@ class VideoProcessor:
         self.previewPortPinned: bool = requestedPort is not None
         self.previewPort: int | None = requestedPort
         self.profile: bool = args.profile
+        if getattr(args, "low_cpu", False):
+            from src.infra.hostWait import enableLowCpuWait
+
+            if not enableLowCpuWait():
+                logging.info("--low_cpu has no effect without NVIDIA CUDA")
         self.singleImageInput: bool = getattr(args, "single_image_input", False)
 
     def _initVideoMetadata(self, args) -> None:
@@ -471,7 +476,15 @@ class VideoProcessor:
             motionBlur(self)
 
         else:
-            self.start()
+            from src.infra.cudaAllocator import expandableSegments, runsTorchCudaModel
+
+            # CUDA-graph pools reserve well past their live peak on fixed
+            # segments (shufflecugan 1080p, nvidia-smi: 3410 -> 2828 MiB). Only
+            # where torch holds the model memory: a TensorRT run keeps few torch
+            # buffers, and at 1080p their expandable segments' coarse per-stream
+            # granules cost up to 74 MiB more than fixed segments.
+            with expandableSegments(enabled=runsTorchCudaModel(self.chain)):
+                self.start()
 
     def _checkRingMemory(self, pipeline) -> None:
         """Refuse a chain whose frame rings do not fit in the GPU memory left over.
@@ -1260,5 +1273,88 @@ def main():
         _restoreTerminalTitle()
 
 
+def _exitCode(code) -> int:
+    """The process exit status ``raise SystemExit(code)`` would give."""
+    if code is None:
+        return 0
+    if isinstance(code, int):
+        return code
+    # sys.exit("message"): Python prints it to stderr and exits 1.
+    try:
+        print(code, file=sys.stderr)
+    except Exception:
+        pass
+    return 1
+
+
+def _canSkipTeardown() -> bool:
+    """Whether the interpreter's teardown may be skipped at exit.
+
+    Only when this file runs as the real ``__main__`` with no profiler, tracer
+    or debugger wrapped around it (those write their results after the script
+    returns), and no non-daemon thread is still running (normal exit would
+    wait for it).
+    """
+    import threading
+
+    mainModule = sys.modules.get("__main__")
+    if mainModule is None or vars(mainModule) is not globals():
+        return False
+    if sys.gettrace() is not None or sys.getprofile() is not None:
+        return False
+    monitoring = getattr(sys, "monitoring", None)
+    if monitoring is not None:
+        try:
+            if any(monitoring.get_tool(tool) is not None for tool in range(6)):
+                return False
+        except Exception:
+            return False
+    if "pdb" in sys.modules or "bdb" in sys.modules:
+        return False
+    mainThread = threading.main_thread()
+    for thread in threading.enumerate():
+        if thread is not mainThread and not thread.daemon and thread.is_alive():
+            return False
+    return True
+
+
+def _exitSkippingTeardown(code) -> None:
+    """Exit without the interpreter's teardown, which a CUDA run pays ~0.2 s for.
+
+    Everything a normal exit does that has an effect outside the process still
+    runs: the atexit hooks (logging's flush/close, multiprocessing stopping the
+    After Effects server child), and the stdio flush. What is skipped is the
+    module/object garbage collection and the native libraries' teardown (CUDA
+    context, cuDNN/cuBLAS handles), which the OS reclaims anyway. Every output
+    is already closed by then: the writers finalize their container in their
+    own thread's ``finally`` and main() has returned. A non-daemon thread still
+    running, or a profiler/debugger wrapped around this script, keeps the
+    normal exit.
+    """
+    status = _exitCode(code)
+    if not _canSkipTeardown():
+        sys.exit(status)
+    import atexit
+
+    atexit._run_exitfuncs()
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream is not None:
+                stream.flush()
+        except Exception:
+            pass
+    os._exit(status)
+
+
 if __name__ == "__main__":
-    main()
+    # The validator may then have the driver make the CUDA context in the
+    # background while torch imports (see src/infra/cudaWarmup.py).
+    from src.infra.cudaWarmup import enableCudaContextWarmup
+
+    enableCudaContextWarmup()
+    try:
+        main()
+        _exitStatus = None
+    except SystemExit as e:
+        _exitStatus = e.code
+    _exitSkippingTeardown(_exitStatus)

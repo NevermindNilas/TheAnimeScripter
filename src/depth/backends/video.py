@@ -8,7 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
 
-from src.depth.backends._shared import DepthRunOutcome, videoDepthInputSize
+from src.depth.backends._shared import (
+    DepthRunOutcome,
+    toDevice,
+    videoDepthInputSize,
+)
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -165,9 +169,15 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
             depth = self.model.infer_video_depth_one(
                 frame, self.inputSize, self.device, True
             )
-            depth = torch.from_numpy(depth)
+            # The model hands its map back on the host at the frame's size; the
+            # min-max and the writer's 8/16-bit conversion of it run on the GPU
+            # rather than on the CPU's thread pool.
+            depth = toDevice(depth, self.device)
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             depth = depth.unsqueeze(0).unsqueeze(0)
+            if depth.is_cuda:
+                # The writer copies on its own stream and never waits on ours.
+                torch.cuda.current_stream(depth.device).synchronize()
             self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()
