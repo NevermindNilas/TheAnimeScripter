@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte and Limbo V2/V3 no longer depend on third-party locations.
 
 ### Fixed
+- Videos whose width is not a multiple of 8 (854, 1268, 1366, 642, ...) decoded on the CPU had their last 2-6 columns filled with leftovers from earlier frames (run-to-run noise or black edges); `nelux` 0.23.0 decodes every column, in every profile.
 - RIFE CUDA `--dynamic_scale`: pairs that picked scale 2.0 (with `--ensemble`, scale 1.0 too) replayed a CUDA graph reading stale encoder features, so ~80% of interpolated frames at 720p `rife4.26` differed from the eager forward (min 26 dB), and `--ensemble --dynamic_scale` crashed with an illegal memory access. Output now matches the eager forward exactly.
 - Depth no longer resets the other keys of a user's `PYTORCH_CUDA_ALLOC_CONF` (e.g. `max_split_size_mb`, `garbage_collection_threshold`) for the rest of the run; TAS now leaves a user-set allocator config alone.
 - GPU stages could read a frame before the work producing it had finished: their private CUDA streams never waited for the caller's stream. Every stage now does (`src/infra/cudaStreams.waitForCaller`), with unchanged speed and bit-identical output on renders that were already correct. The SCUNet and AutoCAS restore paths were the ones where it showed (garbage restores in the padding tests).
