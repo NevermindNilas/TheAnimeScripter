@@ -1,18 +1,34 @@
 import logging
 import os
 
-import nelux
 import torch
 
 import src.constants as cs
-from src.autoclip._frames import eightBit
+from src.autoclip._frames import eightBit, openResizedReader, warnIfVariableRate
 from src.autoclip._results import writeCutResults
 from src.infra.cudaStreams import waitForCaller
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.io.getVideoMetadata import storedResizeTarget
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
+
+
+def cutTimes(preds, threshold, startSec, fps):
+    """Cut timestamps (seconds) from TransNetV2's per-frame probabilities.
+
+    The first frame of a run above ``threshold`` is the last frame of the
+    outgoing shot (upstream's ``predictions_to_scenes`` ends the scene there),
+    so the cut is written at the next frame, where the new shot starts, as the
+    other autoclip methods do.
+    """
+    cuts = []
+    prevHigh = False
+    for i, p in enumerate(preds):
+        high = p > threshold
+        if high and not prevHigh and i > 0:
+            cuts.append(startSec + (i + 1) / fps)
+        prevHigh = high
+    return cuts
 
 
 class AutoClipTransnetv2:
@@ -129,54 +145,9 @@ class AutoClipTransnetv2:
             self.cudaGraph = None
 
     def _openDecoder(self):
-        # nelux iterator at 48x27 with prefetch is the fastest access pattern
-        # available — get_batch_range is blocked when resize is configured.
-        #
-        # Do NOT switch this to ``reader.frame_at(i)`` in a loop: that path
-        # calls seekToNearestKeyframe + decode-forward per call, giving
-        # O(N^2)-ish behavior for sequential indices. ``__iter__`` (and the
-        # range-slice form below) reuse the persistent decoder and stay O(1)
-        # per frame.
-        # ``prefetch=True`` at construction is mandatory: nelux 0.10.x has a
-        # race between FF_THREAD_FRAME codec ctx and post-hoc
-        # ``start_prefetch()`` (the prefetch flag never flips, decodeFrame
-        # keeps routing to the sync path while the producer thread also
-        # decodes -> ``av_assert0(!fctx->async_lock)`` at
-        # pthread_frame.c:174). Constructing with prefetch=True from the
-        # start avoids the dual-path race entirely.
-        reader = nelux.VideoReader(
-            self.input,
-            backend="pytorch",
-            decode_accelerator="cpu",
-            # Stored orientation: nelux rotates a portrait clip after scaling.
-            resize=storedResizeTarget(self.input, self.W, self.H),
-            prefetch=True,
+        return openResizedReader(
+            self.input, self.W, self.H, self.inPoint, self.outPoint
         )
-        fps = reader.fps
-        if not fps or fps <= 0:
-            raise RuntimeError(f"Invalid FPS reported for video: {self.input}")
-
-        from src.io.getVideoMetadata import isTrimUnset, trimPointToFrames
-
-        startFrame = (
-            trimPointToFrames(fps, self.inPoint) if not isTrimUnset(self.inPoint) else 0
-        )
-        endFrame = (
-            trimPointToFrames(fps, self.outPoint)
-            if not isTrimUnset(self.outPoint)
-            else reader.frame_count
-        )
-        if endFrame <= startFrame:
-            raise RuntimeError(
-                f"Empty range: inPoint={self.inPoint}, outPoint={self.outPoint}"
-            )
-
-        if startFrame > 0 or endFrame < reader.frame_count:
-            iterable = reader([startFrame / fps, endFrame / fps])
-        else:
-            iterable = reader
-
-        return iter(iterable), fps, startFrame, endFrame
 
     @torch.inference_mode()
     def _runWindow(self, window):
@@ -212,6 +183,7 @@ class AutoClipTransnetv2:
 
     def _run(self):
         decoderIter, fps, startFrame, endFrame = self._openDecoder()
+        warnIfVariableRate(self.input, fps)
         n = endFrame - startFrame
         startSec = startFrame / fps
 
@@ -284,12 +256,4 @@ class AutoClipTransnetv2:
 
         allPreds = torch.cat(cutPredsCpu, dim=0)[:n].numpy()
 
-        cuts = []
-        prevHigh = False
-        for i, p in enumerate(allPreds):
-            high = p > self.threshold
-            if high and not prevHigh and i > 0:
-                cuts.append(startSec + i / fps)
-            prevHigh = high
-
-        writeCutResults(cuts, self.output)
+        writeCutResults(cutTimes(allPreds, self.threshold, startSec, fps), self.output)

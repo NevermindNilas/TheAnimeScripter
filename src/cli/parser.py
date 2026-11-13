@@ -1214,6 +1214,8 @@ def _addSceneDetectionOptions(argParser):
             "maxxvit-tensorrt",
             "transnetv2",
             "transnetv2-rocm",
+            "omnishotcut",
+            "omnishotcut-rocm",
         ],
         help="Autoclip detection backend",
     )

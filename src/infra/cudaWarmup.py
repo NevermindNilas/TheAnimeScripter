@@ -51,7 +51,7 @@ _PROCESSING_FLAGS = (
 
 # Autoclip takes precedence over every other stage and writes no video; only
 # these methods run on CUDA.
-_CUDA_AUTOCLIP_METHODS = ("maxxvit-tensorrt", "transnetv2")
+_CUDA_AUTOCLIP_METHODS = ("maxxvit-tensorrt", "transnetv2", "omnishotcut")
 
 _enabled = False
 

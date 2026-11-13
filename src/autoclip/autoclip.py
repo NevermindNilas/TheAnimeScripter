@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 from time import sleep
 
@@ -55,34 +54,12 @@ class AutoClip:
             self._run()
 
     def _isConstantFrameRate(self) -> bool:
-        """CFR check: r_frame_rate must equal avg_frame_rate.
+        """The nelux stream derives cut timestamps from frame_number / average
+        fps; the cv2 backend tracks real PTS, so a source that is not provably
+        CFR (screen/phone recordings, many web downloads) stays on cv2."""
+        from src.autoclip._frames import isConstantFrameRate
 
-        The nelux stream derives cut timestamps from frame_number / average
-        fps, which is only truthful on constant-frame-rate containers; the
-        cv2 backend tracks real PTS, so VFR sources (screen/phone recordings,
-        many web downloads) must stay on cv2 or cut seconds drift by the
-        accumulated PTS deviation.
-
-        nelux.probe() returns ffprobe's own rational strings for both rates.
-        Any probe failure (unreadable file, missing rate) is treated as "not
-        provably CFR" and returns False, keeping the run on cv2 rather than
-        raising.
-        """
-        try:
-            import torch  # noqa: F401,I001
-            import nelux
-
-            stream = nelux.probe(os.path.normpath(self.input))
-
-            def rate(expr: str) -> float:
-                num, _, den = expr.partition("/")
-                return float(num) / float(den) if den and float(den) else 0.0
-
-            r, avg = rate(stream["r_frame_rate"]), rate(stream["avg_frame_rate"])
-            return r > 0 and abs(r - avg) < 0.01
-        except Exception as e:
-            logging.info(f"CFR probe failed ({e}); treating input as VFR (cv2)")
-            return False
+        return isConstantFrameRate(self.input)
 
     def _neluxWorthIt(self, video) -> bool:
         """True when the nelux frame source should replace cv2 for this run."""

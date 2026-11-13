@@ -156,7 +156,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | Backend | Suffix | Hardware | Covers |
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
-| **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
+| **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2, omnishotcut), stabilize (dut) — eager, no CUDA graphs |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU (Windows; runs on the CPU on Linux, where no Python 3.14 `onnxruntime-openvino` wheel exists) | Upscale, interpolate, restore, depth, object detection |
@@ -422,7 +422,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | `--scenechange_method` | str | "ssim-cuda" | ssim, ssim-cuda, ssim-rocm, mse, mse-cuda, mse-rocm, maxxvit-tensorrt, maxxvit-directml | **Streaming cut detector** — cheap `ssim`/`mse` (no model) or the `maxxvit` classifier |
 | `--scenechange_sens` | float | 50 | 0-100 | **Cut sensitivity** (higher = more cuts detected); mapped to a per-method threshold |
 
-> **Note:** `transnetv2` and `pyscenedetect` are prepass-only (windowed / whole-file) and are not available here — use `--autoclip` for those.
+> **Note:** `transnetv2`, `omnishotcut` and `pyscenedetect` are prepass-only (windowed / whole-file) and are not available here — use `--autoclip` for those.
 
 ### 🔄 Deduplication
 
@@ -676,10 +676,13 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 |--------|-------|----------|----------|--------------|
 | **pyscenedetect** | ⚡⚡⚡ | ⭐⭐⭐ | No model, works everywhere (default) | CPU |
 | **transnetv2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Learned shot-boundary detection | CUDA, ROCm |
+| **omnishotcut** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Shot transformer that also labels dissolves and fades | CUDA, ROCm (`omnishotcut-rocm`), CPU fallback |
 | **maxxvit-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | Fast classifier on NVIDIA | TensorRT |
 | **maxxvit-directml** | ⚡⚡ | ⭐⭐⭐⭐ | Same classifier on AMD/Intel | DirectML |
 
-> **Note:** The sensitivity is mapped onto each backend's own threshold scale internally: for `pyscenedetect`, 50 lands on AdaptiveDetector's default ratio of 3.0 (0 → 6.0, 100 → 0.5); for `transnetv2`/`maxxvit`, sens 50 → cut-probability threshold 0.5. Higher sensitivity always means more cuts. No MPS path — use `pyscenedetect` on macOS.
+> **Note:** The sensitivity is mapped onto each backend's own threshold scale internally: for `pyscenedetect`, 50 lands on AdaptiveDetector's default ratio of 3.0 (0 → 6.0, 100 → 0.5); for `transnetv2`/`maxxvit`, sens 50 → cut-probability threshold 0.5. Higher sensitivity always means more cuts. `omnishotcut` takes no threshold and ignores `--autoclip_sens`. No MPS path — use `pyscenedetect` on macOS.
+
+> **omnishotcut** ([OmniShotCut](https://github.com/UVA-Computer-Vision-Lab/OmniShotCut), MIT) reads 100-frame windows at 128×96 and splits them into shots, labelling transitions. A dissolve or fade (including fade out, then fade in) gives one cut at its middle. Wipe, push, slide, zoom and doorway segments are not cuts, because on anime they mostly come from movement inside a shot; the shot after one counts only when it opens with a hard cut. A fade at the very start or end of the clip is not a cut. A hard cut is written at the first frame of the new shot. Cut times assume a constant frame rate; on a variable-frame-rate source TAS warns, and `pyscenedetect` reads real timestamps. The labelled boundaries are written to `TAS-Log.log`.
 
 > **Output:** cut timestamps (seconds, one per line) are written per input video as `<name>-Autoclip.txt` in the output directory; `--output cuts.txt` names the file explicitly. Batches write one file per video.
 

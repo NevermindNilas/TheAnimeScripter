@@ -377,7 +377,8 @@ def _mapAutoclipSensitivity(method, sensitivity):
     every frame).
 
     maxxvit / transnetv2 emit a cut probability, so the threshold is the
-    inverted fraction: 50 -> 0.5.
+    inverted fraction: 50 -> 0.5. omnishotcut takes no threshold (its shot
+    queries are argmax decisions) and ignores the value.
     """
     if method == "pyscenedetect":
         return max(0.5, 3.0 * (100.0 - float(sensitivity)) / 50.0)
@@ -673,7 +674,7 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
             else:
                 raise ValueError(
                     f"Unsupported scenechange_method: {method}. "
-                    f"transnetv2/pyscenedetect are prepass-only; use --autoclip."
+                    f"transnetv2/omnishotcut/pyscenedetect are prepass-only; use --autoclip."
                 )
             logging.info(
                 f"scenechange threshold for {method} is: {args.scenechange_threshold}"

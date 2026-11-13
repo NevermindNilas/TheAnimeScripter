@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `--autoclip_method omnishotcut` (plus `omnishotcut-rocm`; CPU when there is no GPU): OmniShotCut shot detection, which also recognizes dissolves and fades and cuts at their middle. On a 10-minute anime episode it found 6 hard cuts that `transnetv2` missed and missed 4 that it found, with 123 of its 155 cuts within 2 frames of `transnetv2`'s; both are limited by decoding (1650 vs 1880 fps on 1080p). `--autoclip_sens` has no effect on it.
+- `--autoclip_method transnetv2` warns when the input is not provably constant frame rate, since its cut times then drift (as `omnishotcut`'s do).
 - `--depth_method moge3` (plus `-mps`, `-rocm`, `-tensorrt`, `-directml`, `-openvino`): MoGe-3 ViT-L depth with its sparse 3D refiner, using vendored FlexGEMM on CUDA and TensorRT where Triton can compile (on an RTX 3090 at 720p about 10.2 and 11.6 fps at `--depth_quality low`, 4.4 at `high`, with 1.1 to 1.8 GB peak VRAM; 15 s of first-run setup) and a plain torch refiner elsewhere, including macOS. Refiner output matches upstream to about 1e-4 in log depth.
 - `--mask` accepts a folder of per-frame masks named by source frame (`000123.png`), for protecting an object that moves.
 - `--low_cpu`: on NVIDIA CUDA the processing thread sleeps through most of each GPU wait instead of busy-waiting a whole core. A 1080p `span` upscale drops from 110% to 19% of a core (720p `shufflecugan`: 113% to 35%) at 0.5-1% lower FPS; 1080p `rife4.26` uses ~19% less CPU at 0.7% lower FPS (little change at 720p); with x264 on 4 cores it is ~1% faster.
@@ -29,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte and Limbo V2/V3 no longer depend on third-party locations.
 
 ### Fixed
+- `--autoclip_method transnetv2` wrote every cut one frame early, on the last frame of the outgoing shot; cuts now land on the new shot's first frame, as with the other autoclip methods (23 of 24 cuts on a test clip moved by exactly one frame).
 - Videos at widths 2, 4 or 6 past a multiple of 16 (854, 1268, 1366, 642, ...) decoded on the CPU had those last 2-6 columns filled with leftovers from earlier frames (run-to-run noise or black edges); `nelux` 0.23.0 decodes every column, in every profile.
 - RIFE CUDA `--dynamic_scale`: pairs that picked scale 2.0 (with `--ensemble`, scale 1.0 too) replayed a CUDA graph reading stale encoder features, so ~80% of interpolated frames at 720p `rife4.26` differed from the eager forward (min 26 dB), and `--ensemble --dynamic_scale` crashed with an illegal memory access. Output now matches the eager forward exactly.
 - Depth no longer resets the other keys of a user's `PYTORCH_CUDA_ALLOC_CONF` (e.g. `max_split_size_mb`, `garbage_collection_threshold`) for the rest of the run; TAS now leaves a user-set allocator config alone.

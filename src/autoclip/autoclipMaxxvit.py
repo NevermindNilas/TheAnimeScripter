@@ -76,7 +76,7 @@ class AutoClipMaxxvit:
         # in a loop: that path seeks to the nearest keyframe + decodes forward
         # per call, giving O(N^2)-ish behavior. Range slicing via
         # ``reader([startSec, endSec])`` reuses the persistent decoder.
-        # See autoclipTransnetv2._openDecoder for the full rationale: nelux
+        # See _frames.openResizedReader for the full rationale: nelux
         # 0.10.x has an FF_THREAD_FRAME race when ``start_prefetch()`` is
         # called after construction (pthread_frame.c:174 async_lock
         # assertion). Construct with prefetch=True so the codec ctx is

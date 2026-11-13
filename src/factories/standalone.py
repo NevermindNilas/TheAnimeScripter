@@ -114,6 +114,17 @@ def autoClip(self):
             self.outpoint,
             self.half,
         )
+    elif self.autoclipMethod in ("omnishotcut", "omnishotcut-rocm"):
+        # One class: torch.cuda (HIP on ROCm) is picked inside, else the CPU.
+        # The model takes no threshold, so autoclipSens is not passed.
+        from src.autoclip.autoclipOmniShotCut import AutoClipOmniShotCut
+
+        AutoClipOmniShotCut(
+            self.input,
+            self.output,
+            self.inpoint,
+            self.outpoint,
+        )
     else:
         raise ValueError(f"Unknown autoclip_method: {self.autoclipMethod}")
 

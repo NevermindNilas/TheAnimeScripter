@@ -244,6 +244,7 @@ def modelsList() -> list[str]:
         "maxxvit-tensorrt",
         "maxxvit-directml",
         "transnetv2",
+        "omnishotcut",
         "flownets",
         "dut",
         "video_small_v2-tensorrt",
@@ -1067,6 +1068,11 @@ def modelsMap(
 
         case "transnetv2":
             return "transnetv2-pytorch-weights.pth"
+
+        case "omnishotcut":
+            # uva-cv-lab/OmniShotCut_v1.5, args stripped to a plain state dict
+            # (tools/convert_omnishotcut.py).
+            return "omnishotcut_v1.5.pth"
 
         case "small_v2":
             return "depth_anything_v2_vits.pth"
