@@ -7,16 +7,17 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
     closeWriterAndDrainReader,
     createWriteBuffer,
 )
-from src.io.runOutcome import truncatedDecodeError
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -109,6 +110,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -153,6 +156,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
         self.cudaGraph = None
         try:
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 # 3 warmup iters before capture: cudnn.benchmark is False (no algo
                 # autotune), so 3 is enough to JIT the cudnn kernels and allocate
@@ -181,6 +185,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
         The batch is concatenated *inside* self.stream. Building it on the default
         stream instead would let the forward read it before the copy landed."""
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             input_img = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             input_img = input_img.to(checker.device).float()
@@ -350,6 +355,7 @@ class AnimeSegmentTensorRT:
         benchmark=False,
         totalFrames=0,
         segment_batch: int = 1,
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -365,6 +371,10 @@ class AnimeSegmentTensorRT:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.segmentBatch = max(1, int(segment_batch))
+        # A --resize target: the model's fixed I/O buffers are built at
+        # width x height, so the decoder has to deliver frames at that size
+        # (decoded at the source size, every frame failed to fit them).
+        self.decodeResize = decodeResize
 
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -384,6 +394,9 @@ class AnimeSegmentTensorRT:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -415,6 +428,8 @@ class AnimeSegmentTensorRT:
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -484,6 +499,7 @@ class AnimeSegmentTensorRT:
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -496,6 +512,7 @@ class AnimeSegmentTensorRT:
     def normFrame(self, frames):
         """frames: list of segmentBatch decoded tensors [1, 3, H, W]. Builds the
         [B, 3, paddedH, paddedW] engine input and returns the padded batch."""
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             batch = F.pad(
@@ -508,6 +525,7 @@ class AnimeSegmentTensorRT:
 
     @torch.inference_mode()
     def outputNorm(self, batch, i):
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             frameWithMask = torch.cat(
                 (batch[i : i + 1], self.dummyOutput[i : i + 1]), dim=1
@@ -585,6 +603,7 @@ class AnimeSegmentDirectML:
         encode_method="x264",
         benchmark=False,
         totalFrames=0,
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -599,6 +618,10 @@ class AnimeSegmentDirectML:
         self.encode_method = encode_method
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        # A --resize target: the model's fixed I/O buffers are built at
+        # width x height, so the decoder has to deliver frames at that size
+        # (decoded at the source size, every frame failed to fit them).
+        self.decodeResize = decodeResize
 
         import onnxruntime as ort
 
@@ -611,6 +634,9 @@ class AnimeSegmentDirectML:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                resize=self.decodeResize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -646,6 +672,8 @@ class AnimeSegmentDirectML:
             self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
@@ -671,7 +699,7 @@ class AnimeSegmentDirectML:
             logging.info("DirectML provider available. Defaulting to DirectML")
             provider = "DmlExecutionProvider"
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             provider = "CPUExecutionProvider"
@@ -786,257 +814,6 @@ class AnimeSegmentDirectML:
                     self.processFrame(frame)
                     frameCount += 1
                     bar(1)
-
-            logging.info(f"Processed {frameCount} frames")
-
-        finally:
-            # The decoder signals a mid-stream death only by putting its
-            # end-of-stream sentinel, which reads like a clean EOF, so without
-            # this a truncated decode wrote a short file and exited 0.
-            decodeError = truncatedDecodeError(
-                self.readBuffer, self.totalFrames, self.writeBuffer
-            )
-            if decodeError is not None and self.processingError is None:
-                self.processingError = decodeError
-            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
-
-
-class AnimeSegmentOpenVino:
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        inpoint=0,
-        outpoint=0,
-        encode_method="x264",
-        benchmark=False,
-        totalFrames=0,
-    ):
-        self.input = input
-        self.output = output
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        # Read back by the standalone factory so main.py can count a failed
-        # run as failed; these paths never reach start()'s own bookkeeping.
-        self.processingError: Exception | None = None
-        self.encode_method = encode_method
-        self.benchmark = benchmark
-        self.totalFrames = totalFrames
-
-        logAndPrint(
-            "OpenVINO backend is an experimental feature, please report any issues you encounter.",
-            "yellow",
-        )
-
-        import onnxruntime as ort
-
-        ort.set_default_logger_severity(3)
-        self.ort = ort
-
-        try:
-            import openvino  # noqa: F401
-        except ImportError:
-            logging.error(
-                "OpenVINO is not installed. Please install it to use this backend."
-            )
-            raise
-
-        self.handleModel()
-        try:
-            self.readBuffer = BuildBuffer(
-                videoInput=self.input,
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-            )
-
-            self.writeBuffer = createWriteBuffer(
-                self.encode_method,
-                input=self.input,
-                output=self.output,
-                width=self.width,
-                height=self.height,
-                fps=self.fps,
-                grayscale=False,
-                transparent=True,
-                benchmark=self.benchmark,
-                # BuildBuffer above trims the video to [inpoint, outpoint];
-                # without these the writer muxes the FULL-length source audio
-                # and subtitles against it, desyncing the output by inpoint.
-                # AnimeSegment and AnimeSegmentTensorRT already pass them.
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-            )
-
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                processFuture = executor.submit(self.process)
-                executor.submit(self.writeBuffer)
-                # .result(): without it a raise inside process() is discarded
-                # with the future and the run reports success on a broken output.
-                processFuture.result()
-
-        except Exception as e:
-            # Recorded as well as logged: --segment bypasses start(), so main.py
-            # otherwise decides success purely from the output file size and
-            # counts a half-written video as a successful run.
-            self.processingError = e
-            logging.error(f"An error occurred while processing the video: {e}")
-
-        if ADOBE:
-            # This path bypasses main.py's start()/_notifyAdobe, so nothing
-            # else would ever tell the panel the render finished or failed.
-            reportTerminalStatus(self.processingError, self.output, self.benchmark)
-
-    def handleModel(self):
-        if ADOBE:
-            progressState.update(
-                {"status": "Loading OpenVINO background removal model..."}
-            )
-
-        method = "segment-directml"
-        self.filename = modelsMap(method)
-        folderName = "segment-onnx"
-        modelPath = resolveWeightPath(folderName, self.filename, downloadModel=method)
-
-        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
-        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
-
-        providers = self.ort.get_available_providers()
-        logging.info(f"Available ONNX Runtime providers: {providers}")
-
-        if "OpenVINOExecutionProvider" in providers:
-            logging.info("OpenVINO provider available. Defaulting to OpenVINO")
-            provider = "OpenVINOExecutionProvider"
-        else:
-            logWarning(
-                "OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
-            )
-            provider = "CPUExecutionProvider"
-
-        self.model = self.ort.InferenceSession(modelPath, providers=[provider])
-        warnIfProviderMissing(self.model, provider, "OpenVINO segment")
-        self.deviceType = "cpu"
-        self.device = torch.device(self.deviceType)
-        self.numpyDType = np.float32
-        self.torchDType = torch.float32
-
-        self.IoBinding = self.model.io_binding()
-        self.dummyInput = torch.zeros(
-            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
-            device=self.device,
-            dtype=torch.float32,
-        ).contiguous()
-
-        self.dummyOutput = torch.zeros(
-            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
-            device=self.device,
-            dtype=torch.float32,
-        ).contiguous()
-
-        self.IoBinding.bind_output(
-            name="output",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyOutput.shape,
-            buffer_ptr=self.dummyOutput.data_ptr(),
-        )
-
-        self.usingCpuFallback = False
-        self.modelPath = modelPath
-
-    def _fallbackToCpu(self):
-        """Reinitialize model with CPU provider after OpenVINO failure."""
-        logAndPrint(
-            "OpenVINO encountered an error, falling back to CPU. Performance will be slower.",
-            "yellow",
-        )
-
-        self.model = self.ort.InferenceSession(
-            self.modelPath, providers=["CPUExecutionProvider"]
-        )
-
-        self.IoBinding = self.model.io_binding()
-        self.IoBinding.bind_output(
-            name="output",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyOutput.shape,
-            buffer_ptr=self.dummyOutput.data_ptr(),
-        )
-
-        self.usingCpuFallback = True
-
-    def processFrame(self, frame: torch.tensor) -> torch.tensor:
-        try:
-            frame = frame.to(self.device).float()
-            frame = F.pad(frame, (0, self.padWidth, 0, self.padHeight))
-            self.dummyInput.copy_(frame)
-
-            self.IoBinding.bind_input(
-                name="input",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.dummyInput.shape,
-                buffer_ptr=self.dummyInput.data_ptr(),
-            )
-
-            self.model.run_with_iobinding(self.IoBinding)
-
-            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
-            frameWithMask = frameWithMask[
-                :,
-                :,
-                : frameWithMask.shape[2] - self.padHeight,
-                : frameWithMask.shape[3] - self.padWidth,
-            ]
-            self.writeBuffer.write(frameWithMask)
-
-        except UnicodeDecodeError as e:
-            if not self.usingCpuFallback:
-                logging.warning(f"OpenVINO UnicodeDecodeError: {e}")
-                self._fallbackToCpu()
-                self.processFrame(frame)
-            else:
-                logging.exception(
-                    f"Something went wrong while processing the frame, {e}"
-                )
-
-        except Exception as e:
-            # Recorded, not just logged: the loop keeps going, so without this
-            # a run where every frame raised finished with a header-only file
-            # and reported success -- the same hole --depth had.
-            if self.processingError is None:
-                self.processingError = e
-            logging.exception(f"An error occurred while processing the frame, {e}")
-
-    def process(self):
-        # try/finally, not a trailing call: if this loop raises, the writer
-        # never gets its None sentinel and the enclosing ThreadPoolExecutor
-        # joins forever, with the exception buried in a future nobody reads.
-        frameCount = 0
-        try:
-            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
-                # Read to the sentinel, not to the frame-count estimate; see
-                # the same change in the other standalone drivers.
-                while True:
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
-                    self.processFrame(frame)
-                    frameCount += 1
-                    bar(1)
-                    if self.readBuffer.isReadFinished():
-                        if self.readBuffer.isQueueEmpty():
-                            break
 
             logging.info(f"Processed {frameCount} frames")
 

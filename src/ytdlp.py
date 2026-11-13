@@ -86,12 +86,27 @@ class VideoDownloader:
             ),
         ]
 
-        answers = prompt(questions)
-        if not answers:
-            logging.error("No resolution selected, exiting")
-            exit(1)
+        from src.infra.dependencyHandler import canPromptInteractively
 
-        selected = answers["resolution"]
+        if canPromptInteractively():
+            answers = prompt(questions)
+            if not answers:
+                logging.error("No resolution selected, exiting")
+                exit(1)
+            selected = answers["resolution"]
+        else:
+            # The picker reads keys from the terminal: without one it raised
+            # termios.error on macOS/Linux and would wait forever on a console
+            # nobody can see on Windows. Take the best quality, as the
+            # dependency picker takes the detected profile.
+            selected = choices[0]
+            from src.infra.logAndPrint import logAndPrint
+
+            logAndPrint(
+                "No terminal to choose a download quality in; using the best: "
+                f"{' '.join(selected.split())}",
+                "yellow",
+            )
         self.width, self.height = map(int, selected.split()[0].split("x"))
 
         if self.height > 1080 and ADOBE:
@@ -132,6 +147,11 @@ class VideoDownloader:
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
+            # As the download does: a `watch?v=...&list=...` link (any video
+            # opened from a playlist or mix) otherwise fetched the whole
+            # playlist, whose info has no formats -- "No valid resolutions
+            # found", exit 1, after resolving every entry.
+            "noplaylist": True,
         }
         with YoutubeDL(options) as ydl:
             return ydl.extract_info(self.link, download=False)
@@ -167,7 +187,6 @@ class VideoDownloader:
     def downloadVideo(self):
         from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
-        self.downloadedFile = None
         # One bar per stream: bestvideo+bestaudio downloads video, then audio.
         bar = None
         done = 0
@@ -200,7 +219,6 @@ class VideoDownloader:
                     done = downloaded
 
             elif status == "finished":
-                self.downloadedFile = d.get("filename")
                 if bar is not None:
                     # End on the real size so the bar closes at 100%.
                     bar.updateTotal(max(done, downloaded))

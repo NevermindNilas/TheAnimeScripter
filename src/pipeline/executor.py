@@ -28,6 +28,7 @@ widens gaps by dropped duplicates.
 
 import torch
 
+from src.infra.cudaStreams import waitForCaller
 from src.interpolate._timesteps import cutHoldSplit, gapPlan, sourceOnGrid
 from src.io.frameWindow import FrameSlot, LagRing, Window, temporalDemand
 from src.pipeline.planner import factorFraction
@@ -60,6 +61,13 @@ def _defaultStream():
     if torch.cuda.is_initialized():
         return torch.cuda.default_stream()
     return None
+
+
+def _slotPositions(slot) -> tuple[int, ...]:
+    """The 0-based decoded frames ``slot``'s pixels came from."""
+    if slot.gapPositions is not None:
+        return slot.gapPositions
+    return (slot.sourcePos - 1,)
 
 
 def _toDevice(device: str):
@@ -211,6 +219,7 @@ class FilterNode(_Node):
                 slot.sourcePos,
                 slot.isCentre,
                 slot.cacheKey,
+                slot.gapPositions,
             )
         )
 
@@ -259,6 +268,7 @@ class MapNode(_Node):
                 slot.sourcePos,
                 slot.isCentre,
                 slot.cacheKey if self.forwardsKey else None,
+                slot.gapPositions,
             )
         )
 
@@ -308,6 +318,7 @@ class AnnotateNode(_Node):
                 slot.sourcePos,
                 slot.isCentre,
                 slot.cacheKey,
+                slot.gapPositions,
             )
         )
 
@@ -370,7 +381,8 @@ class ExpandNode(_Node):
         self.sourcePos = 0
         self._lastFed = None
         self._maskAnchor = None
-        self._pos = 0
+        self._maskPositions = None
+        self._origin = 0
         self._standIn = 0
         self._gapEmitted = 0
         self._sink = _DriverSink(self)
@@ -403,7 +415,9 @@ class ExpandNode(_Node):
             else framesToInsert
         )
         self.sourcePos = curPos
-        self._pos = curPos
+        self._origin = centre.sourcePos
+        if self.maskedSink is not None:
+            self._maskPositions = self._gapPositions(centre)
         # Off the grid the centre is not written; the gap's last frame (the
         # nearest to it) stands in for it as what trailing duplicates copy.
         self._standIn = 0 if onGrid else framesToInsert
@@ -427,6 +441,19 @@ class ExpandNode(_Node):
         self._maskAnchor = centre.frame
         self._lastFed = centre
 
+    def _gapPositions(self, centre) -> tuple[int, ...]:
+        """The 0-based decoded frames behind the gap about to be filled.
+
+        Every driver fills the gap between the frame it was last fed and the
+        centre, including one that declares a future neighbour: DistilDRBA reads
+        that frame as motion context and generates between I0 and I1. An end that
+        an earlier expander generated stands for its whole source gap.
+        """
+        positions = _slotPositions(centre)
+        if self._lastFed is None:
+            return positions
+        return tuple(sorted({*_slotPositions(self._lastFed), *positions}))
+
     def _emitHeldGap(self, centre, framesToInsert, holdFromPrev) -> int:
         """Fill the gap with copies: from the previous frame first, then the current one.
 
@@ -446,7 +473,7 @@ class ExpandNode(_Node):
         sink = self._sink
         if self.maskedSink is not None:
             anchor = centre.frame if self.takesNext else self._maskAnchor
-            sink = self.maskedSink.bind(sink, anchor)
+            sink = self.maskedSink.bind(sink, anchor, self._maskPositions)
         if self.takesNext:
             self.driver(centre.frame, nextFrame, sink, framesToInsert, timesteps)
         else:
@@ -462,16 +489,21 @@ class ExpandNode(_Node):
                 centre.frame,
                 isCut,
                 centre.dupsBefore,
-                curPos,
+                self._origin,
                 True,
                 cacheKey,
+                centre.gapPositions,
             )
         )
 
     def _emitHeld(self, frame, key, *, cut: bool) -> None:
         held = frame.clone()
         _syncAfter(held)
-        self._emit(FrameSlot(held, cut, 0, self._pos, self._isStandIn(), key))
+        # A copy is exactly the frame it copies, whichever side of the gap that is.
+        positions = _slotPositions(key) if self.maskedSink is not None else None
+        self._emit(
+            FrameSlot(held, cut, 0, self._origin, self._isStandIn(), key, positions)
+        )
 
     def _isStandIn(self) -> bool:
         """Count one gap frame; True for the one standing in for an off-grid centre."""
@@ -481,7 +513,15 @@ class ExpandNode(_Node):
     def emitFrame(self, frame) -> None:
         """A frame a driver produced (not held, not the centre)."""
         self._collected.append(
-            FrameSlot(frame, False, 0, self._pos, self._isStandIn(), None)
+            FrameSlot(
+                frame,
+                False,
+                0,
+                self._origin,
+                self._isStandIn(),
+                None,
+                self._maskPositions,
+            )
         )
         if len(self._collected) >= self.collectLimit:
             self._flushCollected(fromDriver=True)
@@ -512,6 +552,7 @@ class ExpandNode(_Node):
                 pin = stream is not None and torch.cuda.current_stream() != stream
                 self._driverPin = pin
             if pin:
+                waitForCaller(self.defaultStream)
                 with torch.cuda.stream(self.defaultStream):
                     for slot in collected:
                         self.downstream.put(slot)

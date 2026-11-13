@@ -9,6 +9,9 @@ socketio = None
 app = None
 progressQueue = None
 serverProcess = None
+# The server child's answer to a FLUSH_REQUEST (see flushProgress).
+flushAckQueue = None
+FLUSH_REQUEST = "__tas_flush__"
 connectedClients = 0
 connectedClientsLock = Lock()
 
@@ -60,6 +63,21 @@ class ProgressState:
     def get(self):
         with self._lock:
             return self.data.copy()
+
+    def beginVideo(self):
+        """Forget the previous batch video's terminal status, sending nothing.
+
+        main.py's _notifyAdobeOfFatalError stays quiet while the state holds a
+        terminal status, so the next video's failure must not find the last
+        one's "completed" here. The reset is local only: the panel has nothing
+        to learn from it, and the next video's own first update follows. The
+        previous video's outputPath/error go too, so they do not ride along on
+        the next video's payloads.
+        """
+        with self._lock:
+            self.data["status"] = "Initializing..."
+            self.data.pop("outputPath", None)
+            self.data.pop("error", None)
 
     def setCompleted(self, outputPath=None):
         """Emit explicit completion signal to frontend."""
@@ -126,7 +144,13 @@ def _exclusiveBindProbe(hostname, port):
     alive while every connection lands on whoever bound first, so the AE panel
     sits on its initial state forever with no diagnostic (issues #269/#236's
     failure mode through a different door). SO_EXCLUSIVEADDRUSE makes the
-    conflict raise; on POSIX a plain bind already raises EADDRINUSE.
+    conflict raise; on POSIX a bind already raises EADDRINUSE for a live
+    listener, SO_REUSEADDR included.
+
+    On POSIX the probe sets SO_REUSEADDR, as ``make_server`` does: without it
+    the probe also refused a port the previous run left in TIME_WAIT (its
+    server closed the panel's connection first), so a render started within a
+    minute of the last one reported the port in use and got no progress.
     """
     import socket
 
@@ -134,12 +158,38 @@ def _exclusiveBindProbe(hostname, port):
     try:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind((hostname, port))
     finally:
         probe.close()
 
 
-def runServer(host, queue=None, bindStatus=None):
+_TERMINAL_STATUSES = ("completed", "failed")
+
+
+def _coalesceProgress(payloads):
+    """What the relay sends for a drained run of payloads, in order.
+
+    Per-frame progress collapses to its newest payload, but a terminal status
+    is never folded into a later one: a batch video's "completed" followed at
+    once by the next video's first update (or anything else) used to leave
+    only the newest payload, so the panel never heard that video finish.
+    """
+    kept = []
+    pending = None
+    for payload in payloads:
+        if payload.get("status") in _TERMINAL_STATUSES:
+            kept.append(payload)
+            pending = None
+        else:
+            pending = payload
+    if pending is not None:
+        kept.append(pending)
+    return kept
+
+
+def runServer(host, queue=None, bindStatus=None, flushAck=None):
     global socketio
     global app
     global connectedClients
@@ -182,33 +232,40 @@ def runServer(host, queue=None, bindStatus=None):
         minEmitInterval = 1.0 / EMITRATE
         while True:
             try:
-                latestPayload = queue.get(timeout=0.1)
+                drained = [queue.get(timeout=0.1)]
             except Empty:
                 continue
 
             while True:
                 try:
-                    latestPayload = queue.get_nowait()
+                    drained.append(queue.get_nowait())
                 except Empty:
                     break
+
+            # The worker is about to exit (flushProgress): send what is left
+            # now, without the throttle, then say so.
+            flushing = FLUSH_REQUEST in drained
+            drained = [item for item in drained if item != FLUSH_REQUEST]
 
             # Record the latest payload even when no client is connected, so a
             # client connecting later immediately receives the true current (or
             # terminal) state instead of a stale/empty snapshot.
-            latestProgressPayload = latestPayload
+            if drained:
+                latestProgressPayload = drained[-1]
 
-            if not hasConnectedClients():
-                continue
+            if hasConnectedClients():
+                for payload in _coalesceProgress(drained):
+                    elapsed = time() - lastEmit
+                    if elapsed < minEmitInterval and not flushing:
+                        # Throttle without dropping: wait out the remaining
+                        # interval so every payload kept is delivered.
+                        socketio.sleep(minEmitInterval - elapsed)
 
-            elapsed = time() - lastEmit
-            if elapsed < minEmitInterval:
-                # Throttle without dropping: wait out the remaining interval so
-                # the latest payload (e.g. a terminal completed/failed state) is
-                # always delivered.
-                socketio.sleep(minEmitInterval - elapsed)
+                    socketio.emit("progress", payload)
+                    lastEmit = time()
 
-            socketio.emit("progress", latestPayload)
-            lastEmit = time()
+            if flushing and flushAck is not None:
+                flushAck.put(True)
 
     if queue is not None:
         socketio.start_background_task(relayProgressFromQueue)
@@ -330,6 +387,47 @@ def _awaitBind(process, queue, bindStatus, bindTimeout):
     return f"AE comms server failed to start: {detail}"
 
 
+def flushProgress(timeout: float = 1.5) -> bool:
+    """Get every queued update to the panel before this process exits.
+
+    The server is a daemon child: at interpreter exit multiprocessing
+    terminates it, usually before its relay has read (or, inside its 40 ms
+    throttle, emitted) the run's last payload -- so the panel never received
+    the final video's "completed"/"failed", which for a single-video run is
+    the only terminal status. This asks the relay to send everything now and
+    waits for its answer, at most ``timeout`` seconds, so a gone or stuck
+    panel cannot hold the CLI. True when the relay confirmed.
+    """
+    process, queue, ack = serverProcess, progressQueue, flushAckQueue
+    if process is None or queue is None or ack is None:
+        return False
+    try:
+        if not process.is_alive():
+            return False
+        # A late answer to an earlier flush that timed out is not this one's.
+        while True:
+            try:
+                ack.get_nowait()
+            except Empty:
+                break
+        queue.put_nowait(FLUSH_REQUEST)
+    except Exception:
+        return False
+    deadline = time() + timeout
+    while True:
+        remaining = deadline - time()
+        if remaining <= 0:
+            return False
+        try:
+            ack.get(timeout=min(0.1, remaining))
+            return True
+        except Empty:
+            if not process.is_alive():
+                return False
+        except Exception:
+            return False
+
+
 def startServerInThread(host, bindTimeout=15.0, onFailure=None):
     """Start the AE comms server in a child process.
 
@@ -342,6 +440,7 @@ def startServerInThread(host, bindTimeout=15.0, onFailure=None):
     """
     global progressQueue
     global serverProcess
+    global flushAckQueue
 
     if serverProcess is not None and serverProcess.is_alive():
         return serverProcess
@@ -349,8 +448,9 @@ def startServerInThread(host, bindTimeout=15.0, onFailure=None):
     context = get_context("spawn")
     progressQueue = context.Queue()
     bindStatus = context.Queue()
+    flushAckQueue = context.Queue()
     serverProcess = context.Process(
-        target=runServer, args=(host, progressQueue, bindStatus)
+        target=runServer, args=(host, progressQueue, bindStatus, flushAckQueue)
     )
     serverProcess.daemon = True
     serverProcess.start()

@@ -1,6 +1,8 @@
 """Static model registry data without network or runtime startup imports."""
 
+import importlib.util
 import os
+import sys
 
 from src.infra.logAndPrint import logAndPrint
 
@@ -10,21 +12,6 @@ weightsBaseDir = os.path.dirname(
 weightsDir = os.path.join(weightsBaseDir, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"
-
-SUDOURL = (
-    "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
-)
-
-DEPTHV2URLSMALL = (
-    "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/"
-)
-
-TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
-
-BIREFNET_URL = (
-    "https://huggingface.co/Zarxrax/BiRefNet-Real_Anime/resolve/"
-    "608646577c85b7e5ba77b06f6e165b08c0b35a14/"
-)
 
 
 def modelsList() -> list[str]:
@@ -89,7 +76,6 @@ def modelsList() -> list[str]:
         "shufflecugan",
         "adore",
         "adore-tensorrt",
-        "adore-ncnn",
         "adore-directml",
         "adore-openvino",
         "segment",
@@ -100,7 +86,6 @@ def modelsList() -> list[str]:
         "scunet-tensorrt",
         "scunet-directml",
         "gater3",
-        "gater3-tensorrt",
         "gater3-directml",
         "deepdeband-f",
         "dpir",
@@ -136,7 +121,6 @@ def modelsList() -> list[str]:
         "distildrba",
         "distildrba-lite",
         "rife4.6-tensorrt",
-        "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
         "rife4.18-tensorrt",
         "rife4.20-tensorrt",
@@ -259,23 +243,19 @@ def modelsList() -> list[str]:
         "small_v2-tensorrt",
         "maxxvit-tensorrt",
         "maxxvit-directml",
-        "shift_lpips-tensorrt",
-        "shift_lpips-directml",
-        "differential-tensorrt",
         "transnetv2",
         "flownets",
         "dut",
-        "og_small_v2-mps",
-        "og_video_small_v2",
-        "og_video_small_v2-tensorrt",
         "video_small_v2-tensorrt",
         "video_small_v2",
         "video_small_v3",
         "video_base_v3",
         "video_limbo",
         "video_limbo_v2",
+        "video_limbo_v3",
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -285,32 +265,110 @@ def modelsList() -> list[str]:
         "small_v3",
         "base_v3",
         "large_v3",
-        "og_large_v3",
         "small_v3-mps",
         "base_v3-mps",
         "large_v3-mps",
-        "og_large_v3-mps",
         "limbo",
         "limbo-mps",
         "limbo-tensorrt",
         "limbo_v2",
         "limbo_v2-mps",
         "limbo_v2-tensorrt",
+        "limbo_v3",
+        "limbo_v3-mps",
+        "limbo_v3-tensorrt",
         "small_v2-rocm",
-        "og_small_v2-rocm",
-        "og_video_small_v2-rocm",
         "video_small_v2-rocm",
         "video_small_v3-rocm",
         "video_base_v3-rocm",
         "video_limbo-rocm",
         "video_limbo_v2-rocm",
+        "video_limbo_v3-rocm",
         "small_v3-rocm",
         "base_v3-rocm",
         "large_v3-rocm",
-        "og_large_v3-rocm",
         "limbo-rocm",
         "limbo_v2-rocm",
+        "limbo_v3-rocm",
+        "moge3",
+        "moge3-mps",
     ]
+
+
+def supportedUpscaleFactors(method: str) -> tuple[int, ...]:
+    """The ``--upscale_factor`` values a bundled upscale method can produce.
+
+    Every bundled upscale method produces exactly 2x on every backend suffix:
+    its weights, ONNX exports, NCNN zips and TensorRT engines are 2x networks,
+    except AnimeSR, a native 4x network that TAS runs at 2x (its drivers are
+    built at 2 and shrink the output). Only NVIDIA Maxine VSR takes the scale
+    as a parameter. A custom model is not covered here; its scale is the
+    file's own.
+    """
+    if method.startswith("maxine-"):
+        return (2, 3, 4)
+    return (2,)
+
+
+def upscaleFactorRefusal(method: str, factor, customModel=None) -> str | None:
+    """Why ``method`` cannot upscale ``factor``x, or None when it can.
+
+    The remedy names the factor on the stage itself (``--upscale span 2x``), so it
+    holds however the 4x reached the stage: typed on it, a long flag before every
+    stage, or inherited from an earlier 4x stage. Only an ``--upscale_factor``
+    bound to the stage would still override it, so the message says to drop it.
+    """
+    if customModel:
+        return None
+    factor = int(factor)
+    supported = supportedUpscaleFactors(method)
+    if factor in supported:
+        return None
+    shown = "/".join(f"{value}x" for value in supported)
+    message = (
+        f"{method} is a {shown} upscale model and cannot upscale {factor}x. "
+        f"Give the stage 2x (--upscale {method} 2x, dropping any "
+        f"--upscale_factor {factor} that follows it)"
+    )
+    if factor == 4:
+        message += f"; for 4x, type it twice: --upscale {method} 2x --upscale"
+    else:
+        message += f"; only the maxine-* methods or a custom model take {factor}x"
+    return message + "."
+
+
+NCNN_UPSCALE_PACKAGE = "ncnn"
+
+# Same-model siblings worth suggesting in place of -ncnn, per platform.
+_NCNN_UPSCALE_ALTERNATIVES = {
+    "win32": ("", "-tensorrt", "-directml"),
+    "cygwin": ("", "-tensorrt", "-directml"),
+    "darwin": ("-mps",),
+}
+_NCNN_UPSCALE_ALTERNATIVES_DEFAULT = ("", "-tensorrt", "-rocm")
+
+
+def ncnnUpscaleRefusal(method: str) -> str | None:
+    """Why the NCNN upscale ``method`` cannot run here, or None when it can.
+
+    Every requirements profile installs the package, so it is missing only from
+    an install made before it was added.
+    """
+    if not method.endswith("-ncnn"):
+        return None
+    if importlib.util.find_spec(NCNN_UPSCALE_PACKAGE) is not None:
+        return None
+    base = method.removesuffix("-ncnn")
+    known = set(modelsList())
+    suffixes = _NCNN_UPSCALE_ALTERNATIVES.get(
+        sys.platform, _NCNN_UPSCALE_ALTERNATIVES_DEFAULT
+    )
+    alternatives = [base + s for s in suffixes if base + s in known]
+    return (
+        f"{method} needs the Python package '{NCNN_UPSCALE_PACKAGE}', which is not "
+        "installed; run TAS with --download_requirements to add it. "
+        f"Use {' or '.join(alternatives)} instead."
+    )
 
 
 def modelsMap(
@@ -506,13 +564,7 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
 
-        case (
-            "adore"
-            | "adore-tensorrt"
-            | "adore-ncnn"
-            | "adore-directml"
-            | "adore-openvino"
-        ):
+        case "adore" | "adore-tensorrt" | "adore-directml" | "adore-openvino":
             if modelType == "pth":
                 return "adore.pth"
             elif modelType == "onnx":
@@ -634,7 +686,7 @@ def modelsMap(
                 else:
                     return "1x_DeH264_SPAN_fp32_op20_slim.onnx"
 
-        case "gater3" | "gater3-tensorrt" | "gater3-directml":
+        case "gater3" | "gater3-directml":
             if modelType == "pth":
                 return "1x_umzi_adc_gater3_v1.safetensors"
             elif modelType == "onnx":
@@ -649,7 +701,6 @@ def modelsMap(
         case (
             "rife4.25-heavy"
             | "rife4.25-heavy-tensorrt"
-            | "rife4.25-heavy-ncnn"
             | "rife4.25-heavy-directml"
             | "rife4.25-heavy-openvino"
         ):
@@ -680,7 +731,7 @@ def modelsMap(
             if modelType in ("pth", "onnx"):
                 return "rife426_heavy.pth"
 
-        case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
+        case "rife_elexor" | "rife_elexor-tensorrt":
             if modelType in ("pth", "onnx"):
                 return "rife_elexor.pth"
             elif modelType == "ncnn":
@@ -689,7 +740,6 @@ def modelsMap(
         case (
             "rife4.25-lite"
             | "rife4.25-lite-tensorrt"
-            | "rife4.25-lite-ncnn"
             | "rife4.25-lite-directml"
             | "rife4.25-lite-openvino"
         ):
@@ -707,11 +757,7 @@ def modelsMap(
             return "v2_lite.pkl"
 
         case (
-            "rife4.25"
-            | "rife4.25-tensorrt"
-            | "rife4.25-ncnn"
-            | "rife4.25-directml"
-            | "rife4.25-openvino"
+            "rife4.25" | "rife4.25-tensorrt" | "rife4.25-directml" | "rife4.25-openvino"
         ):
             if modelType == "pth":
                 return "rife425.pth"
@@ -732,9 +778,6 @@ def modelsMap(
                         )
                     else:
                         return "rife425_fp32_op21_slim.onnx"
-
-            elif modelType == "ncnn":
-                pass
 
         case (
             "rife4.22-lite"
@@ -937,7 +980,7 @@ def modelsMap(
                 else:
                     return "rife-v4.17-ncnn.zip"
 
-        case "rife4.15-lite" | "rife4.15-lite-tensorrt" | "rife4.15-lite-ncnn":
+        case "rife4.15-lite" | "rife4.15-lite-ncnn":
             if modelType == "pth":
                 return "rife415_lite.pth"
             elif modelType == "onnx":
@@ -967,11 +1010,7 @@ def modelsMap(
                     return "rife-v4.16-lite-ncnn.zip"
 
         case (
-            "rife4.15"
-            | "rife4.15-tensorrt"
-            | "rife4.15-ncnn"
-            | "rife4.15-directml"
-            | "rife4.15-openvino"
+            "rife4.15" | "rife4.15-tensorrt" | "rife4.15-directml" | "rife4.15-openvino"
         ):
             if modelType == "pth":
                 return "rife415.pth"
@@ -1026,22 +1065,10 @@ def modelsMap(
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
 
-        case "shift_lpips-tensorrt" | "shift_lpips-directml":
-            if half:
-                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_fp16_onnxslim.onnx"
-            else:
-                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_onnxslim.onnx"
-
-        case "differential-tensorrt":
-            return "scene_change_nilas.onnx"
-
         case "transnetv2":
             return "transnetv2-pytorch-weights.pth"
 
         case "small_v2":
-            return "depth_anything_v2_vits.pth"
-
-        case "og_small_v2":
             return "depth_anything_v2_vits.pth"
 
         case "small_v2-directml" | "small_v2-tensorrt":
@@ -1077,7 +1104,7 @@ def modelsMap(
             if modelType == "pth":
                 return "video_depth_anything_vits.pth"
 
-        case "og_video_small_v2-tensorrt" | "video_small_v2-tensorrt":
+        case "video_small_v2-tensorrt":
             if modelType == "onnx":
                 if half:
                     return "video_depth_anything_vits_fp16_op20_slim.onnx"
@@ -1097,18 +1124,14 @@ def modelsMap(
         # renamed from `depth_anything_v3_vitl.safetensors`, which until
         # 2026-10-16 held a copy with 50 of 64 head tensors zeroed (a flat
         # depth map); the new name makes cached copies of it miss and
-        # re-download. `og_large_v3` is the separate DA3METRIC-LARGE checkpoint.
+        # re-download.
         case "large_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitl_mono.safetensors"
 
-        case "og_large_v3":
-            if modelType == "pth":
-                return "depth_anything_v3_vitl_metric.safetensors"
-
         # Limbo is an anime finetune of DA3-small, exported at two fixed input
         # resolutions rather than a dynamic one. The CLI methods are "limbo"
-        # (v1) and "limbo_v2" (v2); the ONNX backends resolve the aspect
+        # (v1), "limbo_v2" (v2) and "limbo_v3" (v3); the ONNX backends resolve the aspect
         # themselves and ask for the "_43" name when the source is closer to
         # 4:3 (_shared.limboResolution).
         case "video_limbo-tensorrt":
@@ -1118,6 +1141,13 @@ def modelsMap(
         case "video_limbo_v2-tensorrt":
             return "LimboV2.safetensors"
 
+        case "video_limbo_v3-tensorrt":
+            return "LimboV3.safetensors"
+
+        case "moge3":
+            if modelType == "pth":
+                return "moge3_vitl.safetensors"
+
         case "limbo" | "video_limbo":
             if modelType == "pth":
                 return "Limbo.safetensors"
@@ -1125,6 +1155,10 @@ def modelsMap(
         case "limbo_v2" | "video_limbo_v2":
             if modelType == "pth":
                 return "LimboV2.safetensors"
+
+        case "limbo_v3" | "video_limbo_v3":
+            if modelType == "pth":
+                return "LimboV3.safetensors"
 
         case "limbo-tensorrt" | "limbo-directml":
             if half:
@@ -1149,6 +1183,18 @@ def modelsMap(
                 return "LimboV2_504x378_fp16.onnx"
             else:
                 return "LimboV2_504x378_fp32.onnx"
+
+        case "limbo_v3-tensorrt" | "limbo_v3-directml":
+            if half:
+                return "LimboV3_504x280_fp16.onnx"
+            else:
+                return "LimboV3_504x280_fp32.onnx"
+
+        case "limbo_v3_43-tensorrt" | "limbo_v3_43-directml":
+            if half:
+                return "LimboV3_504x378_fp16.onnx"
+            else:
+                return "LimboV3_504x378_fp32.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")

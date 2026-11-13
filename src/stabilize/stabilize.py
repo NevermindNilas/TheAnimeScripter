@@ -1,6 +1,8 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
+import os
+import threading
+from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 
 import cv2
 import numpy as np
@@ -15,11 +17,36 @@ from src.io.ffmpegSettings import (
     createWriteBuffer,
     drainReader,
 )
-from src.io.runOutcome import truncatedDecodeError
-from src.stabilize.superpoint import find_match_index, find_transform
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 
 if ADOBE:
     from src.server.aeComms import progressState, reportTerminalStatus
+
+# A pair's transform reads only its own two frames, so the analysis pass runs
+# each frame's ORB features and its pair's matching on worker threads (cv2
+# releases the GIL for all of the heavy work) and collects the transforms in
+# decode order.
+ANALYSIS_WORKERS = max(1, min(4, (os.cpu_count() or 2) // 2))
+# Frames handed to the workers ahead of the oldest uncollected one; bounds the
+# decoded frames, grays and descriptors held at once.
+ANALYSIS_IN_FLIGHT = 4 * ANALYSIS_WORKERS
+# Both counts above are for frames up to an 8-bit 1080p RGB frame.
+_REFERENCE_FRAME_BYTES = 1920 * 1080 * 3
+
+
+def analysisConcurrency(frameBytes: int) -> tuple[int, int]:
+    """(worker threads, frames in flight) for decoded frames of ``frameBytes``.
+
+    Larger frames get fewer workers, scaled down by size like the decode queue
+    (adaptiveQueueDepth), and only two frames in flight per worker: every task
+    holds its whole frame until it finishes. At 4K the full counts held ~0.9 GB
+    more than one thread did, and a deeper queue there was no faster.
+    """
+    workers, inFlight = ANALYSIS_WORKERS, ANALYSIS_IN_FLIGHT
+    if frameBytes > _REFERENCE_FRAME_BYTES:
+        workers = max(1, round(workers * _REFERENCE_FRAME_BYTES / frameBytes))
+        inFlight = min(inFlight, 2 * workers)
+    return workers, inFlight
 
 
 class VideoStabilize:
@@ -36,6 +63,7 @@ class VideoStabilize:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "8bit",
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -48,6 +76,10 @@ class VideoStabilize:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
+        # width/height are a --resize target the decoder has to scale to: the
+        # render warps into a canvas of that size, so a source-size frame came
+        # out as its top-left corner instead of the whole picture scaled.
+        self.decodeResize = decodeResize
 
         self.smoothingSeconds = 2.0
         self.smoothingMethod = "grad_opt"
@@ -62,14 +94,6 @@ class VideoStabilize:
         self.orbScaleFactor = 1.2
         self.orbLevels = 8
         self.orbRatioTest = 0.8
-        self.superPointMatchThreshold = 0.3
-        self.superPointMaxKeypoints = 4096
-        self.superPointDetectionThreshold = 0.01
-        self.superPointModel = None
-        self.superPointDevice = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu"
-        )
-        self.superPointOptimizationIterations = 50
 
         self.transforms = []
         self.meanMatchScores = []
@@ -77,27 +101,10 @@ class VideoStabilize:
         self.shiftYFix = None
         self.angleFix = None
 
-        # ORB feature cache: the analysis loop feeds consecutive frames as
-        # (prevGray, currGray) and threads prevGray = gray, so frame N's gray is
-        # this call's currGray and next call's prevGray (same object). Caching
-        # (keypoints, descriptors) for the frame just processed as curr lets the
-        # next iteration reuse it as prev, so each frame's detectAndCompute runs
-        # once instead of twice. Keyed on object identity, so a miss (e.g. the
-        # SuperPoint path served the pair) simply recomputes -- never stale.
-        self._orbCacheGray = None
-        self._orbCacheKp = None
-        self._orbCacheDes = None
-
-        self.orb = cv2.ORB_create(
-            nfeatures=self.orbFeatures,
-            scaleFactor=self.orbScaleFactor,
-            nlevels=self.orbLevels,
-            edgeThreshold=31,
-            patchSize=31,
-            fastThreshold=15,
-        )
-        self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-        self._initSuperPoint()
+        # One ORB detector and matcher per analysis thread: each frame's
+        # features are computed exactly once (a pair reuses its neighbours'),
+        # and no cv2 object is shared between threads.
+        self._threadLocal = threading.local()
 
         # Recorded, not merely logged: --stabilize bypasses start(), so this is
         # the only place a pipeline failure can be observed. main.py decides the
@@ -111,6 +118,8 @@ class VideoStabilize:
             self.processingError = e
             logging.exception(f"Something went wrong in stabilization pipeline, {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         # Neither terminal status was ever sent, so the After Effects panel sat
         # on "Analyzing and stabilizing video..." forever (issues #269, #236).
         # Keying off the exception alone is not enough: an encoder that exits 0
@@ -150,7 +159,7 @@ class VideoStabilize:
             videoInput=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             toTorch=False,
@@ -175,50 +184,76 @@ class VideoStabilize:
             f"Stabilization analysis complete: {len(self.transforms)} transforms, {len(self.meanMatchScores)} match scores"
         )
 
-    def _initSuperPoint(self):
-        # SuperPoint is disabled: the published superpoint_v6_from_tf
-        # checkpoint's key names (backbone.*.conv/bn) do not match this
-        # architecture's Sequential (.0/.2) naming, so .load() always raises
-        # and every run fell back to ORB/LK — after torch.hub downloading a
-        # ~5MB checkpoint on cold runs (a hard network dependency offline)
-        # and paying ~23ms warm, all for a path that can never activate.
-        # Re-enable by restoring the load once a matching checkpoint ships;
-        # note that would CHANGE stabilization output, which today always
-        # comes from the ORB/LK path.
-        self.superPointModel = None
-        logging.info(
-            "SuperPoint disabled (checkpoint/arch mismatch); using ORB/LK path"
-        )
+    def _analysisTools(self):
+        """This thread's ORB detector and matcher, built on first use."""
+        tools = getattr(self._threadLocal, "tools", None)
+        if tools is None:
+            orb = cv2.ORB_create(
+                nfeatures=self.orbFeatures,
+                scaleFactor=self.orbScaleFactor,
+                nlevels=self.orbLevels,
+                edgeThreshold=31,
+                patchSize=31,
+                fastThreshold=15,
+            )
+            tools = (orb, cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False))
+            self._threadLocal.tools = tools
+        return tools
 
-    def _grayToSuperPointTensor(self, gray):
-        h, w = gray.shape[:2]
-        maxDim = max(h, w)
+    def _frameFeatures(self, frame):
+        """A decoded frame -> (8-bit gray, ORB scale, keypoints, descriptors).
+
+        Computed once per frame; the pair before and the pair after it share it.
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        if gray.dtype != np.uint8:
+            # A >8-bit source decodes to uint16, and ORB and LK take 8-bit
+            # images only: every 10-bit video failed on its second frame.
+            gray = (gray >> 8).astype(np.uint8)
+
+        height, width = gray.shape[:2]
+        maxDim = max(height, width)
         resizeScale = 1.0
-
+        work = gray
         if maxDim > self.analysisWidth:
             resizeScale = self.analysisWidth / float(maxDim)
-            newW = max(32, int(round(w * resizeScale)))
-            newH = max(32, int(round(h * resizeScale)))
-            gray = cv2.resize(gray, (newW, newH), interpolation=cv2.INTER_AREA)
+            newW = max(32, int(round(width * resizeScale)))
+            newH = max(32, int(round(height * resizeScale)))
+            work = cv2.resize(gray, (newW, newH), interpolation=cv2.INTER_AREA)
+        keypoints, descriptors = self._analysisTools()[0].detectAndCompute(work, None)
+        return gray, resizeScale, keypoints, descriptors
 
-        tensor = (
-            torch.from_numpy(gray)
-            .to(self.superPointDevice, dtype=torch.float32)
-            .div(255.0)
-            .unsqueeze(0)
-            .unsqueeze(0)
-        )
-        return tensor, resizeScale
+    def _analyzeFrame(self, frame, featuresOut, prevFeatures):
+        """One frame's analysis task: its features, then its pair's transform.
 
-    def _estimateTransform(self, prevGray, currGray):
-        superPointResult = self._estimateTransformSuperPoint(prevGray, currGray)
-        if superPointResult is not None:
-            return superPointResult
+        Publishes the frame's features on ``featuresOut`` before waiting for
+        the previous frame's, so every task a worker is running can finish:
+        tasks start in submission order, so the previous frame's task has
+        already started, and it publishes before it waits in turn.
+        Returns None for the first frame (no pair), else (dx, dy, da, score).
+        """
+        try:
+            features = self._frameFeatures(frame)
+        except BaseException as e:
+            featuresOut.set_exception(e)
+            raise
+        featuresOut.set_result(features)
+        if prevFeatures is None:
+            return None
+        return self._pairTransform(prevFeatures.result(), features)
 
-        orbResult = self._estimateTransformORB(prevGray, currGray)
+    def _pairTransform(self, prevFeatures, currFeatures):
+        """(dx, dy, da, matchScore) from the previous frame to the current one:
+        ORB matching first, sparse optical flow on the full-size grays when
+        ORB finds too little."""
+        prevGray, resizeScale, kp1, des1 = prevFeatures
+        currGray, _, kp2, des2 = currFeatures
+        orbResult = self._orbTransform(kp1, des1, kp2, des2, resizeScale)
         if orbResult is not None:
             return orbResult
+        return self._flowTransform(prevGray, currGray)
 
+    def _flowTransform(self, prevGray, currGray):
         prevPts = cv2.goodFeaturesToTrack(
             prevGray,
             maxCorners=self.maxCorners,
@@ -276,134 +311,7 @@ class VideoStabilize:
 
         return dx, dy, da, matchScore
 
-    def _estimateTransformSuperPoint(self, prevGray, currGray):
-        if self.superPointModel is None:
-            return None
-
-        prevTensor, resizeScale = self._grayToSuperPointTensor(prevGray)
-        currTensor, _ = self._grayToSuperPointTensor(currGray)
-
-        try:
-            autocastCtx = (
-                torch.autocast(device_type=self.superPointDevice.type)
-                if self.superPointDevice.type != "cpu"
-                else nullcontext()
-            )
-            with torch.inference_mode(), autocastCtx:
-                kpBatch = self.superPointModel.infer(
-                    torch.cat([prevTensor, currTensor], dim=0)
-                )
-
-            kp1 = kpBatch[0]
-            kp2 = kpBatch[1]
-            if kp1["keypoints"].shape[0] < 10 or kp2["keypoints"].shape[0] < 10:
-                return None
-
-            idx1, idx2, scores = find_match_index(
-                kp1,
-                kp2,
-                threshold=self.superPointMatchThreshold,
-                return_score=True,
-            )
-
-            if idx1.numel() < 10:
-                return None
-
-            pts1Torch = kp1["keypoints"][idx1].detach().float()
-            pts2Torch = kp2["keypoints"][idx2].detach().float()
-            scoreVals = scores.detach().float().cpu().numpy()
-            center = [
-                float(prevTensor.shape[3]) * 0.5,
-                float(prevTensor.shape[2]) * 0.5,
-            ]
-
-            try:
-                shift, _, angle, _ = find_transform(
-                    pts1Torch,
-                    pts2Torch,
-                    center=center,
-                    iteration=self.superPointOptimizationIterations,
-                    sigma=2.0,
-                    disable_scale=True,
-                )
-                dx = float(shift[0].item())
-                dy = float(shift[1].item())
-                da = float(angle.item())
-                inlierRatio = 1.0
-            except Exception:
-                pts1 = pts1Torch.cpu().numpy()
-                pts2 = pts2Torch.cpu().numpy()
-                matrix, inliers = cv2.estimateAffinePartial2D(
-                    pts1,
-                    pts2,
-                    method=cv2.RANSAC,
-                    ransacReprojThreshold=2.5,
-                    confidence=0.995,
-                )
-                if matrix is None:
-                    return None
-
-                dx = float(matrix[0, 2])
-                dy = float(matrix[1, 2])
-                da = float(np.arctan2(matrix[1, 0], matrix[0, 0]))
-                if inliers is None:
-                    inlierRatio = 0.0
-                else:
-                    inlierRatio = float(np.mean(inliers.astype(np.float32)))
-
-            if resizeScale != 1.0:
-                invScale = 1.0 / resizeScale
-                dx *= invScale
-                dy *= invScale
-
-            descriptorScore = float(np.mean(scoreVals)) if scoreVals.size > 0 else 0.0
-            matchScore = float(
-                np.clip(0.6 * descriptorScore + 0.4 * inlierRatio, 0.0, 1.0)
-            )
-            return dx, dy, da, matchScore
-        except Exception as e:
-            logging.warning(
-                f"SuperPoint estimation failed, using ORB/LK fallback ({e})"
-            )
-            return None
-
-    def _estimateTransformORB(self, prevGray, currGray):
-        prevH, prevW = prevGray.shape[:2]
-        maxDim = max(prevH, prevW)
-        resizeScale = 1.0
-
-        # Reuse the previous frame's features when it is the same object we
-        # cached as "curr" last iteration; only then can we skip its resize +
-        # detectAndCompute. Deterministic detectAndCompute makes this exactly
-        # equal to recomputing, so transforms/scores are bit-identical.
-        prevCached = prevGray is self._orbCacheGray and self._orbCacheDes is not None
-
-        if maxDim > self.analysisWidth:
-            resizeScale = self.analysisWidth / float(maxDim)
-            newW = max(32, int(round(prevW * resizeScale)))
-            newH = max(32, int(round(prevH * resizeScale)))
-            if not prevCached:
-                prevWork = cv2.resize(
-                    prevGray, (newW, newH), interpolation=cv2.INTER_AREA
-                )
-            currWork = cv2.resize(currGray, (newW, newH), interpolation=cv2.INTER_AREA)
-        else:
-            if not prevCached:
-                prevWork = prevGray
-            currWork = currGray
-
-        if prevCached:
-            kp1, des1 = self._orbCacheKp, self._orbCacheDes
-        else:
-            kp1, des1 = self.orb.detectAndCompute(prevWork, None)
-        kp2, des2 = self.orb.detectAndCompute(currWork, None)
-
-        # Cache curr's features for reuse as prev next iteration (store even when
-        # None/insufficient, so a stale earlier frame is never matched to it).
-        self._orbCacheGray = currGray
-        self._orbCacheKp = kp2
-        self._orbCacheDes = des2
-
+    def _orbTransform(self, kp1, des1, kp2, des2, resizeScale):
         if (
             des1 is None
             or des2 is None
@@ -415,7 +323,7 @@ class VideoStabilize:
             return None
 
         try:
-            knnMatches = self.matcher.knnMatch(des1, des2, k=2)
+            knnMatches = self._analysisTools()[1].knnMatch(des1, des2, k=2)
         except Exception:
             return None
 
@@ -478,33 +386,48 @@ class VideoStabilize:
 
     def _analyzeFrames(self, progressBar=None, advance=1):
         frameCount = 0
-        prevGray = None
+        prevFeatures = None
+        # One analysis task per frame read, in decode order.
+        pending = deque()
 
-        # Unbounded to match _renderFrames -- one transform is appended per
-        # frame read, so the two passes must agree on how many frames they read
-        # or the render pass indexes past the end of the transform arrays.
-        while True:
-            frame = self.readBuffer.read()
-            if frame is None:
-                break
-
-            gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-
-            if prevGray is None:
+        def collect(task):
+            transform = task.result()
+            if transform is None:
                 self.transforms.append((0.0, 0.0, 0.0))
                 self.meanMatchScores.append(0.0)
             else:
-                dx, dy, da, score = self._estimateTransform(prevGray, gray)
+                dx, dy, da, score = transform
                 self.transforms.append((dx, dy, da))
                 self.meanMatchScores.append(score)
-
-            prevGray = gray
-            frameCount += 1
             if progressBar is not None:
                 progressBar(advance)
 
-            if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
-                break
+        frame = self.readBuffer.read()
+        workers, inFlight = analysisConcurrency(getattr(frame, "nbytes", 0))
+        # No task is ever cancelled: a task whose predecessor never ran would
+        # wait for its features forever. On a failure the few queued ones just
+        # finish before the pool closes.
+        with ThreadPoolExecutor(workers) as pool:
+            # Unbounded to match _renderFrames -- one transform is appended per
+            # frame read, so the two passes must agree on how many frames they
+            # read or the render pass indexes past the end of the transform
+            # arrays.
+            while frame is not None:
+                features = Future()
+                pending.append(
+                    pool.submit(self._analyzeFrame, frame, features, prevFeatures)
+                )
+                prevFeatures = features
+                frameCount += 1
+                while len(pending) > inFlight:
+                    collect(pending.popleft())
+
+                if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
+                    break
+                frame = self.readBuffer.read()
+
+            while pending:
+                collect(pending.popleft())
 
         logging.info(f"Analyzed {frameCount} frames for stabilization")
 
@@ -674,7 +597,7 @@ class VideoStabilize:
             videoInput=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             toTorch=False,
@@ -756,7 +679,13 @@ class VideoStabilize:
                         .unsqueeze(0)
                         .to(torch.float32)
                     )
-                    outputTensor.mul_(1.0 / 255.0)
+                    # A >8-bit source decodes to uint16: scaled by 1/255 it
+                    # clamped to white. The reader knows its own uint16 white.
+                    outputTensor.mul_(
+                        1.0 / 255.0
+                        if stabilized.dtype == np.uint8
+                        else self.readBuffer._uint16Norm
+                    )
 
                 self.writeBuffer.write(outputTensor)
                 frameCount += 1

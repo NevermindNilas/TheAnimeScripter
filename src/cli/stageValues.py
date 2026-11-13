@@ -466,6 +466,15 @@ def classifyValue(kind, value, label, context, neighbours=()):
                 f"not take. {kind} takes {ACCEPTS[kind]}."
             )
         if kind == "resize":
+            if form == "number" and number >= MIN_DIMENSION:
+                # A bare number is a scale, but 1080 or 1440 is far likelier a
+                # height missing its "p" than a 1080x resize (which would ask
+                # for a frame millions of pixels wide); make the user say which.
+                height = _fmt(number)
+                raise StageChainError(
+                    f"{label}: '{value}' is ambiguous: write {height}p for a "
+                    f"height of {height}, or {value}x for a {value}x scale."
+                )
             return "target", _resizeTarget(label, form, number, value)
         if meaning == "sens":
             return "sens", _checkSens(label, number, value)

@@ -21,7 +21,3 @@ def run_subprocess(
     except subprocess.CalledProcessError as e:
         print(f"Error while running command {command}: {e}")
         raise
-
-
-def run_subprocess_result(command):
-    return subprocess.run(command, capture_output=True, text=True, check=False)

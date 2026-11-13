@@ -3,16 +3,17 @@
 torch==2.15.0+cu132
 torchvision==0.29.2+cu132
 # Keep the native video wheel on the same PyTorch ABI during profile installs.
-nelux==0.22.0
+nelux==0.23.0
 tensorrt==11.3.0.99
 nvidia-vfx==0.2.0.0
 opencv-python-headless==5.0.0.93
-timm==1.0.29
+timm==1.0.30
 einops==0.8.2
 onnx==1.23.2
 onnxruntime
 safetensors==0.8.0
-scenedetect[opencv]
+scenedetect[opencv-headless]==0.6.7
 yt-dlp==2026.8.19
 vmaf-torch
 https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp314-cp314-manylinux1_x86_64.whl
+ncnn==1.0.20261020

@@ -135,6 +135,7 @@ class MotionBlurPipeline:
         static_step=False,
         compile_mode="default",
         decode_method="cpu",
+        decode_resize=False,
     ):
         self.input = input
         self.output = output
@@ -153,12 +154,15 @@ class MotionBlurPipeline:
         self.moblurStrength = moblur_strength
         self.shutterAngle = max(0.0, min(360.0, float(moblur_shutter_angle)))
         self.moblurGamma = bool(moblur_gamma)
-        self.mask = ProtectionMask(mask)
+        self.mask = ProtectionMask.forRun(mask, fps, inpoint, outpoint)
         self.ensemble = ensemble
         self.dynamicScale = dynamic_scale
         self.staticStep = static_step
         self.compileMode = compile_mode
         self.decodeMethod = decode_method
+        # width/height are a --resize target: the interpolator is built at that
+        # size, so the decoder has to deliver frames at it too.
+        self.decodeResize = decode_resize
         self.useCuda = torch.cuda.is_available()
 
         # When True, only the timesteps inside the shutter window are
@@ -203,8 +207,7 @@ class MotionBlurPipeline:
 
         match self.interpolateMethod:
             case (
-                "rife"
-                | "rife4.6"
+                "rife4.6"
                 | "rife4.15-lite"
                 | "rife4.16-lite"
                 | "rife4.17"
@@ -242,8 +245,7 @@ class MotionBlurPipeline:
                 self.windowed = self.interpolateProcess.useGraph
 
             case (
-                "rife-mps"
-                | "rife4.6-mps"
+                "rife4.6-mps"
                 | "rife4.15-lite-mps"
                 | "rife4.16-lite-mps"
                 | "rife4.17-mps"
@@ -291,8 +293,7 @@ class MotionBlurPipeline:
                 # Eager ROCm has no graph windowing either; keep full samples.
 
             case (
-                "rife-ncnn"
-                | "rife4.6-ncnn"
+                "rife4.6-ncnn"
                 | "rife4.15-lite-ncnn"
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
@@ -314,10 +315,8 @@ class MotionBlurPipeline:
                 )
 
             case (
-                "rife-tensorrt"
-                | "rife4.6-tensorrt"
+                "rife4.6-tensorrt"
                 | "rife4.15-tensorrt"
-                | "rife4.15-lite-tensorrt"
                 | "rife4.17-tensorrt"
                 | "rife4.18-tensorrt"
                 | "rife4.20-tensorrt"
@@ -393,7 +392,7 @@ class MotionBlurPipeline:
             inpoint=self.inpoint,
             outpoint=self.outpoint,
             half=self.half,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             bitDepth=self.bitDepth,
@@ -543,6 +542,7 @@ class MotionBlurPipeline:
         collector = FrameCollector()
 
         prevFrame = None
+        framesRead = 0
         currFrame = None
         # Hold the whole previous segment (not just its large-t slice) so each
         # interpolated clone lives two iterations, matching the original
@@ -563,6 +563,7 @@ class MotionBlurPipeline:
                     nextFrame = self.readBuffer.read()
                     if nextFrame is None:
                         break
+                    framesRead += 1
 
                     if prevFrame is None:
                         # Prime interp state (firstRun stores I0, returns nothing).
@@ -604,7 +605,14 @@ class MotionBlurPipeline:
                             # leading edge: small-t samples of the CURRENT segment
                             window.extend(segs[kPos[k]] for k in smallKs)
 
-                        blended = self.mask.apply(blender(window), currFrame)
+                        # The frame being blurred is the one before the frame
+                        # just read, and its window reaches both neighbours.
+                        blurred = framesRead - 2
+                        blended = self.mask.apply(
+                            blender(window),
+                            currFrame,
+                            (blurred - 1, blurred, blurred + 1),
+                        )
 
                         if self.useCuda:
                             torch.cuda.current_stream().synchronize()

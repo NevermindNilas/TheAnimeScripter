@@ -108,6 +108,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 - `--smooth_dedup_method` → auto-enables `--smooth_dedup` (which in turn enables `--interpolate` and disables `--dedup`)
 - `--restore_method` → auto-enables `--restore`
 - `--segment_method` → auto-enables `--segment`
+- `--segment_mask` → auto-enables `--segment`
 - `--depth_method` → auto-enables `--depth`
 - `--obj_detect_method` → auto-enables `--obj_detect`
 
@@ -155,14 +156,14 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | Backend | Suffix | Hardware | Covers |
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
-| **ROCm** | `-rocm` | AMD (Linux, HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
+| **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2), stabilize (dut) — eager, no CUDA graphs |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
-| **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU | Upscale, interpolate, restore, depth, object detection |
-| **NCNN** | `-ncnn` | Vulkan / low-power | Upscale (`shufflecugan`, `span`), interpolate (RIFE) |
+| **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU (Windows; runs on the CPU on Linux, where no Python 3.14 `onnxruntime-openvino` wheel exists) | Upscale, interpolate, restore, depth, object detection |
+| **NCNN** | `-ncnn` | Vulkan / low-power (AMD, Intel, NVIDIA) | Interpolate (RIFE), upscale (`shufflecugan`, `span`). Runs on the best GPU in the machine and tiles frames that do not fit its memory |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
-> **🎮 ROCm note:** install the `linux-rocm` profile (`python main.py --download_requirements linux-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only.
+> **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
 >
 > **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication, stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
 
@@ -310,6 +311,7 @@ C:\Videos\episode3.mp4
 | `--preview_port` | int | **Preview server port** (default 5000). Port 5000 is heavily contested — Flask/uvicorn dev servers use it, and macOS AirPlay Receiver owns it by default. Left at the default, TAS falls back to an OS-assigned free port and prints the real URL; set explicitly, it reports the port as busy instead of silently moving | None |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 | `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
+| `--low_cpu` | flag | **Lower CPU usage** - On NVIDIA CUDA, the thread feeding the GPU sleeps through most of each wait for a frame instead of busy-waiting on a full core; it learns each wait's length and spins only the last few ms | Steady CPU of a 1080p `span` upscale 110% → 19% of a core at 0.5-1% lower FPS (720p `shufflecugan`: 1.1%); 1080p `rife4.26` uses ~19% less CPU at 0.7% lower FPS (little change at 720p); with x264 on 4 cores, ~1% higher FPS. Applies to every CUDA stream wait in the process; non-NVIDIA backends are unchanged |
 | `--profile` | flag | **Developer profiling** - Runs under `torch.profiler` and writes a trace for finding GPU/CPU bottlenecks | Large; profiling only |
 
 ---
@@ -320,8 +322,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 4x`; repeatable; see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
-| `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
+| `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 2x`; repeatable (`--upscale span --upscale` is 4x); see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
+| `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)**. Every bundled model is 2x; 3x and 4x need a `maxine-*` method or a `--custom_model` of that scale, any other method refuses them before loading |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
 | `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
 
@@ -537,11 +539,12 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | `--segment` | flag | False | **Background/foreground separation** — automatically enabled when `--segment_method` is specified |
 | `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) — specifying a non-default method auto-enables segmentation |
 | `--segment_batch` | int | 1 | **Frames per model forward** for segmentation. `>1` batches independent frames to amortize kernel-launch overhead, at a proportional VRAM cost. ISNet (`anime`) and BiRefNet (`birefnet`) process frames independently. `1` matches the previous one-frame path exactly. **CUDA, ROCm** (`anime`) always runs the model in a fixed 1024-box, so the gain is resolution-independent: RTX 3090, 402 frames, ~**+10%** at `4` (24.2 → 26.7 FPS end-to-end); `8` is usually a regression at 720p+ (peak model VRAM 0.95 → 3.2 GB at `4`, 6.2 GB at `8`). **TensorRT** (`anime-tensorrt`) runs at the native `/64`-padded resolution, so batching pays only at low resolution: at 640×360 `4` gives **+57%** (93.8 → 147.1 FPS), while at 1280×720 it is already compute-bound and gains nothing (38.4 → 38.6). A batch-`N` engine is a separate build cached under a batch-aware filename. Forced to `1` for DirectML/OpenVINO, where batching measured *slower*. |
+| `--segment_mask` | str | "" | **Rotoscope from tracked mattes**: a folder of one matte per source frame (`000123.png`, white is the object), or a `.json` roto document adding shapes and edge refinement to one, cut out with alpha instead of running `--segment_method`. Auto-enables segmentation |
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
-| `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. Limbo (`limbo*`, `video_limbo*`) is exempt on every backend: `medium`/`high` export its ONNX locally at that size. For `video_small_v2`/`og_video_small_v2` it sets the shortest side: 518 / 700 / native. |
-| `--depth_window` | int | 32 | **Video depth window**, one of `32/16/8/4`. For `video_small_v3`, `video_base_v3`, `video_limbo`, `video_limbo_v2`, and their TensorRT variants, this is the chunk size with 50% overlap; smaller values reduce memory and lookahead latency. For `video_small_v2`, this controls attended history (32 = full window; 32 frames are retained regardless). Ignored by image depth methods. |
-| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA, ROCm image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt` (all forced to `1`). |
+| `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. Limbo (`limbo*`, `video_limbo*`) and MoGe-3 (`moge3*`) are exempt on every backend: `medium`/`high` export their ONNX locally at that size. For `video_small_v2`, and for `small_v2` on CUDA, ROCm and MPS, it sets the shortest side and keeps the source aspect ratio: 518 / 700 / native. |
+| `--depth_window` | int | 32 | **Video depth window**, one of `32/16/8/4`. For `video_small_v3`, `video_base_v3`, `video_limbo`, `video_limbo_v2`, `video_limbo_v3`, and their TensorRT variants, this is the chunk size with 50% overlap; smaller values reduce memory and lookahead latency. For `video_small_v2`, this controls attended history (32 = full window; 32 frames are retained regardless). Ignored by image depth methods. |
+| `--depth_batch` | int | 1 | **Frames per model forward** for the CUDA, ROCm image depth methods (v2/`og_*_v2`/v3, plus the `*_v2-tensorrt`/`og_*_v2-tensorrt` image engines). `>1` batches independent frames to amortize kernel-launch overhead — biggest gains at low resolution where the model is launch-bound (e.g. RTX 3090 `small_v2` fp16: CUDA `--depth_quality low` ~+47% at `4`, `medium` ~+21%, `high` negligible; TensorRT ~+11% since it already fuses/graphs away most launch overhead), at a small VRAM cost. `1` matches the previous one-frame path exactly. Output matches one-at-a-time within the fp16/bf16 noise floor. TensorRT batching needs dynamic-batch ONNX (hosted on TAS-Models-Host). Not supported for the temporal `video_*` methods, the DirectML/OpenVINO backends, or `limbo-tensorrt`/`limbo_v2-tensorrt`/`limbo_v3-tensorrt` (all forced to `1`). |
 
 #### 🎯 Segmentation Methods
 
@@ -552,36 +555,54 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 | **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | AMD/Intel GPUs | DirectML |
 | **birefnet** / **birefnet-rocm** | — | — | — | Screenshots from anime video; BiRefNet Lite trained at 1024×1024 | CUDA / ROCm (PyTorch) |
 
-`birefnet` downloads [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime) from its pinned Hugging Face revision. It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
+`birefnet` uses [Zarxrax's Real Anime checkpoint](https://huggingface.co/Zarxrax/BiRefNet-Real_Anime). It resizes frames to 1024×1024, applies ImageNet normalization, and writes the predicted alpha with the original RGB. Segmentation output uses ProRes 4444 (`prores_segment`) for alpha, regardless of the requested encoder. Batch sizes above 1 raise VRAM use. On Apple Silicon it runs on CPU because the deformable convolution has no MPS kernel.
 
 > **Note:** There is no MPS segmentation path.
+
+### Rotoscoping from tracked mattes
+
+`--segment_mask <folder>` replaces the segmentation model with mattes made ahead of time, one per source frame, named by frame number in the untrimmed input (`000123.png` is frame 123). White is the object, black is background and grey is a partial edge; colour images are read by luma and an alpha channel multiplies in. A frame with no image is written fully transparent, and a matte of another size is stretched to the frame. TAS's SAM 2 session mode writes these folders for a front end's click-to-track tool (several objects merge into one matte). No model is loaded, so the run costs one image read per frame on any backend.
+
+```bash
+python main.py --input clip.mp4 --output clip.mov --segment_mask masks/tracked/0123456789abcdef
+```
+
+`--segment_mask` also takes a `.json` roto document (`src/segment/rotoDoc.py` has the format) that names such a folder in `mattes` (or `null` for shapes alone) and adds, in order:
+
+- **Shapes**: Bezier polygons and painted strokes that add to or cut from the matte on a span of frames. A polygon can carry keyframes and is interpolated between them.
+- **Refine edge**, applied to every frame: remove specks and fill holes smaller than an area, reduce chatter (the edge averaged over up to 5 neighbouring frames), shift edge (grow or shrink in pixels), contrast and feather. `decontaminate` pulls the colour of soft edge pixels toward the object next to them, so the old background does not fringe the cutout.
+
+A front end's preview runs the same code, through the SAM 2 session's `composite` command.
 
 #### 🎯 Depth Models
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use (default) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **small_v2** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General use (default). CUDA, ROCm and MPS keep the source aspect ratio; the fixed ONNX on TRT, DML and OpenVINO runs at 518×518 | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, ROCm, MPS |
 | **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, ROCm, MPS |
 | **video_small_v3** | Window-dependent | Temporal DA3 Small | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA, ROCm |
 | **video_base_v3** | Window-dependent | Temporal DA3 Base | Resolution/window-dependent | Video depth with cross-frame attention and overlapping chunks | CUDA, ROCm |
 | **video_limbo** | Window-dependent | Temporal Limbo V1 | Window-dependent | Anime video depth; input size follows `--depth_quality` | CUDA, ROCm |
 | **video_limbo_v2** | Window-dependent | Temporal Limbo V2 | Window-dependent | Anime video depth; input size follows `--depth_quality` | CUDA, ROCm |
+| **video_limbo_v3** | Window-dependent | Temporal Limbo V3 | Window-dependent | Anime video depth; input size follows `--depth_quality` | CUDA, ROCm |
 | **video_limbo-tensorrt** | Window-dependent | Temporal Limbo V1 | Window-dependent | Multi-view TensorRT; exports locally on first use | TensorRT |
 | **video_limbo_v2-tensorrt** | Window-dependent | Temporal Limbo V2 | Window-dependent | Multi-view TensorRT; exports locally on first use | TensorRT |
+| **video_limbo_v3-tensorrt** | Window-dependent | Temporal Limbo V3 | Window-dependent | Multi-view TensorRT; exports locally on first use | TensorRT |
 | **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, ROCm, MPS |
-| **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, ROCm, MPS |
 | **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, ROCm, TRT |
-| **og_video_small_v2** | ⚡ | ⭐⭐⭐⭐ | 4GB | Original temporal implementation | CUDA, ROCm |
 | **limbo v1** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Depth Anything 3 small finetuned on an anime corpus (`--depth_method limbo`) | CUDA, ROCm, TRT, OpenVINO, MPS |
 | **limbo v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — Limbo successor, same setup (`--depth_method limbo_v2`) | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **limbo v3** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Anime — finetune of v2, steadier video depth, same setup (`--depth_method limbo_v3`) | CUDA, ROCm, TRT, OpenVINO, MPS |
+| **moge3** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 1.2-2GB | MoGe-3 ViT-L: fine-detail geometry from a sparse 3D refiner, relative depth output (`--depth_method moge3`) | CUDA, ROCm, TRT, DirectML, OpenVINO, MPS |
 
-> **🎨 limbo v1 / v2:** anime-specialised DA3-small finetunes (v1: 34.3M params). At `--depth_quality low` (the default) they run at the size they were trained at, picking the aspect closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer (portrait is stretched to `504x378`). `medium` and `high` keep the source aspect with the longest side at 700 px or at the source's own, like the other `*_v3` methods; the TensorRT and OpenVINO backends then export their own ONNX at that size from the checkpoint on first use into `weights/limbo*/streaming/` — a one-time cost per size, up to about 3 minutes with the TensorRT engine build at 1080p `high` on an RTX 3090. `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 mirrors them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino`. Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
+> **🎨 limbo v1 / v2 / v3:** anime-specialised DA3-small finetunes (v1: 34.3M params). At `--depth_quality low` (the default) they run at the size they were trained at, picking the aspect closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer (portrait is stretched to `504x378`). `medium` and `high` keep the source aspect with the longest side at 700 px or at the source's own, like the other `*_v3` methods; the TensorRT and OpenVINO backends then export their own ONNX at that size from the checkpoint on first use into `weights/limbo*/streaming/` — a one-time cost per size, up to about 3 minutes with the TensorRT engine build at 1080p `high` on an RTX 3090. `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt`/`limbo_v3-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 and v3 mirror them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino` and `limbo_v3`, `limbo_v3-mps`, `limbo_v3-tensorrt`, `limbo_v3-openvino` (every one also has a `-rocm` CUDA-path twin). Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
 
-**DA3 streaming:** `video_small_v3` and `video_base_v3` use Apache-2.0 Small/Base weights with attention across overlapping chunks. CUDA only; memory depends on resolution and window size. This depth-video adaptation excludes camera reconstruction and loop closure. `large_v3` (DA3Mono-Large) and `og_large_v3` (DA3Metric-Large) remain independent-frame models. See [implementation and licenses](docs/DA3_STREAMING.md).
+> **moge3:** Methods are `moge3`, `moge3-mps`, `moge3-rocm`, `moge3-tensorrt`, `moge3-directml`, `moge3-openvino`. `--depth_quality` sets the ViT token count (`low` 1200, `medium` 2400, `high` 3600; about 736x416 / 1040x592 / 1280x720 voxels at 16:9) on every backend, including TensorRT, DirectML and OpenVINO. Those three export their ONNX from the checkpoint into `weights/moge3/onnx/` on first use for each size and precision. `--depth_batch` is forced to `1`: refinement is per frame. TensorRT runs the voxel refiner in torch on the same GPU. DirectML and OpenVINO build the voxel tables on the CPU each step, so expect them to be much slower than CUDA. Under `--half` the DINOv2 encoder runs in fp16 (its weights are stored in fp16 on NVIDIA CUDA), and the FlexGEMM refiner (`moge3`, `moge3-tensorrt`) runs its two coarsest levels in fp16; every other refiner route (ROCm, DirectML, OpenVINO, the plain fallback) is fp32, and MPS is fp32 throughout. `moge3` and `moge3-tensorrt` refine through vendored FlexGEMM (Triton) when its kernels compile here (NVIDIA CUDA, a C compiler, Python headers); the first run compiles them and tunes for about 15 s, later runs start in under a second. Anywhere else, including the Windows portable build for now, the plain torch refiner runs instead (about 4x slower refiner, same weights); `-mps`, `-rocm`, `-directml` and `-openvino` always use it. RTX 3090, 720p source: about 10.2 fps CUDA and 11.6 fps TensorRT at `low`, 4.4 at `high`; peak VRAM about 1.1 GB at `low` and 1.8 GB at `high` (TensorRT adds its engine). MIT licensed; provenance in `src/depth/moge/NOTICE.md`.
 
-**Limbo streaming:** `video_limbo` (V1) and `video_limbo_v2` (V2) use the same chunk scheduler and reuse the respective `limbo` / `limbo_v2` checkpoint caches. Add `-tensorrt` for TensorRT streaming. `--depth_quality` sets the input size as for `limbo`, and `--depth_batch` is forced to `1`. Every view of a chunk attends to every other, so `high` is very heavy: at 1080p `video_limbo_v2` peaked at 19 GB with `--depth_window 8` and filled a 24 GB card at the default 32. Use `--depth_window` to select 4/8/16/32-frame chunks. Existing Limbo checkpoint licenses and grants apply.
+**DA3 streaming:** `video_small_v3` and `video_base_v3` use Apache-2.0 Small/Base weights with attention across overlapping chunks. CUDA only; memory depends on resolution and window size. This depth-video adaptation excludes camera reconstruction and loop closure. `large_v3` (DA3Mono-Large) remains an independent-frame model. See [implementation and licenses](docs/DA3_STREAMING.md).
+
+**Limbo streaming:** `video_limbo` (V1), `video_limbo_v2` (V2) and `video_limbo_v3` (V3) use the same chunk scheduler and reuse the respective `limbo` / `limbo_v2` / `limbo_v3` checkpoint caches. Add `-tensorrt` for TensorRT streaming. `--depth_quality` sets the input size as for `limbo`, and `--depth_batch` is forced to `1`. Every view of a chunk attends to every other, so `high` is very heavy: at 1080p `video_limbo_v2` peaked at 19 GB with `--depth_window 8` and filled a 24 GB card at the default 32. Use `--depth_window` to select 4/8/16/32-frame chunks. Existing Limbo checkpoint licenses and grants apply.
 
 TensorRT streaming exports a separate multi-view ONNX locally from the cached safetensors, then builds an engine on first use. The existing single-image ONNX files cannot provide temporal attention. Exports are cached by checkpoint content, resolution and precision; engines additionally depend on `--depth_window`. First-use export/build can take several minutes. FP16 conversion requires `onnxruntime` (included in full installations); `--half False` exports FP32. Partial final windows use their actual frame count, without duplicate padding.
 
@@ -623,6 +644,8 @@ Example: `python main.py --input input/Raw.mp4 --depth --depth_method video_limb
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--mask` | str | "" | path | **Protect regions** — transparent PNG; opaque dark areas stay sharp and static, transparent areas process normally |
+
+`--mask` also takes a folder holding one image per source frame, named by frame number (`000123.png` is frame 123 of the untrimmed input), for a mask that moves. A frame with no image is not protected, and a generated frame is protected everywhere the object is at either source frame around it.
 
 One mask covers both `--moblur` and `--interpolate`. Paint the regions you want left alone — a HUD, hardsubs, a watermark, a logo — as opaque dark pixels on a transparent background. RGB (no alpha) and grayscale images work too: dark = protected. The mask is resized to match the frame if the dimensions differ.
 
@@ -749,7 +772,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `linux-rocm` once a ROCm torch is installed; pass it by name). |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `windows-rocm`, `linux-cuda`, `linux-lite`, `linux-rocm`, `macos-mps`, or `macos-lite`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `windows-rocm`/`linux-rocm` once a ROCm torch is installed; pass it by name). |
 | `--list_methods` | optional str | None | **List available methods** for one capability (e.g. `--list_methods upscale`) or, with no value, for every capability |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 
@@ -956,7 +979,7 @@ A stage flag takes zero or more values, up to the next option. The `=` form (`--
 | `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
 | `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=` | `ensemble`, `dynamic_scale`, `static_step` |
 | `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=` | as `--interpolate` |
-| `--resize` | - | scale | scale (`50%` = 0.5) | scale | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
+| `--resize` | - | scale | scale (`50%` = 0.5) | scale below 16; 16 or more is an **error**: ambiguous, write `1080p` or `1080x` | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
 
 A `-` means that form is an error for that stage.
 
@@ -985,7 +1008,7 @@ A `-` means that form is an error for that stage.
 
 ### Repeating a stage
 
-- A repeated stage without values reuses the settings of the previous stage of the same kind: `--upscale span 4x --interpolate --upscale` runs `span` 4x twice.
+- A repeated stage without values reuses the settings of the previous stage of the same kind: `--upscale maxine-high 4x --interpolate --upscale` runs `maxine-high` 4x twice.
 - Values given on the repeat replace only those settings: in `--interpolate rife4.26 --interpolate 3x`, the second stage keeps `rife4.26`.
 - A repeat inherits what the previous stage asked for, and each stage is then checked on its own: in `--interpolate rife4.26-tensorrt --dynamic_scale --interpolate rife4.26`, `dynamic_scale` is dropped (with a warning) on the TensorRT stage and kept on the second.
 - A plain `--interpolate` after a `--smooth_dedup` that has values of its own reuses its interpolation settings (method, factor, `ensemble`, ...), not its detection settings.
@@ -1007,10 +1030,10 @@ A `-` means that form is an error for that stage.
 
 | Command | Runs |
 |---------|------|
-| `--upscale span --upscale_factor 4` | `span` 4x |
-| `--upscale_factor 4 --upscale span --upscale cyte` | `span` 4x, then `cyte` 4x |
-| `--upscale span --upscale_factor 4 --upscale cyte` | `span` 4x, then `cyte` 4x (the factor carries over) |
-| `--upscale span --upscale cyte --upscale_factor 4` | `span` 2x, then `cyte` 4x |
+| `--upscale maxine-high --upscale_factor 4` | `maxine-high` 4x |
+| `--upscale_factor 4 --upscale maxine-high --upscale maxine-ultra` | `maxine-high` 4x, then `maxine-ultra` 4x |
+| `--upscale maxine-high --upscale_factor 4 --upscale maxine-ultra` | `maxine-high` 4x, then `maxine-ultra` 4x (the factor carries over) |
+| `--upscale maxine-high --upscale maxine-ultra --upscale_factor 4` | `maxine-high` 2x, then `maxine-ultra` 4x |
 | `--upscale 2x --upscale_factor 4` | error: factor given twice |
 | `--interpolate_method rife4.26 --upscale` | interpolate with `rife4.26`, then upscale (the long flag added the stage where it was typed) |
 
@@ -1077,7 +1100,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 ./python.exe ./main.py --input in.mp4 --interpolate factor=2.5 method=rife4.26 ensemble
 
 # A custom model, with a long flag as the default for every upscale
-./python.exe ./main.py --input in.mp4 --upscale_factor 4 --upscale "D:/models/4x_custom.pth" --upscale span
+./python.exe ./main.py --input in.mp4 --upscale_factor 4 --upscale "D:/models/4x_custom.pth" --upscale maxine-high
 
 # The long-flag spelling still works and means the same as before
 ./python.exe ./main.py --input in.mp4 --interpolate --interpolate_method rife4.26 --interpolate_factor 3

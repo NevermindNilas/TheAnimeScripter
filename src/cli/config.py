@@ -40,19 +40,6 @@ def _actionsByDest(parser):
     return cached
 
 
-def _publicActionsByDest(parser):
-    """Cached action map minus the ``help``/``version`` pseudo-actions."""
-    cached = getattr(parser, "_tas_public_actions_by_dest", None)
-    if cached is None:
-        cached = {
-            action.dest: action
-            for action in parser._actions
-            if action.dest not in ("help", "version")
-        }
-        parser._tas_public_actions_by_dest = cached
-    return cached
-
-
 def _defaultsByDest(parser):
     """Cached ``{dest: default}`` map for a parser (built once, then reused)."""
     cached = getattr(parser, "_tas_defaults_by_dest", None)
@@ -186,6 +173,18 @@ def coerceValueForKey(parser, key, value, sourceLabel):
                 fail(value, "true or false")
         fail(value, "true or false")
 
+    # A list only for an option that takes several values (nargs "+"/"*"),
+    # and not an empty one where argparse demands one (nargs "+"): anywhere
+    # else the list reached input normalization or the stage build as a single
+    # value and died there ('list' object has no attribute 'lower'), and an
+    # empty restore_method built a restore stage that ran no model.
+    if isinstance(value, list):
+        if action.nargs not in ("+", "*"):
+            hint = " (several inputs go in one string separated by ';')"
+            fail(value, "a single value" + (hint if key == "input" else ""))
+        if action.nargs == "+" and not value:
+            fail(value, "at least one value")
+
     converter = action.type
     if converter is None:
         return value
@@ -229,6 +228,7 @@ PARENT_FLAG_DEFAULTS = {
     "smooth_dedup_max_span": ("smooth_dedup", 6),
     "restore_method": ("restore", ["anime1080fixer"]),
     "segment_method": ("segment", "anime"),
+    "segment_mask": ("segment", ""),
     "stabilize_method": ("stabilize", "classic"),
     "depth_method": ("depth", "small_v2"),
     "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
@@ -277,11 +277,6 @@ class CliConfig:
 
     def optionWasProvided(self, optionName):
         return optionName in self.providedOptions or optionName in self.jsonKeys
-
-    @property
-    def parserActionsByDest(self):
-        # Reuses the parser-level cache: no per-access rebuild.
-        return _publicActionsByDest(self.parser)
 
     @property
     def parserDefaults(self):
@@ -516,8 +511,11 @@ class CliConfig:
             sys.exit(1)
 
         try:
-            with open(jsonPath, encoding="utf-8") as f:
-                return json.load(f)
+            # Bytes, so json detects the encoding from the byte-order mark:
+            # Notepad's "UTF-8 with BOM" and PowerShell 5's UTF-16 were refused
+            # as invalid JSON when the file was decoded as plain UTF-8.
+            with open(jsonPath, "rb") as f:
+                return json.loads(f.read())
         except json.JSONDecodeError as e:
             logAndPrint(f"Invalid JSON format in config file: {e}", "red")
             sys.exit(1)

@@ -19,8 +19,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
 
     match self.interpolateMethod:
         case (
-            "rife"
-            | "rife4.6"
+            "rife4.6"
             | "rife4.15-lite"
             | "rife4.16-lite"
             | "rife4.17"
@@ -52,8 +51,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             )
 
         case (
-            "rife-mps"
-            | "rife4.6-mps"
+            "rife4.6-mps"
             | "rife4.15-lite-mps"
             | "rife4.16-lite-mps"
             | "rife4.17-mps"
@@ -85,8 +83,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             )
 
         case (
-            "rife-rocm"
-            | "rife4.6-rocm"
+            "rife4.6-rocm"
             | "rife4.15-lite-rocm"
             | "rife4.16-lite-rocm"
             | "rife4.17-rocm"
@@ -116,8 +113,7 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             )
 
         case (
-            "rife-ncnn"
-            | "rife4.6-ncnn"
+            "rife4.6-ncnn"
             | "rife4.15-lite-ncnn"
             | "rife4.16-lite-ncnn"
             | "rife4.17-ncnn"
@@ -139,10 +135,8 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             )
 
         case (
-            "rife-tensorrt"
-            | "rife4.6-tensorrt"
+            "rife4.6-tensorrt"
             | "rife4.15-tensorrt"
-            | "rife4.15-lite-tensorrt"
             | "rife4.17-tensorrt"
             | "rife4.18-tensorrt"
             | "rife4.20-tensorrt"

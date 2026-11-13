@@ -146,6 +146,38 @@ def _notifyAdobeOfFatalError(error: Exception) -> None:
         logging.exception("Failed to report the error to After Effects")
 
 
+def _flushAdobeProgress(stopServer: bool = False) -> None:
+    """Get the run's last statuses to the After Effects panel before exiting.
+
+    The comms server is a daemon child that interpreter exit terminates,
+    usually before it relays the final payload: the panel never heard the
+    last video's "completed"/"failed". Bounded (aeComms.flushProgress), so a
+    gone panel cannot hold the exit. ``stopServer`` for os._exit, which skips
+    the atexit hook that would otherwise stop the child.
+    """
+    if not cs.ADOBE:
+        return
+    try:
+        from src.server import aeComms
+    except Exception:
+        logging.exception("Failed to flush the After Effects progress")
+        return
+    try:
+        flushed = aeComms.flushProgress()
+        if stopServer and flushed and aeComms.serverProcess is not None:
+            # The relay's answer means "handed to Socket.IO", not "delivered":
+            # give its threads a moment before the process is stopped.
+            aeComms.serverProcess.join(0.3)
+    except Exception:
+        logging.exception("Failed to flush the After Effects progress")
+    finally:
+        if stopServer and aeComms.serverProcess is not None:
+            try:
+                aeComms.serverProcess.terminate()
+            except Exception:
+                pass
+
+
 def _videoFailed(
     processingError: Exception | None,
     outputPath: str,
@@ -229,6 +261,7 @@ class VideoProcessor:
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
         self.segmentBatch: int = getattr(args, "segment_batch", 1)
+        self.segmentMask: str = getattr(args, "segment_mask", "") or ""
         self.objDetectMethod: str = args.obj_detect_method
         self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
@@ -286,6 +319,11 @@ class VideoProcessor:
         self.previewPortPinned: bool = requestedPort is not None
         self.previewPort: int | None = requestedPort
         self.profile: bool = args.profile
+        if getattr(args, "low_cpu", False):
+            from src.infra.hostWait import enableLowCpuWait
+
+            if not enableLowCpuWait():
+                logging.info("--low_cpu has no effect without NVIDIA CUDA")
         self.singleImageInput: bool = getattr(args, "single_image_input", False)
 
     def _initVideoMetadata(self, args) -> None:
@@ -339,12 +377,19 @@ class VideoProcessor:
         """
         logging.info("\n============== Processing Outputs ==============")
 
-        # Every interpolate stage multiplies the frame rate. The product is of
-        # the typed factors, so a single stage gives exactly fps * factor.
-        self.fpsMultiplier = 1
+        # Every interpolate stage multiplies the frame rate by its factor as the
+        # gap planner runs it (planner.factorFraction, Plan.factor): 2.5025 is
+        # written on the 5/2 grid, and stamping it at fps * 2.5025 made the
+        # video shorter than its audio. An exact factor gives exactly fps * it.
+        from src.pipeline.planner import factorFraction
+
+        factor = Fraction(1)
         for spec in self.chain:
             if spec.kind == "interpolate":
-                self.fpsMultiplier = self.fpsMultiplier * spec["factor"]
+                factor *= factorFraction(spec["factor"])
+        self.fpsMultiplier = (
+            factor.numerator if factor.denominator == 1 else float(factor)
+        )
 
         if self.slowmo:
             self.outputFPS = self.fps
@@ -431,7 +476,15 @@ class VideoProcessor:
             motionBlur(self)
 
         else:
-            self.start()
+            from src.infra.cudaAllocator import expandableSegments, runsTorchCudaModel
+
+            # CUDA-graph pools reserve well past their live peak on fixed
+            # segments (shufflecugan 1080p, nvidia-smi: 3410 -> 2828 MiB). Only
+            # where torch holds the model memory: a TensorRT run keeps few torch
+            # buffers, and at 1080p their expandable segments' coarse per-stream
+            # granules cost up to 74 MiB more than fixed segments.
+            with expandableSegments(enabled=runsTorchCudaModel(self.chain)):
+                self.start()
 
     def _checkRingMemory(self, pipeline) -> None:
         """Refuse a chain whose frame rings do not fit in the GPU memory left over.
@@ -480,7 +533,9 @@ class VideoProcessor:
 
             # One mask (its weight tensors are cached per frame size, device
             # and dtype), one sink per interpolate stage.
-            mask = ProtectionMask(self.maskPath)
+            mask = ProtectionMask.forRun(
+                self.maskPath, self.fps, self.inpoint, self.outpoint
+            )
 
             def maskedSinkFactory():
                 return MaskedSink(mask)
@@ -736,6 +791,12 @@ class VideoProcessor:
                     executor.submit(self.writeBuffer)
                     executor.submit(self.process)
 
+            # The writer has finished now: an encoder error raised after the
+            # frame loop ended was not yet visible to process().
+            from src.io.runOutcome import recordWriterFailure
+
+            recordWriterFailure(self)
+
             elapsedTime: float = time() - starTime
 
             # The bar's last filesize sample lands before the encoder drains its
@@ -789,6 +850,11 @@ class VideoProcessor:
 
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
+            # The run failed whatever is at the output path: an earlier run's
+            # file there must not turn this into a success (exit 0) while the
+            # panel below is told it failed.
+            if self.processingError is None:
+                self.processingError = e
             if cs.ADOBE:
                 progressState.setFailed(error=str(e))
 
@@ -972,6 +1038,13 @@ def main():
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
 
+        # A long-lived helper a front end talks to over stdin/stdout, not a
+        # render, so it has no --input to parse or validate.
+        if "--sam_session" in sys.argv:
+            from src.sam.session import runSession
+
+            sys.exit(runSession())
+
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
             from src.cli.parser import createParser
 
@@ -1040,6 +1113,15 @@ def main():
         for idx, entry in enumerate(results, 1):
             processor = None
             try:
+                if cs.ADOBE and idx > 1:
+                    # The previous video's completed/failed status is not this
+                    # one's: left in place, _notifyAdobeOfFatalError took it as
+                    # this video's report and never sent a failure raised
+                    # before start(). Reset without sending anything, so the
+                    # panel still receives that status (see beginVideo).
+                    from src.server.aeComms import progressState
+
+                    progressState.beginVideo()
                 _videoName = os.path.splitext(os.path.basename(entry["videoPath"]))[0]
                 if len(_videoName) > 60:
                     _videoName = _videoName[:57] + "..."
@@ -1160,6 +1242,12 @@ def main():
         except BaseException:
             # Must not preempt the force-exit below.
             pass
+        try:
+            _flushAdobeProgress(stopServer=True)
+        except BaseException:
+            # A second Ctrl-C during the flush must not skip the force-exit:
+            # normal shutdown would then wait on the frame-loop threads.
+            pass
         _restoreTerminalTitle()
         # Force-exit: bypass blocked thread joins (TRT inference, nelux
         # decoder/encoder) which sys.exit() would hang on.
@@ -1180,8 +1268,93 @@ def main():
         _notifyAdobeOfFatalError(e)
         sys.exit(1)
     finally:
+        # Every other way out (return, sys.exit, the exit 1 above) ends here.
+        _flushAdobeProgress()
         _restoreTerminalTitle()
 
 
+def _exitCode(code) -> int:
+    """The process exit status ``raise SystemExit(code)`` would give."""
+    if code is None:
+        return 0
+    if isinstance(code, int):
+        return code
+    # sys.exit("message"): Python prints it to stderr and exits 1.
+    try:
+        print(code, file=sys.stderr)
+    except Exception:
+        pass
+    return 1
+
+
+def _canSkipTeardown() -> bool:
+    """Whether the interpreter's teardown may be skipped at exit.
+
+    Only when this file runs as the real ``__main__`` with no profiler, tracer
+    or debugger wrapped around it (those write their results after the script
+    returns), and no non-daemon thread is still running (normal exit would
+    wait for it).
+    """
+    import threading
+
+    mainModule = sys.modules.get("__main__")
+    if mainModule is None or vars(mainModule) is not globals():
+        return False
+    if sys.gettrace() is not None or sys.getprofile() is not None:
+        return False
+    monitoring = getattr(sys, "monitoring", None)
+    if monitoring is not None:
+        try:
+            if any(monitoring.get_tool(tool) is not None for tool in range(6)):
+                return False
+        except Exception:
+            return False
+    if "pdb" in sys.modules or "bdb" in sys.modules:
+        return False
+    mainThread = threading.main_thread()
+    for thread in threading.enumerate():
+        if thread is not mainThread and not thread.daemon and thread.is_alive():
+            return False
+    return True
+
+
+def _exitSkippingTeardown(code) -> None:
+    """Exit without the interpreter's teardown, which a CUDA run pays ~0.2 s for.
+
+    Everything a normal exit does that has an effect outside the process still
+    runs: the atexit hooks (logging's flush/close, multiprocessing stopping the
+    After Effects server child), and the stdio flush. What is skipped is the
+    module/object garbage collection and the native libraries' teardown (CUDA
+    context, cuDNN/cuBLAS handles), which the OS reclaims anyway. Every output
+    is already closed by then: the writers finalize their container in their
+    own thread's ``finally`` and main() has returned. A non-daemon thread still
+    running, or a profiler/debugger wrapped around this script, keeps the
+    normal exit.
+    """
+    status = _exitCode(code)
+    if not _canSkipTeardown():
+        sys.exit(status)
+    import atexit
+
+    atexit._run_exitfuncs()
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream is not None:
+                stream.flush()
+        except Exception:
+            pass
+    os._exit(status)
+
+
 if __name__ == "__main__":
-    main()
+    # The validator may then have the driver make the CUDA context in the
+    # background while torch imports (see src/infra/cudaWarmup.py).
+    from src.infra.cudaWarmup import enableCudaContextWarmup
+
+    enableCudaContextWarmup()
+    try:
+        main()
+        _exitStatus = None
+    except SystemExit as e:
+        _exitStatus = e.code
+    _exitSkippingTeardown(_exitStatus)

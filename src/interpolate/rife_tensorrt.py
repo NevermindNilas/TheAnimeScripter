@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.interpolate._shared import importRifeArch
@@ -430,7 +431,7 @@ class RifeTensorRT:
         per frame pair, the step engine once per inserted frame, so frames 2..n
         of a pair (--interpolate_factor > 2, motion blur, wide --smooth_dedup
         gaps) no longer re-run the encoder. f0 stays outside both engines and is
-        carried across pairs by copying f1 ("f0-copy"), as before.
+        carried across pairs by copying f1 into it, as before.
 
         The PyTorch model is only built when an engine has to be exported. With
         both engines cached, src2's and f0's shapes come from the engines, and
@@ -549,14 +550,15 @@ class RifeTensorRT:
     def _encodeWithPairEngine(self, frame):
         """encode(frame) from the pair engine, which computes f1 = encode(img1).
 
-        The f0 of every later pair already comes from this engine ("f0-copy"),
-        so the first frame and a scene cut now get theirs the same way. Runs on
-        the caller's stream (processFrame's normStream) and returns ``f1``,
-        ready on it. The engine also rewrites src2, which the next pair's
-        replay recomputes before the step engine reads it.
+        The f0 of every later pair already comes from this engine (the
+        roll-forward in ``__call__``), so the first frame and a scene cut now
+        get theirs the same way. Runs on the caller's stream (processFrame's
+        normStream) and returns ``f1``, ready on it. The engine also rewrites
+        src2, which the next pair's replay recomputes before the step engine
+        reads it. ``frame`` is unpadded (see _stage).
         """
         caller = torch.cuda.current_stream()
-        self.I1.copy_(frame)
+        self._stage(self.I1, frame)
         self.stream.wait_stream(caller)
         with torch.cuda.stream(self.stream):
             self.pairGraph.replay()
@@ -569,47 +571,34 @@ class RifeTensorRT:
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
 
+    def _stage(self, buffer, frame):
+        """``buffer.copy_(F.pad(frame, self.padding))`` without the temporaries.
+
+        I0 and I1 are zero-padded when allocated and only ever receive
+        zero-padded frames, so writing the frame into the top-left view is the
+        same. The two per-frame temporaries cost a 1080p frame's segment on
+        normStream for the whole run.
+        """
+        buffer[:, :, : self.height, : self.width].copy_(frame, non_blocking=True)
+
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             match name:
                 case "I0":
-                    self.I0.copy_(
-                        F.pad(
-                            frame.to(dtype=self.dtype),
-                            self.padding,
-                        ),
-                        non_blocking=True,
-                    )
-
-                case "I1":
-                    self.I1.copy_(
-                        F.pad(
-                            frame.to(dtype=self.dtype),
-                            self.padding,
-                        ),
-                        non_blocking=True,
-                    )
+                    self._stage(self.I0, frame)
 
                 case "f0":
-                    self.f0.copy_(
-                        self.norm(
-                            F.pad(
-                                frame.to(device=checker.device, dtype=self.dtype),
-                                self.padding,
-                            )
-                        ),
-                        non_blocking=True,
-                    )
-
-                case "f0-copy":
-                    self.f0.copy_(self.f1, non_blocking=True)
-
-                case "cache":
-                    self.I0.copy_(self.I1, non_blocking=True)
-
-                case "timestep":
-                    self.dummyTimeStep.copy_(frame, non_blocking=True)
+                    if self.split:
+                        # _encodeWithPairEngine stages the frame itself.
+                        source = frame
+                    else:
+                        source = F.pad(
+                            frame.to(device=checker.device, dtype=self.dtype),
+                            self.padding,
+                        )
+                    self.f0.copy_(self.norm(source), non_blocking=True)
 
         self.normStream.synchronize()
 
@@ -617,10 +606,11 @@ class RifeTensorRT:
     def cacheFrameReset(self, frame):
         # Scene-cut reset: re-anchor I0 = frame and, for Head models, re-seed the
         # encoder embedding f0 = encode(frame) IN-PLACE. The engine reads f0 as a
-        # fixed binding and otherwise carries it across frames via the "f0-copy"
-        # step, so without re-seeding here the previous scene's embedding bleeds
-        # into the first interpolation after the cut. Both "I0" and "f0"
-        # processFrame cases copy into the fixed buffers (graph/binding-safe).
+        # fixed binding and otherwise carries it across frames via the f0 <- f1
+        # roll-forward in __call__, so without re-seeding here the previous
+        # scene's embedding bleeds into the first interpolation after the cut.
+        # Both "I0" and "f0" processFrame cases copy into the fixed buffers
+        # (graph/binding-safe).
         self.processFrame(frame, "I0")
         if self.norm is not None:
             self.processFrame(frame, "f0")
@@ -636,26 +626,42 @@ class RifeTensorRT:
             self.firstRun = False
             return
 
-        self.processFrame(frame, "I1")
+        # The pair is queued without host round trips: the three streams are
+        # ordered with wait_stream, and the only host sync is the one that
+        # finishes each output before it is handed on. A sync after every step
+        # idled the GPU while the host queued the next one (~4% of a 1080p pair).
+        waitForCaller(self.normStream)
+        with torch.cuda.stream(self.normStream):
+            self._stage(self.I1, frame)
+        self.stream.wait_stream(self.normStream)
         if self.split:
             # per-pair engine: encode img1, build the warp source
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self.pairGraph.replay()
-            self.stream.synchronize()
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 self._cachedTimestepValue = fillTimestepBuffer(
                     self.dummyTimeStep, self._cachedTimestepValue, t
                 )
                 self.cudaGraph.replay()
-            self.stream.synchronize()
+            self.outputStream.wait_stream(self.stream)
             with torch.cuda.stream(self.outputStream):
                 output = self.dummyOutput.clone()
             self.outputStream.synchronize()
             interpQueue.put(output)
 
-        self.processFrame(None, "cache")
-        if self.norm is not None:
-            self.processFrame(None, "f0-copy")
+        # Roll the pair forward (I0 <- I1, f0 <- f1) once the engines have read
+        # them. The next pair's I1 copy follows on normStream, and its engines
+        # wait for normStream, so nothing reads these before they land.
+        self.normStream.wait_stream(self.stream)
+        with torch.cuda.stream(self.normStream):
+            self.I0.copy_(self.I1, non_blocking=True)
+            if self.norm is not None:
+                self.f0.copy_(self.f1, non_blocking=True)
+        if not framesToInsert:
+            # No output sync ran, so the read of ``frame`` may still be pending.
+            self.normStream.synchronize()

@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.infra.cudaStreams import waitForCaller
+
 VARIANTCONFIG = {
     "lite": {
         "luma_scale": 0.5,
@@ -386,6 +388,7 @@ class LineThin:
             Processed tensor [B, 3, H, W] in range [0, 1]
         """
         if self.normStream is not None:
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 output = self.model(image.to(device=self.device, dtype=self.precision))
             self.normStream.synchronize()

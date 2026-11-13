@@ -6,11 +6,7 @@ import os
 from src.infra.logAndPrint import logAndPrint
 
 from .registry import (
-    BIREFNET_URL,
-    DEPTHV2URLSMALL,
-    SUDOURL,
     TASURL,
-    TRANSNETV2URL,
     modelsMap,
     weightsDir,
 )
@@ -246,15 +242,19 @@ def downloadModels(
     os.makedirs(weightsDir, exist_ok=True)
 
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
-    if downloadModel in ("video_limbo-tensorrt", "video_limbo_v2-tensorrt"):
+    if downloadModel in (
+        "video_limbo-tensorrt",
+        "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
+    ):
         downloadModel = downloadModel.removesuffix("-tensorrt")
         modelType = "pth"  # The multi-view ONNX is generated locally on first use.
     registryModel = {
-        "og_small_v2": "small_v2",
         "video_small_v3": "small_v3",
         "video_base_v3": "base_v3",
         "video_limbo": "limbo",
         "video_limbo_v2": "limbo_v2",
+        "video_limbo_v3": "limbo_v3",
     }.get(downloadModel, downloadModel)
 
     filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
@@ -272,43 +272,5 @@ def downloadModels(
     folderPath = os.path.join(weightsDir, folderName)
     os.makedirs(folderPath, exist_ok=True)
 
-    if registryModel in [
-        "shift_lpips-tensorrt",
-        "shift_lpips-directml",
-    ]:
-        fullUrl = f"{SUDOURL}{filename}"
-        try:
-            # Just adds a redundant check if sudo decides to nuke his models.
-            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
-        except Exception as e:
-            logging.warning(f"Failed to download from SUDOURL: {e}")
-            fullUrl = f"{TASURL}{filename}"
-            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
-
-    elif registryModel.split("-")[0] == "cyte":
-        fullUrl = (
-            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
-            f"Cyte-V1-SuperUltraCompact/{filename}"
-        )
-
-    elif registryModel.split("-")[0] in {"limbo_v2", "limbo_v2_43"}:
-        # Keep versioned cache names: upstream uses the same filenames as v1.
-        remoteFilename = filename.replace("LimboV2", "Limbo", 1)
-        fullUrl = (
-            "https://raw.githubusercontent.com/NevermindNilas/Ai-models/main/"
-            f"Limbo-V2/{remoteFilename}"
-        )
-
-    elif registryModel == "transnetv2":
-        fullUrl = f"{TRANSNETV2URL}{filename}"
-
-    elif registryModel == "small_v2":
-        fullUrl = f"{DEPTHV2URLSMALL}{filename}"
-
-    elif registryModel == "birefnet":
-        fullUrl = f"{BIREFNET_URL}{filename}"
-
-    else:
-        fullUrl = f"{TASURL}{filename}"
-
+    fullUrl = f"{TASURL}{filename}"
     return downloadAndLog(downloadModel, filename, fullUrl, folderPath)

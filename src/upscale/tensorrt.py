@@ -3,6 +3,7 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
@@ -49,6 +50,7 @@ class UniversalTensorRT:
             customModel (str): The path to a custom model file
         """
         from src.model.trtHandler import (
+            bindContextMemory,
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -56,6 +58,7 @@ class UniversalTensorRT:
         from src.utils.tensorrt_import import trt
 
         self.trt = trt
+        self.bindContextMemory = bindContextMemory
         self.tensorRTEngineCreator = tensorRTEngineCreator
         self.tensorRTEngineLoader = tensorRTEngineLoader
         self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
@@ -109,6 +112,7 @@ class UniversalTensorRT:
             inputsOpt=inputShape,
             inputsMax=[1, 3, 1080, 1920],
             forceStatic=self.forceStatic,
+            userManagedMemory=True,
         )
         if self.engine is not None and self.context is not None:
             return
@@ -129,6 +133,7 @@ class UniversalTensorRT:
             inputsOpt=inputShape,
             inputsMax=inputShape,
             forceStatic=True,
+            userManagedMemory=True,
         )
         if self.engine is None or self.context is None:
             raise RuntimeError(_tensorRTBuildFailureMessage(self.modelPath))
@@ -188,7 +193,11 @@ class UniversalTensorRT:
             optInputShape=[1, 3, self.paddedHeight, self.paddedWidth],
         )
 
-        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        # The dynamic profile reaches 1080p; a default context would hold the
+        # activation memory of that max shape whatever the input size.
+        self.engine, self.context = self.tensorRTEngineLoader(
+            enginePath, userManagedMemory=True
+        )
         if (
             self.engine is None
             or self.context is None
@@ -223,7 +232,10 @@ class UniversalTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        # Sized for the shape just set, not the profile's max.
+        self.contextMemory = self.bindContextMemory(self.context)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -243,6 +255,7 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             if self.padding[1] or self.padding[3]:
                 frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
@@ -256,6 +269,7 @@ class UniversalTensorRT:
     def __call__(self, frame, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
             output = self.dummyOutput.clone()
@@ -484,6 +498,7 @@ class AnimeSRTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             paddedFrame = self.padFrame(frame)
             # Copy current frame to currFrame buffer
@@ -514,15 +529,18 @@ class AnimeSRTensorRT:
         self.normStream.synchronize()
 
         # TensorRT execution - no torch.cat needed, TRT receives separate buffers
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             self.context.execute_async_v3(stream_handle=self.outputStream.cuda_stream)
         self.outputStream.synchronize()
 
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             self.state.copy_(self.stateOutput, non_blocking=False)
             self.prevFrame.copy_(paddedFrame, non_blocking=False)
         self.normStream.synchronize()
 
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             # Crop the reflect-padded border before resizing; resizing the
             # padded frame whole squeezes the content and leaves a mirrored

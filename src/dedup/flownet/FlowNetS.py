@@ -10,8 +10,6 @@ __all__ = ["flownets", "flownets_bn"]
 
 
 class FlowNetS(nn.Module):
-    expansion = 1
-
     def __init__(self, batchNorm=True):
         super().__init__()
 
@@ -85,12 +83,6 @@ class FlowNetS(nn.Module):
             return flow2, flow3, flow4, flow5, flow6
         else:
             return flow2
-
-    def weight_parameters(self):
-        return [param for name, param in self.named_parameters() if "weight" in name]
-
-    def bias_parameters(self):
-        return [param for name, param in self.named_parameters() if "bias" in name]
 
 
 def flownets(data=None):

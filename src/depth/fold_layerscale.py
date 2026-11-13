@@ -29,7 +29,6 @@ def _fold_into_linear(linear: nn.Linear, gamma: torch.Tensor) -> None:
 
 @torch.no_grad()
 def fold_layerscale_(model: nn.Module) -> nn.Module:
-    folded = 0
     for module in model.modules():
         if not (hasattr(module, "attn") and hasattr(module, "mlp")):
             continue
@@ -38,7 +37,6 @@ def fold_layerscale_(model: nn.Module) -> nn.Module:
         if isinstance(ls1, LayerScale) and hasattr(module.attn, "proj"):
             _fold_into_linear(module.attn.proj, ls1.gamma.data)
             module.ls1 = nn.Identity()
-            folded += 1
 
         ls2 = getattr(module, "ls2", None)
         if isinstance(ls2, LayerScale):
@@ -51,6 +49,5 @@ def fold_layerscale_(model: nn.Module) -> nn.Module:
             if isinstance(last, nn.Linear):
                 _fold_into_linear(last, ls2.gamma.data)
                 module.ls2 = nn.Identity()
-                folded += 1
 
     return model
