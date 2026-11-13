@@ -47,10 +47,21 @@ class FrameSlot:
     (as opposed to an interpolated or held frame) and so is what a trailing
     duplicate is cloned from. ``cacheKey`` names the source slot a held copy was
     copied from; a downstream stateless upscaler reuses its output for copies that
-    share a key within one interpolation gap.
+    share a key within one interpolation gap. ``gapPositions`` is set on a frame an
+    expander generated or held while a mask is in the run: the 0-based decoded
+    frames its pixels came from, sorted. ``None`` means the frame is decoded frame
+    ``sourcePos - 1`` itself.
     """
 
-    __slots__ = ("frame", "isCut", "dupsBefore", "sourcePos", "isCentre", "cacheKey")
+    __slots__ = (
+        "frame",
+        "isCut",
+        "dupsBefore",
+        "sourcePos",
+        "isCentre",
+        "cacheKey",
+        "gapPositions",
+    )
 
     def __init__(
         self,
@@ -60,6 +71,7 @@ class FrameSlot:
         sourcePos: int = 0,
         isCentre: bool = False,
         cacheKey=None,
+        gapPositions: tuple[int, ...] | None = None,
     ):
         self.frame = frame
         self.isCut = isCut
@@ -67,6 +79,7 @@ class FrameSlot:
         self.sourcePos = sourcePos
         self.isCentre = isCentre
         self.cacheKey = cacheKey
+        self.gapPositions = gapPositions
 
 
 class LagRing:

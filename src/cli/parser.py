@@ -1147,7 +1147,8 @@ def _addMaskOptions(argParser):
         "--mask",
         type=str,
         default="",
-        help="Path to a transparent PNG marking regions to protect. Paint opaque dark pixels on a transparent "
+        help="Path to a transparent PNG marking regions to protect, or a folder of per-frame images named by "
+        "source frame (000123.png) for a mask that moves. Paint opaque dark pixels on a transparent "
         "background -- those areas stay sharp and static (HUD/text/subtitles), transparent areas are processed "
         "normally. Applies to --moblur (protected areas are not blurred) and --interpolate (protected areas are "
         "not morphed between source frames).",
@@ -1174,6 +1175,17 @@ def _addSegmentationOptions(argParser):
             "birefnet-rocm",
         ],
         help="Segmentation method",
+    )
+    segmentationGroup.add_argument(
+        "--segment_mask",
+        type=str,
+        default="",
+        help="Rotoscoping: a folder of per-frame mattes named by source frame (000123.png; white is "
+        "the object, black is background, grey is partial), or a .json roto document that adds "
+        "hand-drawn shapes and edge refinement (feather, contrast, shift edge, reduce chatter, specks, "
+        "holes, decontaminate) to such a folder. Cuts the objects out with an alpha channel instead of "
+        "running --segment_method. A frame without a matte is fully transparent. --sam_session writes "
+        "the folders for a front end's click-to-track tool. Implies --segment.",
     )
     segmentationGroup.add_argument(
         "--segment_batch",
@@ -1250,11 +1262,6 @@ def _addDepthOptions(argParser):
         "small_v2",
         "small_v2-mps",
         "small_v2-rocm",
-        "og_small_v2",
-        "og_small_v2-mps",
-        "og_small_v2-rocm",
-        "og_video_small_v2",
-        "og_video_small_v2-rocm",
         "video_small_v2",
         "video_small_v2-rocm",
         "video_small_v3",
@@ -1263,28 +1270,26 @@ def _addDepthOptions(argParser):
         "video_base_v3-rocm",
         "video_limbo",
         "video_limbo_v2",
+        "video_limbo_v3",
         "video_limbo-rocm",
         "video_limbo_v2-rocm",
+        "video_limbo_v3-rocm",
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",
+        "video_limbo_v3-tensorrt",
         "video_small_v2-tensorrt",
         "small_v2-tensorrt",
         "small_v2-directml",
-        "og_small_v2-tensorrt",
         "small_v3",
         "base_v3",
         "large_v3",
-        "og_large_v3",
         "small_v3-mps",
         "base_v3-mps",
         "large_v3-mps",
-        "og_large_v3-mps",
         "small_v3-rocm",
         "base_v3-rocm",
         "large_v3-rocm",
-        "og_large_v3-rocm",
         "small_v2-openvino",
-        "og_small_v2-openvino",
         "limbo",
         "limbo-mps",
         "limbo-rocm",
@@ -1295,6 +1300,17 @@ def _addDepthOptions(argParser):
         "limbo_v2-rocm",
         "limbo_v2-tensorrt",
         "limbo_v2-openvino",
+        "limbo_v3",
+        "limbo_v3-mps",
+        "limbo_v3-rocm",
+        "limbo_v3-tensorrt",
+        "limbo_v3-openvino",
+        "moge3",
+        "moge3-mps",
+        "moge3-rocm",
+        "moge3-tensorrt",
+        "moge3-directml",
+        "moge3-openvino",
     ]
 
     depthGroup.add_argument(
@@ -1392,6 +1408,15 @@ def _addMiscOptions(argParser):
         help="Enable torch.profiler to analyze GPU/CPU performance bottlenecks",
     )
     miscGroup.add_argument(
+        "--low_cpu",
+        action="store_true",
+        help=(
+            "Sleep through most of each wait on the GPU instead of keeping a CPU "
+            "core busy-waiting (NVIDIA CUDA only): up to ~80%% less CPU at "
+            "~0.5-1%% lower FPS, ~1%% faster when the CPU is the limit"
+        ),
+    )
+    miscGroup.add_argument(
         "--ae",
         type=str,
         default="",
@@ -1413,14 +1438,16 @@ def _addMiscOptions(argParser):
         metavar="PROFILE",
         help=(
             "Download dependencies for a runtime profile. Supported profiles: "
-            "windows-cuda, windows-lite, linux-cuda, linux-lite, linux-rocm, macos-mps, "
-            "macos-lite. When used "
+            "windows-cuda, windows-lite, windows-rocm, linux-cuda, linux-lite, "
+            "linux-rocm, macos-mps, macos-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
             "or lite dependencies, with guidance for newer NVIDIA GPUs, Apple "
             "Silicon MPS, and CPU-only hardware. With no terminal to prompt in, "
             "installs the profile detected from the hardware instead (it can "
-            "only detect linux-rocm once a ROCm torch is installed; name it "
-            "explicitly)."
+            "only detect windows-rocm / linux-rocm once a ROCm torch is "
+            "installed; name it explicitly). windows-rocm detects the AMD GPU "
+            "target to install kernels for; set ROCM_BOOTSTRAP_FORCE_GFX_ARCH "
+            "(e.g. gfx1100) to override it."
         ),
     )
     miscGroup.add_argument(

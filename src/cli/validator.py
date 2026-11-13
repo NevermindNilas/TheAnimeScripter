@@ -6,6 +6,7 @@ import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.stageOrder import (
     stageDrafts,
+    stageLabel,
     stageOrderWarning,
     syncStageGlobals,
 )
@@ -148,6 +149,7 @@ def _handleDepthSettings(args):
         cs.AUDIO = False
 
     isLimbo = args.depth_method.removeprefix("video_").split("-")[0].startswith("limbo")
+    isMoGe = args.depth_method.startswith("moge3")
 
     # "openvino" belongs here too: it is not a separate backend, it is a
     # provider branch inside the same DepthDirectMLV2 class the "-directml"
@@ -160,6 +162,7 @@ def _handleDepthSettings(args):
         args.depth_quality not in ["low"]
         and backend in ["tensorrt", "directml", "openvino"]
         and not isLimbo
+        and not isMoGe
     ):
         logAndPrint(
             f"{args.depth_quality.upper()} depth estimation quality is incompatible "
@@ -174,7 +177,14 @@ def _handleDepthSettings(args):
 
     if args.depth_batch > 1:
         backend = args.depth_method.split("-")[-1]
-        if "video" in args.depth_method:
+        if isMoGe:
+            logAndPrint(
+                "--depth_batch is not supported for MoGe-3 (voxel refinement is "
+                "per frame), using 1",
+                "yellow",
+            )
+            args.depth_batch = 1
+        elif "video" in args.depth_method:
             logAndPrint(
                 "--depth_batch is not supported for video depth methods, using 1",
                 "yellow",
@@ -203,6 +213,10 @@ def _handleSegmentSettings(args):
     # Normalize once so every later read is safe, including for args objects
     # built by other entrypoints that never define segment_batch.
     args.segment_batch = max(1, int(getattr(args, "segment_batch", 1)))
+
+    from src.cli.validation import validateSegmentMask
+
+    validateSegmentMask(args)
 
     if args.segment_batch > 1:
         backend = args.segment_method.split("-")[-1]
@@ -274,7 +288,9 @@ def _finalizeChain(args):
     step, because it reads the final state. Also prints the one order warning
     (a dedup stage after an interpolate stage). Raises
     :class:`CliValidationError` for a standalone capability given more than
-    one ``--resize``.
+    one ``--resize``, a single-instance backend used twice, an upscale stage
+    whose model cannot produce its factor (``span 4x``), and an NCNN upscale
+    stage whose package is not installed.
     """
     drafts = stageDrafts(args)
     if drafts is None:
@@ -301,6 +317,25 @@ def _finalizeChain(args):
         checkChainInstances(args.chain)
     except ValueError as error:
         raise CliValidationError(str(error)) from None
+
+    # A model that cannot produce its stage's factor: refused here, naming the
+    # stage, after the backend fallback has settled each method, instead of at
+    # model build (src/factories/upscale.py keeps the same check as a backstop).
+    from src.model.registry import ncnnUpscaleRefusal, upscaleFactorRefusal
+
+    for spec in args.chain:
+        if spec.kind != "upscale":
+            continue
+        problem = upscaleFactorRefusal(
+            spec["method"], spec["factor"], spec.settings.get("customModel")
+        ) or ncnnUpscaleRefusal(spec["method"])
+        if problem is not None:
+            raise CliValidationError(f"{stageLabel(spec)}: {problem}")
+
+    # A --mask that an interpolate stage or --moblur will read must be readable.
+    from src.cli.validation import validateMaskPath
+
+    validateMaskPath(args)
 
     warning = stageOrderWarning(args.chain)
     if warning:
@@ -428,11 +463,16 @@ def _writeLegacyStages(args, stages):
 
 
 def _resolveStaticStep(stage):
+    """--static_step bakes an integer timestep ladder, so a fractional factor
+    turns it off. Whole-valued floats count as whole: --interpolate_factor is a
+    float flag, and testing the type turned --static_step off for every
+    `--interpolate_factor 2` and every --json factor."""
     settings = stage.settings
-    if settings.get("staticStep") and isinstance(settings["factor"], float):
+    if settings.get("staticStep") and not float(settings["factor"]).is_integer():
         where = f" ({stage.label})" if stage.repeated else ""
         logging.info(
-            f"Interpolate Factor is a float, static step will be disabled{where}"
+            f"Interpolate Factor is not a whole number, static step will be "
+            f"disabled{where}"
         )
         settings["staticStep"] = False
 
@@ -777,6 +817,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
             DependencyChecker,
             getDependencyProfile,
             getRequirementsFileForProfile,
+            profileRuntimePackages,
             uninstallDependencies,
         )
 
@@ -804,11 +845,13 @@ def prepareRuntimeArgs(args, outputPath, parser):
                 isRocm = detectRocmGPU()
             except Exception:
                 isRocm = False
-            extension = getRequirementsFileForProfile(
-                getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
-            )
+            storedProfile = getDependencyProfile(cs.SYSTEM, supportsCuda, isRocm)
+            extension = getRequirementsFileForProfile(storedProfile)
 
-        success, message = uninstallDependencies(extension=extension)
+        success, message = uninstallDependencies(
+            extension=extension,
+            extraPackages=profileRuntimePackages(storedProfile),
+        )
         checker.clearCache()
 
         logging.info(message)
@@ -827,6 +870,12 @@ def prepareRuntimeArgs(args, outputPath, parser):
             logging.error("Failed to uninstall dependencies")
             print(message)
             sys.exit(1)
+
+    # Parsed (JSON merged, chain built) and torch not imported yet: a run that
+    # will open CUDA has the driver make its context while torch imports.
+    from src.infra.cudaWarmup import startCudaContextWarmup
+
+    startCudaContextWarmup(args)
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")

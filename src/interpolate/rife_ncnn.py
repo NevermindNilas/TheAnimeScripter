@@ -1,6 +1,11 @@
+import os
+import sys
+
 import torch
 
 from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
+from src.infra.vulkanDevice import bestVulkanDevice
 from src.interpolate._timesteps import interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -8,6 +13,47 @@ from src.model.registry import modelsMap
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
+
+_MODEL_FILES = ("flownet.param", "flownet.bin")
+
+
+def _requireModelFiles(method, modelPath):
+    """Raise unless ``modelPath`` holds the NCNN model's files.
+
+    ``RifeWrapped.load()`` returns 0 even when it cannot open them: it only
+    logs the failed ``fopen``, and every inserted frame then comes out black
+    on a run that reports success.
+    """
+    unusable = [
+        name
+        for name in _MODEL_FILES
+        if not os.path.isfile(os.path.join(modelPath, name))
+        or os.path.getsize(os.path.join(modelPath, name)) == 0
+    ]
+    if unusable:
+        message = (
+            f"{method}: missing or empty model file(s) {', '.join(unusable)} in "
+            f"{modelPath}. Delete that folder so TAS downloads the model again."
+        )
+        # The startup handler only logs the exception; say it on the console too.
+        logAndPrint(message, "red", level="ERROR")
+        raise FileNotFoundError(message)
+
+
+def _modelDirString(wrapped, modelPath):
+    """The wheel's ``path_t`` for ``modelPath``: wide on Windows, narrow elsewhere.
+
+    ``StringType`` is a C union, so filling the wrong member loads from an
+    empty path instead of failing.
+    """
+    modelDir = wrapped.StringType()
+    if sys.platform in ("win32", "cygwin"):
+        modelDir.wstr = wrapped.new_wstr_p()
+        wrapped.wstr_p_assign(modelDir.wstr, str(modelPath))
+    else:
+        modelDir.str = wrapped.new_str_p()
+        wrapped.str_p_assign(modelDir.str, str(modelPath))
+    return modelDir
 
 
 class RifeNCNN:
@@ -29,7 +75,13 @@ class RifeNCNN:
 
         UHD = True if width >= 3840 or height >= 2160 else False
         # scale = 2 if UHD else 1
-        from rife_ncnn_vulkan_python import wrapped
+        try:
+            from rife_ncnn_vulkan_python import wrapped
+        except ImportError as error:
+            # The wheel links libvulkan.so.1, absent from minimal systems.
+            if "vulkan" not in str(error).lower():
+                raise
+            self._raiseNoVulkan()
 
         self.wrapped = wrapped
 
@@ -56,10 +108,21 @@ class RifeNCNN:
         elif modelPath.endswith("-ncnn"):
             modelPath = modelPath[:-5]
 
+        _requireModelFiles(self.interpolateMethod, modelPath)
+
         padding = 32  # ADD 64 once 4.25-ncnn is added
 
+        # The wheel's CPU path (-1) segfaults while loading, and so does device 0
+        # without a Vulkan driver.
+        deviceCount = self.wrapped.get_gpu_count()
+        if deviceCount == 0:
+            self._raiseNoVulkan()
+        device = bestVulkanDevice()
+        if not 0 <= device < deviceCount:
+            device = 0
+
         self.Rife = self.wrapped.RifeWrapped(
-            0,
+            device,
             self.ensemble,
             False,
             UHD,
@@ -69,10 +132,7 @@ class RifeNCNN:
             padding,
         )
 
-        modelDir = self.wrapped.StringType()
-        modelDir.wstr = self.wrapped.new_wstr_p()
-        self.wrapped.wstr_p_assign(modelDir.wstr, str(modelPath))
-        self.Rife.load(modelDir)
+        self.Rife.load(_modelDirString(self.wrapped, modelPath))
 
         bufSize = width * height * 3
         self.outputBytes = bytearray(bufSize)
@@ -94,6 +154,14 @@ class RifeNCNN:
         self._frame0Idx = 0
         self._firstFrame = True
         self.shape = (self.height, self.width)
+
+    def _raiseNoVulkan(self):
+        message = (
+            f"{self.interpolateMethod} needs a Vulkan driver and none was found. "
+            "Install your GPU's Vulkan driver or use a -directml method."
+        )
+        logAndPrint(message, "red", level="ERROR")
+        raise RuntimeError(message)
 
     def _writeFrameInto(self, frame, idx):
         src = (

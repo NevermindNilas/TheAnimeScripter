@@ -42,8 +42,6 @@ class Conv3XC(nn.Module):
         self, c_in: int, c_out: int, gain: int = 2, s: int = 1, bias: bool = True
     ) -> None:
         super().__init__()
-        self.weight_concat: torch.Tensor | None = None
-        self.bias_concat: torch.Tensor | None = None
         self.stride = s
 
         self.sk = nn.Conv2d(c_in, c_out, 1, padding=0, stride=s, bias=bias)
@@ -53,31 +51,6 @@ class Conv3XC(nn.Module):
             nn.Conv2d(c_out * gain, c_out, 1, padding=0, bias=bias),
         )
         self.eval_conv = nn.Conv2d(c_in, c_out, 3, padding=1, stride=s, bias=bias)
-
-    def update_params(self) -> None:
-        w1, b1 = self.conv[0].weight.data, self.conv[0].bias.data
-        w2, b2 = self.conv[1].weight.data, self.conv[1].bias.data
-        w3, b3 = self.conv[2].weight.data, self.conv[2].bias.data
-
-        w = (
-            F.conv2d(w1.flip(2, 3).permute(1, 0, 2, 3), w2, padding=2)
-            .flip(2, 3)
-            .permute(1, 0, 2, 3)
-        )
-        b = (w2 * b1.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b2
-
-        self.weight_concat = (
-            F.conv2d(w.flip(2, 3).permute(1, 0, 2, 3), w3, padding=0)
-            .flip(2, 3)
-            .permute(1, 0, 2, 3)
-        )
-        self.bias_concat = (w3 * b.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b3
-
-        sk_w, sk_b = self.sk.weight.data, self.sk.bias.data
-        sk_w = F.pad(sk_w, (1, 1, 1, 1))
-
-        self.eval_conv.weight.data = self.weight_concat + sk_w
-        self.eval_conv.bias.data = self.bias_concat + sk_b
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_pad = F.pad(x, (1, 1, 1, 1), "constant", 0)
@@ -107,14 +80,6 @@ class SeqConv3x3(nn.Module):
         )
         return F.conv2d(y0, self.k1, self.b1)
 
-    def rep_params(self) -> tuple[torch.Tensor, torch.Tensor]:
-        rk = F.conv2d(self.k1, self.k0.permute(1, 0, 2, 3))
-        rb = torch.ones(
-            1, self.mid_planes, 3, 3, device=self.k0.device, dtype=self.k0.dtype
-        ) * self.b0.view(1, -1, 1, 1)
-        rb = F.conv2d(rb, self.k1).view(-1) + self.b1
-        return rk, rb
-
 
 class RepConv(nn.Module):
     def __init__(self, in_dim: int = 3, out_dim: int = 32) -> None:
@@ -124,18 +89,6 @@ class RepConv(nn.Module):
         self.conv3 = Conv3XC(in_dim, out_dim)
         self.conv_3x3_rep = nn.Conv2d(in_dim, out_dim, 3, 1, 1)
         self.alpha = nn.Parameter(torch.ones(3))
-
-    def fuse(self) -> None:
-        w1, b1 = self.conv1.rep_params()
-        w2, b2 = self.conv2.weight.data, self.conv2.bias.data
-        self.conv3.update_params()
-        w3, b3 = self.conv3.eval_conv.weight.data, self.conv3.eval_conv.bias.data
-        self.conv_3x3_rep.weight.data = (
-            self.alpha[0] * w1 + self.alpha[1] * w2 + self.alpha[2] * w3
-        )
-        self.conv_3x3_rep.bias.data = (
-            self.alpha[0] * b1 + self.alpha[1] * b2 + self.alpha[2] * b3
-        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:
@@ -158,29 +111,6 @@ class OmniShift(nn.Module):
         self.alpha3 = nn.Parameter(torch.ones(1, dim, 1, 1))
         self.alpha4 = nn.Parameter(torch.ones(1, dim, 1, 1))
         self.conv5x5_reparam = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
-
-    def reparam_5x5(self) -> None:
-        w1, w3, w5 = (
-            self.conv1x1.weight.data,
-            self.conv3x3.weight.data,
-            self.conv5x5.weight.data,
-        )
-        id_w = torch.ones_like(w1)
-        combined_w = (
-            self.alpha1.transpose(0, 1) * F.pad(id_w, (2, 2, 2, 2))
-            + self.alpha2.transpose(0, 1) * F.pad(w1, (2, 2, 2, 2))
-            + self.alpha3.transpose(0, 1) * F.pad(w3, (1, 1, 1, 1))
-            + self.alpha4.transpose(0, 1) * w5
-        )
-        combined_b = (
-            self.alpha2.squeeze() * self.conv1x1.bias.data
-            + self.alpha3.squeeze() * self.conv3x3.bias.data
-            + self.alpha4.squeeze() * self.conv5x5.bias.data
-        )
-        self.conv5x5_reparam.weight.data, self.conv5x5_reparam.bias.data = (
-            combined_w,
-            combined_b,
-        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:

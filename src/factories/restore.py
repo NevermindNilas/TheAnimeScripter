@@ -105,7 +105,6 @@ def buildRestoreProcess(self, width=None, height=None):
 
             case (
                 "anime1080fixer-tensorrt"
-                | "gater3-tensorrt"
                 | "scunet-tensorrt"
                 | "deh264_real-tensorrt"
                 | "deh264_span-tensorrt"

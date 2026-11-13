@@ -30,6 +30,39 @@ def _safe_extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
         archive.extractall(destination)
 
 
+def _download(url: str, destination: Path) -> None:
+    """Fetch ``url`` to ``destination``, which exists only once complete.
+
+    The steps below skip a download whose file is already there, so writing
+    straight to it meant an interrupted download (network drop, Ctrl-C) left a
+    truncated archive that every later build reused and failed to unpack
+    until someone deleted portable-python/ by hand.
+    """
+    partial = destination.with_name(destination.name + ".part")
+    try:
+        urllib.request.urlretrieve(url, partial)
+        os.replace(partial, destination)
+    finally:
+        if partial.exists():
+            partial.unlink()
+
+
+# Written once an archive is fully unpacked. The interpreter is among the
+# first members extracted, so its existence alone said nothing: a Ctrl-C mid
+# extraction left python.exe/python3 without its standard library, and every
+# later build trusted it and skipped the extraction.
+_EXTRACTED_MARKER = ".tas-extracted"
+
+
+def _extracted(context: BuildContext, python_exe: Path) -> bool:
+    marker = context.portable_python_dir / _EXTRACTED_MARKER
+    return python_exe.exists() and marker.exists()
+
+
+def _mark_extracted(context: BuildContext) -> None:
+    (context.portable_python_dir / _EXTRACTED_MARKER).write_text("ok")
+
+
 def download_portable_python(context: BuildContext) -> Path:
     """Download and set up Python for the target platform."""
     print(
@@ -55,18 +88,19 @@ def download_portable_python_windows(context: BuildContext) -> Path:
     python_zip = context.portable_python_dir / "python.zip"
     if not python_zip.exists():
         print("Downloading Python embeddable package...")
-        urllib.request.urlretrieve(python_url, python_zip)
+        _download(python_url, python_zip)
 
     python_exe = context.portable_python_dir / "python.exe"
-    if not python_exe.exists():
+    if not _extracted(context, python_exe):
         print("Extracting Python...")
         with zipfile.ZipFile(python_zip, "r") as zip_ref:
             _safe_extract_zip(zip_ref, context.portable_python_dir)
+        _mark_extracted(context)
 
     get_pip_path = context.portable_python_dir / "get-pip.py"
     if not get_pip_path.exists():
         print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(get_pip_url, get_pip_path)
+        _download(get_pip_url, get_pip_path)
 
     pth_files = list(context.portable_python_dir.glob("python*._pth"))
     if pth_files:
@@ -112,10 +146,10 @@ def download_portable_python_linux(context: BuildContext) -> Path:
     python_tar = context.portable_python_dir / "python.tar.gz"
     if not python_tar.exists():
         print("Downloading Python standalone build for Linux...")
-        urllib.request.urlretrieve(python_url, python_tar)
+        _download(python_url, python_tar)
 
     python_exe = context.portable_python_dir / "bin" / "python3"
-    if not python_exe.exists():
+    if not _extracted(context, python_exe):
         print("Extracting Python...")
         with tarfile.open(python_tar, "r:gz") as tar_ref:
             _safe_extract_tar(tar_ref, context.portable_python_dir)
@@ -124,11 +158,12 @@ def download_portable_python_linux(context: BuildContext) -> Path:
 
         if python_exe.exists():
             os.chmod(python_exe, 0o755)
+        _mark_extracted(context)
 
     get_pip_path = context.portable_python_dir / "get-pip.py"
     if not get_pip_path.exists():
         print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(get_pip_url, get_pip_path)
+        _download(get_pip_url, get_pip_path)
 
     print("Installing pip...")
     run_subprocess(
@@ -157,10 +192,10 @@ def download_portable_python_macos(context: BuildContext) -> Path:
     python_tar = context.portable_python_dir / "python.tar.gz"
     if not python_tar.exists():
         print("Downloading Python standalone build for macOS (arm64)...")
-        urllib.request.urlretrieve(python_url, python_tar)
+        _download(python_url, python_tar)
 
     python_exe = context.portable_python_dir / "bin" / "python3"
-    if not python_exe.exists():
+    if not _extracted(context, python_exe):
         print("Extracting Python...")
         with tarfile.open(python_tar, "r:gz") as tar_ref:
             _safe_extract_tar(tar_ref, context.portable_python_dir)
@@ -169,11 +204,12 @@ def download_portable_python_macos(context: BuildContext) -> Path:
 
         if python_exe.exists():
             os.chmod(python_exe, 0o755)
+        _mark_extracted(context)
 
     get_pip_path = context.portable_python_dir / "get-pip.py"
     if not get_pip_path.exists():
         print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(get_pip_url, get_pip_path)
+        _download(get_pip_url, get_pip_path)
 
     print("Installing pip...")
     run_subprocess(

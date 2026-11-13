@@ -7,6 +7,8 @@ extend-exclude = [
     "src/depth/depth_anything_3",      # vendored Depth-Anything-3 arch
     "src/depth/video_depth_anything",  # vendored Video-Depth-Anything arch
     "src/depth/dinov2_layers",         # vendored DINOv2 layers
+    "src/depth/moge/flex_gemm",        # vendored FlexGEMM (patched for Triton 3.9)
+    "src/sam/sam2",                    # vendored SAM 2 video predictor
     "src/segment/birefnet_arch",      # adapted upstream BiRefNet inference arch
     "dist-portable",                   # portable-Python build output (also gitignored)
 ]
@@ -19,8 +21,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
-"src/depth/og_dpt_v2.py" = ["B006"]  # vendored DPT arch — keep upstream signatures intact
-"src/segment/train.py" = ["F821"]    # training-only path; InSPyReNet arch not vendored for inference
 "src/io/ffmpegSettings.py" = ["E402", "I001"]  # nelux raises if imported before torch and after macOS link repair
 
 [tool.ruff.format]
@@ -44,6 +44,8 @@ exclude = [
     "src/depth/depth_anything_3",
     "src/depth/video_depth_anything",
     "src/depth/dinov2_layers",
+    "src/depth/moge/flex_gemm",
+    "src/sam/sam2",
     "src/segment/birefnet_arch",
     "dist-portable",
     "portable-python",

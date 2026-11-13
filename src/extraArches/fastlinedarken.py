@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.model.registry import weightsDir
 
@@ -76,6 +77,7 @@ class FastLineDarkenWithStreams(nn.Module):
             return self._cpuWorkflow(image)
 
     def _cudaWorkflow(self, image):
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             image = image.half() if self.half else image.float()
             image = image.squeeze(0)
@@ -349,12 +351,14 @@ class FastLineDarkenTRT(FastLineDarken):
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(frame, non_blocking=True)
         self.normStream.synchronize()
 
     @torch.inference_mode()
     def processOutput(self):
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             output = self.dummyOutput.clone().detach()
         self.outputStream.synchronize()
@@ -364,6 +368,7 @@ class FastLineDarkenTRT(FastLineDarken):
     def __call__(self, frame):
         self.processFrame(frame)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()

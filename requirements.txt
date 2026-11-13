@@ -1,11 +1,12 @@
-setuptools==83.0.0
+setuptools==84.2.1
 wheel-stub==0.5.0
 numpy==2.4.6
 psutil==7.2.2
+filelock==4.2.7
 inquirer==3.4.1
-barflow==0.6.0
+barflow==0.6.2
 python-socketio==5.17.0
 simple-websocket==1.1.0
 werkzeug==3.1.9
-nelux==0.22.0
+nelux==0.23.0
 frame-analytics==0.7.0

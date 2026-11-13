@@ -8,7 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
 
-from src.depth.backends._shared import DepthRunOutcome, videoDepthInputSize
+from src.depth.backends._shared import (
+    DepthRunOutcome,
+    toDevice,
+    videoDepthInputSize,
+)
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -19,144 +23,6 @@ from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
 checker = CudaChecker()
-
-
-class VideoDepthAnythingCUDA(DepthRunOutcome):
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        half,
-        inpoint=0,
-        outpoint=0,
-        encode_method="x264",
-        depth_method="og_video_small_v2",
-        benchmark=False,
-        totalFrames=0,
-        bitDepth: str = "16bit",
-        depthQuality: str = "high",
-        compileMode: str = "default",
-    ):
-        self.input = input
-        self.output = output
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.half = half
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        self.encode_method = encode_method
-        self.depth_method = depth_method
-        self.benchmark = benchmark
-        self.totalFrames = totalFrames
-        self.bitDepth = bitDepth
-        self.depthQuality = depthQuality
-        self.compileMode = compileMode
-        self.inputSize = videoDepthInputSize(width, height, depthQuality)
-
-        self.handleModels()
-        try:
-            self.readBuffer = BuildBuffer(
-                videoInput=self.input,
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-                width=self.width,
-                height=self.height,
-                half=self.half,
-                resize=False,
-                toTorch=False,
-            )
-
-            self.writeBuffer = createWriteBuffer(
-                self.encode_method,
-                input=self.input,
-                output=self.output,
-                width=self.width,
-                height=self.height,
-                fps=self.fps,
-                grayscale=True,
-                benchmark=self.benchmark,
-                bitDepth=self.bitDepth,
-            )
-
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                executor.submit(self.writeBuffer)
-                executor.submit(self.guardedProcess, self.process_nelux)
-
-        except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong, {e}")
-
-        self.reportOutcome()
-
-    def handleModels(self):
-        from ..video_depth_anything.video_depth_stream import VideoDepthAnything
-
-        self.filename = modelsMap(
-            model=self.depth_method, modelType="pth", half=self.half
-        )
-
-        modelPath = resolveWeightPath(
-            self.depth_method,
-            self.filename,
-            half=self.half,
-            modelType="pth",
-        )
-
-        self.model = VideoDepthAnything(
-            encoder="vits",
-            features=64,
-            out_channels=[48, 96, 192, 384],
-        )
-
-        self.model.load_state_dict(
-            torch.load(modelPath, map_location="cpu"), strict=True
-        )
-
-        self.model = self.model.to(checker.device).eval()
-        # self.model.half() if self.half else self.model.float()
-
-        from ..video_depth_anything.optimizations import apply_memory_optimizations
-
-        apply_memory_optimizations(self.model)
-        self.device = "cuda" if checker.cudaAvailable else "cpu"
-
-    def _resetVideoDepthState(self):
-        self.model.transform = None
-        self.model.frame_id_list = []
-        self.model.frame_cache_list = []
-        self.model.id = -1
-
-    def processFrame(self, frame):
-        try:
-            depth = self.model.infer_video_depth_one(
-                frame, self.inputSize, self.device, True
-            )
-            depth = torch.from_numpy(depth)
-            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
-            depth = depth.unsqueeze(0).unsqueeze(0)
-            self.writeBuffer.write(depth)
-        except Exception as e:
-            self._resetVideoDepthState()
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
-
-    def process_nelux(self):
-        """Process using Nelux-backed BuildBuffer decoding."""
-        frameCount = 0
-        self._resetVideoDepthState()
-        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            while (frame := self.readBuffer.read()) is not None:
-                self.processFrame(frame)
-                frameCount += 1
-                bar(1)
-
-        logging.info(f"Processed {frameCount} frames")
-        self.writeBuffer.close()
 
 
 class VideoDepthAnythingTorch(DepthRunOutcome):
@@ -210,6 +76,7 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
                 half=self.half,
                 resize=False,
                 toTorch=False,
+                uint8Frames=True,
             )
 
             self.writeBuffer = createWriteBuffer(
@@ -238,7 +105,8 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
     def handleModels(self):
         from ..video_depth_anything.video_depth_stream import VideoDepthAnything
 
-        # Map video_small_v2 -> og_video_small_v2 weights
+        # These weights keep their original registry name and folder, so existing
+        # installs do not download them again.
         weights_model = self.depth_method.replace("video_", "og_video_")
         self.filename = modelsMap(model=weights_model, modelType="pth", half=self.half)
 
@@ -301,9 +169,15 @@ class VideoDepthAnythingTorch(DepthRunOutcome):
             depth = self.model.infer_video_depth_one(
                 frame, self.inputSize, self.device, True
             )
-            depth = torch.from_numpy(depth)
+            # The model hands its map back on the host at the frame's size; the
+            # min-max and the writer's 8/16-bit conversion of it run on the GPU
+            # rather than on the CPU's thread pool.
+            depth = toDevice(depth, self.device)
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             depth = depth.unsqueeze(0).unsqueeze(0)
+            if depth.is_cuda:
+                # The writer copies on its own stream and never waits on ours.
+                torch.cuda.current_stream(depth.device).synchronize()
             self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()

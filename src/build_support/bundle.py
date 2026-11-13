@@ -14,7 +14,9 @@ def bundle_files(context: BuildContext, target_dir: Path) -> None:
     print("Copying Python installation...")
     for item in context.portable_python_dir.iterdir():
         if item.is_dir():
-            shutil.copytree(item, bundle_dir / item.name, dirs_exist_ok=True)
+            shutil.copytree(
+                item, bundle_dir / item.name, dirs_exist_ok=True, symlinks=True
+            )
         else:
             shutil.copy2(item, bundle_dir / item.name)
 
@@ -70,6 +72,9 @@ def move_extras(context: BuildContext, target_dir: Path) -> None:
         "README.txt",
         "PARAMETERS.MD",
         "CHANGELOG.MD",
+        # The notices the bundled third-party code and weights require to
+        # travel with them; the bundled README links to this file.
+        "THIRD_PARTY_NOTICES.md",
     ]
 
     for file_name in files_to_copy:
@@ -98,6 +103,8 @@ def cleanup_temp_files(context: BuildContext, target_dir: Path) -> None:
             "get-pip.py",
             "license.txt",
             "wheel",
+            # python_runtime's extraction marker.
+            ".tas-extracted",
         ]
     else:
         temp_files = [
@@ -105,6 +112,8 @@ def cleanup_temp_files(context: BuildContext, target_dir: Path) -> None:
             "get-pip.py",
             "license.txt",
             "wheel",
+            # python_runtime's extraction marker.
+            ".tas-extracted",
         ]
 
     for temp_file in temp_files:

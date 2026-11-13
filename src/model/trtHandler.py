@@ -581,6 +581,7 @@ def tensorRTEngineCreator(
     maxWorkspaceSize: int = (4 << 30),
     forceStatic: bool = False,
     isMultiInput: bool = False,
+    userManagedMemory: bool = False,
 ) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Create a TensorRT engine from an ONNX model with enhanced validation and error handling.
@@ -596,6 +597,8 @@ def tensorRTEngineCreator(
         maxWorkspaceSize (int): Scratch budget for the build; see the note below.
         forceStatic (bool): Force static shapes for all inputs.
         isMultiInput (bool): Whether the model has multiple inputs.
+        userManagedMemory (bool): Passed to tensorRTEngineLoader for the
+            context of the built engine.
 
     Returns:
         Tuple of (engine, context) or (None, None) on failure.
@@ -710,7 +713,9 @@ def tensorRTEngineCreator(
         with open(enginePath, "wb") as f:
             f.write(serializedEngine)
 
-        engine, context = tensorRTEngineLoader(enginePath)
+        engine, context = tensorRTEngineLoader(
+            enginePath, userManagedMemory=userManagedMemory
+        )
         if engine is None:
             logAndPrint("Failed to load created engine", "red")
             return None, None
@@ -724,14 +729,28 @@ def tensorRTEngineCreator(
         return None, None
 
 
+def _userManagedMemorySupported() -> bool:
+    return hasattr(trt, "ExecutionContextAllocationStrategy") and all(
+        hasattr(trt.IExecutionContext, name)
+        for name in ("update_device_memory_size_for_shapes", "set_device_memory")
+    )
+
+
 def tensorRTEngineLoader(
     enginePath: str,
+    userManagedMemory: bool = False,
 ) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Load a TensorRT engine from a file with enhanced error handling.
 
     Parameters:
         enginePath (str): The path to the engine file.
+        userManagedMemory (bool): Create the context without device memory; the
+            caller sets every input shape and then calls bindContextMemory
+            before the first execute. A default context allocates for the
+            profile's MAX shapes, which for the dynamic 8x8..1080p upscale
+            engines is 2.2x what a 720p input needs (1238 vs 562 MiB for
+            shufflecugan). Ignored by a TensorRT without that API.
 
     Returns:
         Tuple of (engine, context) or (None, None) on failure.
@@ -754,7 +773,12 @@ def tensorRTEngineLoader(
                 logAndPrint(f"Failed to deserialize engine: {enginePath}", "red")
                 return None, None
 
-            context = engine.create_execution_context()
+            if userManagedMemory and _userManagedMemorySupported():
+                context = engine.create_execution_context(
+                    trt.ExecutionContextAllocationStrategy.USER_MANAGED
+                )
+            else:
+                context = engine.create_execution_context()
             if not context:
                 logAndPrint(f"Failed to create execution context: {enginePath}", "red")
                 return None, None
@@ -770,6 +794,25 @@ def tensorRTEngineLoader(
         )
         logging.warning(f"Engine loading failed: {e}")
         return None, None
+
+
+def bindContextMemory(context: trt.IExecutionContext):
+    """Give a userManagedMemory context the device memory its current shapes need.
+
+    Call once every input shape is set and before the first execute (or CUDA
+    graph capture). Returns the torch tensor that owns the memory: keep it alive
+    as long as the context runs. Returns None where tensorRTEngineLoader made a
+    default context (a TensorRT without the API), which owns its memory itself.
+    """
+    if not _userManagedMemorySupported():
+        return None
+    import torch
+
+    size = context.update_device_memory_size_for_shapes()
+    # The caching allocator aligns blocks to 512 bytes; TensorRT needs 256.
+    memory = torch.empty(max(int(size), 1), dtype=torch.uint8, device="cuda")
+    context.set_device_memory(memory.data_ptr(), int(size))
+    return memory
 
 
 def tensorRTEngineNameHandler(

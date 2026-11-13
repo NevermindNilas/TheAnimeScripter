@@ -92,6 +92,22 @@ def truncatedDecodeError(readBuffer, expectedFrames: int, writeBuffer=None):
     return error
 
 
+def recordWriterFailure(owner) -> None:
+    """Fold the writer's own error into ``owner.processingError``.
+
+    Call it only once the writer thread has FINISHED. ``truncatedDecodeError``
+    reads ``encodeError`` as the frame loop ends, while the encoder may still
+    be working through its queue, so an encoder error raised later (on the
+    last frames, or nothing to encode) was never counted, and the
+    size-only ``outputWasWritten`` then took a partial file -- or an earlier
+    run's file at the same path -- for this run's output.
+    """
+    if getattr(owner, "processingError", None) is None:
+        owner.processingError = getattr(
+            getattr(owner, "writeBuffer", None), "encodeError", None
+        )
+
+
 def outputWasWritten(outputPath: str) -> bool:
     """Whether the run left something at ``outputPath``.
 

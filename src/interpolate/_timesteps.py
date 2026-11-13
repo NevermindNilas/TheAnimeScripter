@@ -1,11 +1,19 @@
 def gapPlan(prevPos, curPos, factorNum, factorDen):
     """Frames to synthesize for the SOURCE interval ``(prevPos, curPos]``.
 
-    Positions count source frames, so a --smooth_dedup gap that swallowed duplicate frames
-    is simply a wider interval and gets proportionally more output slots. Every
-    interpolation driver emits its intermediates for the interval *ending* at the
-    frame it was just handed (it interpolates the cached ``I0`` against it), so
-    this is the interval the caller must plan for.
+    Positions count source frames from the first one (position 0, output slot
+    0); output slot ``o`` shows source time ``o * factorDen / factorNum``. A
+    --smooth_dedup gap that swallowed duplicate frames is simply a wider
+    interval and gets proportionally more output slots. Every interpolation
+    driver emits its intermediates for the interval *ending* at the frame it was
+    just handed (it interpolates the cached ``I0`` against it), so this is the
+    interval the caller must plan for.
+
+    The interval owns the slots ``floor(prevPos * f) + 1 .. floor(curPos * f)``.
+    Its last slot is the source frame itself only when ``curPos`` lands on the
+    output grid (``sourceOnGrid``); otherwise that slot's time falls strictly
+    inside the interval and is synthesized like the others, and the caller
+    must not write the source frame (at 2.5x, slot 2 is time 0.8, not 1.0).
 
     Returns ``(framesToInsert, timesteps)`` with timesteps in ``(0, 1)``,
     relative to that interval. For an integer factor ``f`` over a unit interval
@@ -18,13 +26,24 @@ def gapPlan(prevPos, curPos, factorNum, factorDen):
         return factorNum // factorDen - 1, None
     outPrev = (prevPos * factorNum) // factorDen
     outCur = (curPos * factorNum) // factorDen
+    last = outCur if sourceOnGrid(curPos, factorNum, factorDen) else outCur + 1
     # Keep the whole numerator in integers: dividing an absolute source position
     # first and subtracting after loses the exactness of ratios like 1/3 once
     # prevPos is large, and those values must match the driver's own ladder.
     base = prevPos * factorNum
     scale = factorNum * (curPos - prevPos)
-    timesteps = [(o * factorDen - base) / scale for o in range(outPrev + 1, outCur)]
+    timesteps = [(o * factorDen - base) / scale for o in range(outPrev + 1, last)]
     return len(timesteps), timesteps
+
+
+def sourceOnGrid(pos, factorNum, factorDen):
+    """Whether source position ``pos`` is exactly an output slot's time.
+
+    Always true for an integer factor. At 2.5x only every second source frame
+    is (0, 2, 4, ...); the others fall between two output slots and are never
+    written themselves.
+    """
+    return (pos * factorNum) % factorDen == 0
 
 
 def cutHoldSplit(prevPos, curPos, factorNum, factorDen):

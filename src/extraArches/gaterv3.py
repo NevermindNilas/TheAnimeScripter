@@ -189,7 +189,6 @@ class Conv3XC(nn.Module):
         self.bias = bias
         self.weight_concat = None
         self.bias_concat = None
-        self.update_params_flag = False
         self.stride = s
         gain = gain1
 

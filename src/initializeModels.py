@@ -11,6 +11,24 @@ def _announce(status):
         progressState.update({"status": status})
 
 
+def _releaseBuildCache():
+    """Hand the CUDA memory a driver's build left cached back to the device.
+
+    Weight loading, warmups, probes and graph self-checks allocate on streams
+    the run allocates little or nothing on afterwards (RIFE warms up on a
+    throwaway stream), and the caching allocator only reuses a block on the
+    stream that freed it, so what they left cached stayed reserved for the whole
+    run and stacked across a chain's builds (upscale + rife4.26 at 720p:
+    -550 MiB). Memory still in use -- weights, I/O buffers, the pools of live
+    CUDA graphs -- is not touched. No-op until something has initialized CUDA.
+    """
+    import sys
+
+    torch = sys.modules.get("torch")
+    if torch is not None and torch.cuda.is_initialized():
+        torch.cuda.empty_cache()
+
+
 _BUILD_ORDER = {
     "upscale": 0,
     "interpolate": 1,
@@ -206,5 +224,7 @@ def initializeModels(self, plan):
             from src.pipeline.executor import Resize
 
             drivers[name] = Resize(unit.outWidth, unit.outHeight)
+
+        _releaseBuildCache()
 
     return drivers

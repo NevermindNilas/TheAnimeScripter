@@ -4,6 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import downloadModels
@@ -129,6 +130,7 @@ class DistilDRBACuda:
         Used when a frame needs to be cached but not interpolated (e.g., after dedup).
         """
         if self.normStream:
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 self.I0 = self.prepareFrame(frame)
             self.normStream.synchronize()
@@ -183,6 +185,7 @@ class DistilDRBACuda:
         """
         # Prepare current frame (I1)
         if self.normStream:
+            waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
                 I1 = self.prepareFrame(frame)
             self.normStream.synchronize()
@@ -202,6 +205,7 @@ class DistilDRBACuda:
                     f"caller must supply the neighbour in the same domain."
                 )
             if self.normStream:
+                waitForCaller(self.normStream)
                 with torch.cuda.stream(self.normStream):
                     I2 = self.prepareFrame(nextFrame)
                 self.normStream.synchronize()
@@ -229,6 +233,7 @@ class DistilDRBACuda:
             tDrba = 0.5 + t * 0.5 - 0.0001  # Small epsilon to avoid exactly 1.0
 
             if self.stream:
+                waitForCaller(self.stream)
                 with torch.cuda.stream(self.stream):
                     output, self.f0, self.f1, self.f2 = self.model(
                         self.I0,
@@ -511,6 +516,7 @@ class DistilDRBATensorRT:
     @torch.inference_mode()
     def processFrame(self, frame: torch.Tensor, name: str):
         """Copy frame data to TensorRT input tensors."""
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             padded = self.padFrame(frame.to(dtype=self.dtype))
             match name:
@@ -590,6 +596,7 @@ class DistilDRBATensorRT:
 
             tDrba = 0.5 + t * 0.5 - 0.0001
 
+            waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
                 # Fill the timestep on the SAME stream that replays the graph so
                 # the replay is ordered after the write; filling on the default
@@ -602,6 +609,7 @@ class DistilDRBATensorRT:
                 self.cudaGraph.replay()
             self.stream.synchronize()
 
+            waitForCaller(self.outputStream)
             with torch.cuda.stream(self.outputStream):
                 output = (
                     self.tOutput[:, :, : self.height, : self.width].clone().detach()
