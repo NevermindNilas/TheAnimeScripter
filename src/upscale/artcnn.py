@@ -4,9 +4,10 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint, logWarning
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.logAndPrint import logAndPrint
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -192,6 +193,7 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -213,17 +215,20 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         # Split on normStream so the sync below covers y, cb and cr: the copy
         # and the chroma upscale run on streams that never wait on the caller's.
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             frame = frame.to(dtype=self.dtype)
             y, cb, cr = self._rgbToYCbCr(frame)
             self.dummyInput.copy_(y, non_blocking=True)
         self.normStream.synchronize()
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
             yUp = self.dummyOutput.clone()
         self.stream.synchronize()
 
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             cbUp = self._upscaleChroma(cb)
             crUp = self._upscaleChroma(cr)
@@ -332,7 +337,7 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
                 self.model, "OpenVINOExecutionProvider", "OpenVINO ArtCNN upscale"
             )
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
             )
             self.model = self.ort.InferenceSession(
@@ -341,8 +346,30 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
 
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
+        # Bind by the model's own tensor names and, for a custom model, its own
+        # precision: the bundled exports are named input/output and come in the
+        # --half precision, but a user's export (often fp32) failed on the
+        # first frame under the default --half, or on any other tensor name.
+        modelInput = self.model.get_inputs()[0]
+        self.inputName = modelInput.name
+        self.outputName = self.model.get_outputs()[0].name
+        if self.customModel:
+            customHalf = modelInput.type == "tensor(float16)"
+            if customHalf != self.half:
+                logging.info(
+                    f"Custom model takes {modelInput.type}; running it "
+                    f"{'fp16' if customHalf else 'fp32'} instead of --half {self.half}"
+                )
+            self.half = customHalf
         self.numpyDType = self.np.float16 if self.half else self.np.float32
         self.torchDType = torch.float16 if self.half else torch.float32
+        # A custom export may also return another precision than it takes
+        # (fp16 in, fp32 out); the output buffer is bound in its own type.
+        outputHalf = self.half
+        if self.customModel:
+            outputHalf = self.model.get_outputs()[0].type == "tensor(float16)"
+        self.outputNumpyDType = self.np.float16 if outputHalf else self.np.float32
+        self.outputTorchDType = torch.float16 if outputHalf else torch.float32
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
@@ -353,7 +380,7 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
         self.dummyOutput = torch.zeros(
             (1, 1, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
-            dtype=self.torchDType,
+            dtype=self.outputTorchDType,
         ).contiguous()
 
     @torch.inference_mode()
@@ -370,7 +397,7 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
         )
 
         self.IoBinding.bind_input(
-            name="input",
+            name=self.inputName,
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -378,10 +405,10 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
             buffer_ptr=self.dummyInput.data_ptr(),
         )
         self.IoBinding.bind_output(
-            name="output",
+            name=self.outputName,
             device_type=self.deviceType,
             device_id=0,
-            element_type=self.numpyDType,
+            element_type=self.outputNumpyDType,
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )

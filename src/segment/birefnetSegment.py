@@ -15,6 +15,18 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 
+def deformConvRunsOn(device: torch.device) -> bool:
+    """Whether the installed torchvision has a deform_conv2d kernel for `device`.
+
+    ROCm (HIP) devices dispatch under the CUDA key.
+    """
+    import torchvision.ops  # noqa: F401  registers the torchvision:: ops
+
+    return torch._C._dispatch_has_kernel_for_dispatch_key(
+        "torchvision::deform_conv2d", device.type.upper()
+    )
+
+
 class BiRefNetSegment(AnimeSegment):
     """Run the 1024-square Real Anime checkpoint and write RGB plus alpha."""
 
@@ -27,12 +39,14 @@ class BiRefNetSegment(AnimeSegment):
         from .birefnet_arch.birefnet import BiRefNet
 
         self.device = CudaChecker().device
-        if self.device.type == "mps":
-            # torchvision's deform_conv2d has no MPS kernel.
-            self.device = torch.device("cpu")
+        if not deformConvRunsOn(self.device):
+            # MPS has no deform_conv2d kernel, nor does a CPU-only
+            # torchvision installed next to a GPU torch.
             logging.warning(
-                "BiRefNet uses CPU on Apple Silicon (deform_conv2d has no MPS kernel)"
+                f"BiRefNet uses CPU: torchvision's deform_conv2d has no "
+                f"{self.device.type} kernel here"
             )
+            self.device = torch.device("cpu")
 
         filename = modelsMap("birefnet")
         modelPath = resolveWeightPath("birefnet", filename)

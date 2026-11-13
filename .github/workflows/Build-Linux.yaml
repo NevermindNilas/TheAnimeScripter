@@ -1,0 +1,52 @@
+name: Build-Linux
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.14.6"
+          version: "0.11.28"
+          enable-cache: true
+
+      - name: Extract version
+        id: get_version
+        run: |
+          version=$(uv run --no-project python -c 'import src.version; print(src.version.__version__)')
+          version_nodots=${version//./}
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "version_nodots=${version_nodots}" >> $GITHUB_OUTPUT
+
+      - name: Run full build script
+        run: uv run --no-project python build.py
+
+      # tar, not zip: run.sh and bin/python3 must stay executable.
+      - name: Compress full directory
+        run: |
+          cd "${{ github.workspace }}/dist-portable/main/"
+          tar -czf "../../TAS-${{ steps.get_version.outputs.version_nodots }}-Linux-x86_64.tar.gz" .
+
+      # linux-lite peaks around 10 GB while pip unpacks it.
+      - name: Prepare runner for the smoke test
+        run: sudo rm -rf /usr/local/lib/android
+
+      - name: Smoke test the archive
+        run: bash .github/scripts/smoke-linux-bundle.sh "TAS-${{ steps.get_version.outputs.version_nodots }}-Linux-x86_64.tar.gz" "$RUNNER_TEMP/tas-smoke"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TAS-${{ steps.get_version.outputs.version_nodots }}-Linux-x86_64
+          path: TAS-${{ steps.get_version.outputs.version_nodots }}-Linux-x86_64.tar.gz
+          if-no-files-found: error

@@ -26,7 +26,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 - **Anime-first models.** Line-art-tuned upscalers (ShuffleCUGAN, Adore, Fallin, AniScale 2, Cyte), RIFE up to 4.26, anime depth (Limbo) and anime segmentation, plus general-purpose models for live action and games.
 - **One pass, in memory.** Decode → dedup → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
 - **Built for animation.** `--smooth_dedup` detects frames held on twos and threes and interpolates across them while keeping the original length and audio. `--scenechange` holds the frame at hard cuts so nothing morphs between shots. `--mask` keeps HUDs and hardsubs from warping.
-- **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux.
+- **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux and Windows.
 - **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with batch input and YouTube URLs.
 
 ## 🧰 What it does
@@ -37,7 +37,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 | **Interpolate** | `--interpolate` | RIFE 4.6 – 4.26 (lite / heavy), RIFE Elexor, DistilDRBA, NVIDIA Maxine Frame Generation | CUDA · TRT · DML · OpenVINO · NCNN · MPS · ROCm |
 | **Restore** (chainable) | `--restore` | Anime1080Fixer, SCUNet, NAFNet, DPIR, DeJPEG, DeH264, GaterV3, HurrDeblur, DeHalo, deepDeband, FastLineDarken, LineThinner, AutoCAS, Maxine denoise/deblur | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
 | **Dedup** | `--dedup` / `--smooth_dedup` | SSIM, MSE, VMAF, FlowNetS | CPU · CUDA · ROCm |
-| **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
+| **Depth maps** | `--depth` | Depth Anything V2 & 3, Video Depth Anything, Limbo V1/V2/V3 (anime), DA3 streaming | CUDA · TRT · DML · OpenVINO · MPS · ROCm |
 | **Segmentation** | `--segment` | Anime Segmentation, BiRefNet (anime) | CUDA · TRT · DML · ROCm |
 | **Object detection** | `--obj_detect` | YOLOv9 (MIT) S / M / L | TRT · DML · OpenVINO |
 | **Scene detection** | `--autoclip` / `--scenechange` | PySceneDetect, TransNetV2, MaxxViT, SSIM/MSE | CPU · CUDA · TRT · DML · ROCm |
@@ -54,7 +54,7 @@ Decoding and encoding run in-process through [Nelux](https://github.com/Nevermin
 |---|---|---|
 | **[TAS-Standalone](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows | Desktop app with its own backend: no Python, no terminal. Toggle steps into a chain, watch the live preview and save presets. |
 | **[TAS-AdobeEdition](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS | After Effects 2022+ panel. Follow the [installation guide](https://nevermindnilas.github.io/zxp-installation/) or the [video tutorial](https://youtu.be/JAdZ3z-os_A). |
-| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS 15+ (Apple Silicon), Linux (source) | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
+| **[CLI](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)** | Windows, macOS 15+ (Apple Silicon), Linux x86_64 | Every option, scriptable. [Nightly builds](https://github.com/NevermindNilas/TAS-Nightly/releases) carry the newest features. |
 
 <table>
 <tr>
@@ -72,9 +72,10 @@ Models download on first use, so the first run with a new model takes longer.
 | NVIDIA RTX 20 – 50 / GTX 16 | CUDA (default) or `-tensorrt` for maximum speed |
 | NVIDIA GTX 10 and older | `-directml` |
 | AMD / Intel on Windows | `-directml`, or `-openvino` on Intel |
-| AMD on Linux | `-rocm` (experimental) |
+| AMD / Intel on Linux | `-ncnn` for RIFE, `shufflecugan` and `span`, or `-rocm` on AMD. `-directml` and `-openvino` run on the CPU here |
+| AMD on Linux or Windows | `-rocm` (experimental) |
 | Apple Silicon (M1+) | `-mps` |
-| Anything with Vulkan | `-ncnn` (RIFE, ShuffleCUGAN, SPAN) |
+| Anything with Vulkan | `-ncnn`: RIFE, `shufflecugan` and `span`, on AMD, Intel and NVIDIA GPUs |
 
 NVIDIA Maxine methods need an RTX card (Frame Generation needs an RTX 40 or 50).
 
@@ -108,7 +109,7 @@ tas --input old_show.mkv --restore deh264_real anime1080fixer --encode_method x2
 tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 4x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 2x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
 
 <details>
 <summary><b>Run from source</b></summary>
@@ -123,8 +124,9 @@ python main.py -h
 | Profile | For |
 |---|---|
 | `extra-requirements-windows.txt` / `-linux.txt` | NVIDIA: CUDA, TensorRT, Maxine, plus everything in lite |
-| `extra-requirements-windows-lite.txt` / `-linux-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
-| `extra-requirements-linux-rocm.txt` | AMD ROCm (experimental) |
+| `extra-requirements-windows-lite.txt` | No CUDA: DirectML/OpenVINO, NCNN, CPU |
+| `extra-requirements-linux-lite.txt` | No CUDA: NCNN (Vulkan) and CPU |
+| `extra-requirements-linux-rocm.txt` / `-windows-rocm.txt` | AMD ROCm (experimental). On Windows install it with `--download_requirements windows-rocm`, which adds the kernels for your GPU |
 | `extra-requirements-macos.txt` | Apple Silicon (MPS, macOS 15 or newer) |
 
 Or let TAS install a profile for you: `python main.py --download_requirements` (it asks which to use, or picks one from your hardware when run without a terminal), or pass one by name, e.g. `--download_requirements linux-rocm`.

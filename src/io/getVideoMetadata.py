@@ -135,6 +135,32 @@ def resolveSourceFps(props):
     return fps, warning
 
 
+def quarterTurns(rotationDegrees) -> int:
+    """A display rotation as a number of quarter turns (0 for none/unknown)."""
+    try:
+        return round(float(rotationDegrees or 0) / 90.0)
+    except TypeError, ValueError, OverflowError:
+        return 0
+
+
+def storedResizeTarget(path, width, height):
+    """The ``resize`` to hand nelux so frames arrive ``width`` x ``height``.
+
+    nelux scales the STORED frame and applies the display rotation after, so
+    for a quarter-turn source (portrait phone video) the displayed size has to
+    be asked for transposed; asking for it as is returned the upright picture
+    squashed to the transposed size. Unknown rotation: as asked.
+    """
+    try:
+        import torch  # noqa: F401,I001  (nelux needs torch first)
+        import nelux
+
+        rotation = nelux.probe(os.path.normpath(str(path))).get("rotation_degrees")
+    except Exception:
+        return (width, height)
+    return (height, width) if quarterTurns(rotation) % 2 else (width, height)
+
+
 def parseTrimArg(value):
     """Argparse type (and JSON coercer) for ``--inpoint``/``--outpoint``.
 
@@ -347,6 +373,12 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         height = int(_prop("height", 0) or 0)
         if width <= 0 or height <= 0:
             raise ValueError(f"nelux returned no video dimensions for {inputPath}")
+        # The decoder applies the display rotation (a portrait phone clip is
+        # stored landscape with a 90-degree display matrix) while the probe
+        # reports the stored size: every stage was built, and every resize
+        # computed, for a landscape frame that arrives portrait.
+        if quarterTurns(_prop("rotation_degrees", 0)) % 2:
+            width, height = height, width
 
         fps, fpsWarning = resolveSourceFps(props)
         if fpsWarning:

@@ -1,9 +1,11 @@
+import contextlib
 import logging
 import os
 
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
@@ -227,7 +229,18 @@ class UniversalPytorch:
 
         self.stream = torch.cuda.Stream()
 
-        with torch.cuda.stream(self.stream):
+        waitForCaller(self.stream)
+        # no_grad, not inference_mode (see _detectRequiredMultiple): with grad
+        # on, every warmup forward recorded an autograd graph holding all of
+        # its activations (span at 714p fp16: 4.6 GiB peak instead of 1.7).
+        # TorchScript models (rtmosr) keep the caller's grad mode, as before:
+        # the profiling executor specializes on grad mode, and a no_grad
+        # warmup lets the fuser pick different kernels, changing the output.
+        scripted = any(
+            isinstance(m, torch.jit.ScriptModule) for m in self.model.modules()
+        )
+        gradMode = contextlib.nullcontext() if scripted else torch.no_grad()
+        with torch.cuda.stream(self.stream), gradMode:
             # 3 warmup iters before CUDA-graph capture: cudnn.benchmark is False
             # (no algo autotune), so 3 is sufficient to JIT cudnn kernels +
             # allocate workspace before capture (PyTorch-documented minimum).
@@ -292,6 +305,7 @@ class UniversalPytorch:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             if self.padding[1] or self.padding[3]:
                 frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
@@ -304,6 +318,7 @@ class UniversalPytorch:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             if self.compileMode == "default":
                 self.cudaGraph.replay()

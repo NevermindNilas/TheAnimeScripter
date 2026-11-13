@@ -5,15 +5,10 @@ from .model import (
     ISNetGTEncoder,
 )
 
-# warnings.filterwarnings("ignore")
-
 net_names = [
     "isnet_is",
     "isnet",
     "isnet_gt",
-    "modnet",
-    "inspyrnet_res",
-    "inspyrnet_swin",
 ]
 
 
@@ -29,11 +24,10 @@ def get_net(net_name, img_size):
 
 
 class AnimeSegmentation(torch.nn.Module):
-    def __init__(self, net_name, img_size=None, lr=1e-3):
+    def __init__(self, net_name, img_size=None):
         super().__init__()
         assert net_name in net_names
         self.img_size = img_size
-        self.lr = lr
         self.net = get_net(net_name, img_size)
         if net_name == "isnet_is":
             self.gt_encoder = get_net("isnet_gt", img_size)
@@ -44,20 +38,12 @@ class AnimeSegmentation(torch.nn.Module):
     @classmethod
     def try_load(cls, net_name, ckpt_path, map_location=None, img_size=None):
         state_dict = torch.load(ckpt_path, map_location=map_location)
-        if "epoch" in state_dict:
-            return cls.load_from_checkpoint(
-                ckpt_path,
-                net_name=net_name,
-                img_size=img_size,
-                map_location=map_location,
-            )
+        model = cls(net_name, img_size)
+        if any(k.startswith("net.") for k in state_dict):
+            model.load_state_dict(state_dict)
         else:
-            model = cls(net_name, img_size)
-            if any([k.startswith("net.") for k, v in state_dict.items()]):
-                model.load_state_dict(state_dict)
-            else:
-                model.net.load_state_dict(state_dict)
-            return model
+            model.net.load_state_dict(state_dict)
+        return model
 
     def forward(self, x):
         if isinstance(self.net, ISNetDIS):
@@ -65,8 +51,4 @@ class AnimeSegmentation(torch.nn.Module):
             return self.net.forward_d1(x).sigmoid()
         if isinstance(self.net, ISNetGTEncoder):
             return self.net(x)[0][0].sigmoid()
-        # Training-only branch; the InSPyReNet arch is not vendored for inference,
-        # so the name is intentionally undefined here (ruff F821 is ignored too).
-        elif isinstance(self.net, InSPyReNet):  # ty: ignore[unresolved-reference]
-            return self.net.forward_inference(x)["pred"]
         raise NotImplementedError

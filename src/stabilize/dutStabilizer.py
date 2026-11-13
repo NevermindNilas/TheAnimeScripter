@@ -16,7 +16,7 @@ from src.io.ffmpegSettings import (
     createWriteBuffer,
     drainReader,
 )
-from src.io.runOutcome import truncatedDecodeError
+from src.io.runOutcome import recordWriterFailure, truncatedDecodeError
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 from src.stabilize.dut import config as dutCfg
@@ -61,6 +61,7 @@ class VideoStabilizeDUT:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "8bit",
+        decodeResize: bool = False,
     ):
         self.input = input
         self.output = output
@@ -73,6 +74,8 @@ class VideoStabilizeDUT:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
+        # A --resize target the decoder scales to (see VideoStabilize).
+        self.decodeResize = decodeResize
 
         # Grid displacement (smoothed - original) per frame, model-res px.
         self.gridDisplacement = None
@@ -93,6 +96,8 @@ class VideoStabilizeDUT:
             self.processingError = e
             logging.exception(f"Something went wrong in DUT stabilization, {e}")
 
+        # Every thread has finished: a late encoder error counts too.
+        recordWriterFailure(self)
         if ADOBE:
             reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
@@ -139,7 +144,7 @@ class VideoStabilizeDUT:
             videoInput=self.input,
             inpoint=self.inpoint,
             outpoint=self.outpoint,
-            resize=False,
+            resize=self.decodeResize,
             width=self.width,
             height=self.height,
             toTorch=False,
@@ -166,6 +171,10 @@ class VideoStabilizeDUT:
 
     def _toModelTensors(self, frame):
         """RGB HWC uint8 native-res frame -> (gray [1,1,h,w], bgr [1,3,h,w])."""
+        if frame.dtype != np.uint8:
+            # A >8-bit source decodes to uint16; the nets take x / 255 of an
+            # 8-bit frame, and got inputs up to ~257 (as classic's tracker did).
+            frame = (frame >> 8).astype(np.uint8)
         small = cv2.resize(
             frame, (dutCfg.WIDTH, dutCfg.HEIGHT), interpolation=cv2.INTER_LINEAR
         )
@@ -358,14 +367,20 @@ class VideoStabilizeDUT:
                         .unsqueeze(0)
                     )
                     warped = warper.warp(frameTensor, disp[0, 0, i], disp[0, 1, i])
-                    stabilized = (
-                        warped.squeeze(0)
-                        .permute(1, 2, 0)
-                        .clamp_(0.0, 255.0)
-                        .to(torch.uint8)
-                        .cpu()
-                        .numpy()
-                    )
+                    warped = warped.squeeze(0).permute(1, 2, 0)
+                    if frame.dtype == np.uint8:
+                        stabilized = (
+                            warped.clamp_(0.0, 255.0).to(torch.uint8).cpu().numpy()
+                        )
+                    else:
+                        # A >8-bit source decodes to uint16: clamped to 255 and
+                        # cast to uint8 it came out binarized.
+                        stabilized = (
+                            warped.clamp_(0.0, 65535.0)
+                            .cpu()
+                            .numpy()
+                            .astype(frame.dtype)
+                        )
                 else:
                     stabilized = frame
 
@@ -378,7 +393,13 @@ class VideoStabilizeDUT:
                         .unsqueeze(0)
                         .to(torch.float32)
                     )
-                    outputTensor.mul_(1.0 / 255.0)
+                    # The reader's own uint16 white for a >8-bit source, as in
+                    # VideoStabilize; 1/255 clamped it to white.
+                    outputTensor.mul_(
+                        1.0 / 255.0
+                        if stabilized.dtype == np.uint8
+                        else self.readBuffer._uint16Norm
+                    )
 
                 self.writeBuffer.write(outputTensor)
                 frameCount += 1

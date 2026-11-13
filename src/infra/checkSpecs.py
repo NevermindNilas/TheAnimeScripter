@@ -79,11 +79,23 @@ def getWindowsInfo():
         logging.info(f"GPU(s): {', '.join(gpus)}")
 
 
+def _linuxCpuName() -> str:
+    # platform.processor() is empty on most Linux distributions.
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as cpuinfo:
+            for line in cpuinfo:
+                if line.startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return platform.processor() or platform.machine()
+
+
 def getLinuxInfo():
     osName = platform.system()
     osVersion = platform.release()
 
-    cpuInfo = platform.processor()
+    cpuInfo = _linuxCpuName()
     totalRam = round(_totalRamBytes() / (1024.0**3), 2)
 
     logging.info(f"OS: {osName} {osVersion}")

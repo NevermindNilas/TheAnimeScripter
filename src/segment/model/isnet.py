@@ -5,63 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-bce_loss = nn.BCEWithLogitsLoss(reduction="mean")
-
-
-def muti_loss_fusion(preds, target):
-    loss0 = 0.0
-    loss = 0.0
-
-    for i in range(0, len(preds)):
-        if preds[i].shape[2] != target.shape[2] or preds[i].shape[3] != target.shape[3]:
-            tmp_target = F.interpolate(
-                target, size=preds[i].size()[2:], mode="bilinear", align_corners=True
-            )
-            loss = loss + bce_loss(preds[i], tmp_target)
-        else:
-            loss = loss + bce_loss(preds[i], target)
-        if i == 0:
-            loss0 = loss
-    return loss0, loss
-
-
-fea_loss = nn.MSELoss(reduction="mean")
-kl_loss = nn.KLDivLoss(reduction="mean")
-l1_loss = nn.L1Loss(reduction="mean")
-smooth_l1_loss = nn.SmoothL1Loss(reduction="mean")
-
-
-def muti_loss_fusion_kl(preds, target, dfs, fs, mode="MSE"):
-    loss0 = 0.0
-    loss = 0.0
-
-    for i in range(0, len(preds)):
-        if preds[i].shape[2] != target.shape[2] or preds[i].shape[3] != target.shape[3]:
-            tmp_target = F.interpolate(
-                target, size=preds[i].size()[2:], mode="bilinear", align_corners=True
-            )
-            loss = loss + bce_loss(preds[i], tmp_target)
-        else:
-            loss = loss + bce_loss(preds[i], target)
-        if i == 0:
-            loss0 = loss
-
-    for i in range(0, len(dfs)):
-        df = dfs[i]
-        fs_i = fs[i]
-        if mode == "MSE":
-            loss = loss + fea_loss(
-                df, fs_i
-            )  ### add the mse loss of features as additional constraints
-        elif mode == "KL":
-            loss = loss + kl_loss(F.log_softmax(df, dim=1), F.softmax(fs_i, dim=1))
-        elif mode == "MAE":
-            loss = loss + l1_loss(df, fs_i)
-        elif mode == "SmoothL1":
-            loss = loss + smooth_l1_loss(df, fs_i)
-
-    return loss0, loss
-
 
 class REBNCONV(nn.Module):
     def __init__(self, in_ch=3, out_ch=3, dirate=1, stride=1):
@@ -436,11 +379,6 @@ class ISNetGTEncoder(nn.Module):
         self.side5 = nn.Conv2d(512, out_ch, 3, padding=1)
         self.side6 = nn.Conv2d(512, out_ch, 3, padding=1)
 
-    @staticmethod
-    def compute_loss(args):
-        preds, targets = args
-        return muti_loss_fusion(preds, targets)
-
     def forward(self, x):
         hx = x
 
@@ -534,19 +472,6 @@ class ISNetDIS(nn.Module):
         self.side6 = nn.Conv2d(512, out_ch, 3, padding=1)
 
         # self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
-
-    @staticmethod
-    def compute_loss_kl(preds, targets, dfs, fs, mode="MSE"):
-        return muti_loss_fusion_kl(preds, targets, dfs, fs, mode=mode)
-
-    @staticmethod
-    def compute_loss(args):
-        if len(args) == 3:
-            ds, dfs, labels = args
-            return muti_loss_fusion(ds, labels)
-        else:
-            ds, dfs, labels, fs = args
-            return muti_loss_fusion_kl(ds, labels, dfs, fs, mode="MSE")
 
     def _encodeDecode(self, x):
         """Shared trunk: returns the decoder stage outputs consumed by the side heads."""

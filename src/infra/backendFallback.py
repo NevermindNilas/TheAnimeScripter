@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from src.infra.logAndPrint import logAndPrint
 
@@ -13,6 +14,10 @@ FALLBACK_SUFFIXES = ("-directml", "-ncnn")
 CAPABILITY_FALLBACK_SUFFIXES = {
     "interpolate": ("-ncnn", "-directml"),
 }
+
+# DirectML only exists on Windows: elsewhere a -directml method runs on the CPU,
+# so a -ncnn sibling is what reaches the GPU.
+NON_WINDOWS_FALLBACK_SUFFIXES = ("-ncnn", "-directml")
 
 MPS_SUFFIX = "-mps"
 
@@ -37,12 +42,21 @@ METHOD_ATTRIBUTES = {
 }
 
 
+def _ncnnCanRun():
+    # NCNN RIFE crashes without a Vulkan GPU, and a CPU -directml sibling is faster.
+    from src.infra.vulkanDevice import hasVulkanGpu
+
+    return hasVulkanGpu()
+
+
 def hasExplicitBackend(method):
     return any(backend in method.lower() for backend in BACKEND_SUFFIXES)
 
 
 def _suffixOrder(preferMps, capability=None, preferRocm=False):
     order = CAPABILITY_FALLBACK_SUFFIXES.get(capability, FALLBACK_SUFFIXES)
+    if sys.platform != "win32":
+        order = NON_WINDOWS_FALLBACK_SUFFIXES
     if preferRocm:
         return (ROCM_SUFFIX, *order)
     return (MPS_SUFFIX, *order) if preferMps else order
@@ -76,7 +90,7 @@ def fallbackMethod(
 
     for suffix in _suffixOrder(preferMps, capability, preferRocm):
         candidate = f"{base}{suffix}"
-        if candidate in candidates:
+        if candidate in candidates and (suffix != "-ncnn" or _ncnnCanRun()):
             return candidate
 
     return method

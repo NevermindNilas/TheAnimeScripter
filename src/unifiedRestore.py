@@ -4,10 +4,11 @@ import os
 import torch
 
 from src.constants import ADOBE
+from src.infra.cudaStreams import waitForCaller
 
 from .infra.isCudaInit import CudaChecker
 from .infra.logAndPrint import logAndPrint, logWarning
-from .infra.providerCheck import warnIfProviderMissing
+from .infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from .model.download import resolveWeightPath
 from .model.registry import modelsMap
 
@@ -163,6 +164,9 @@ class UnifiedRestoreCuda:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         height, width = frame.shape[-2:]
+        # The frame was made on the caller's stream; this stream must not read it first.
+        if frame.is_cuda:
+            self.stream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.stream):
             frame = _padRightBottom(frame, self.padMultiple)
             if self.CHANNELSLAST:
@@ -248,6 +252,7 @@ class AutoCAS:
         # Cast + filter run inside the restore stream (mirrors UnifiedRestoreCuda)
         # so the dtype cast is visible to the filter without a cross-stream race.
         if frame.is_cuda and self.stream is not None:
+            self.stream.wait_stream(torch.cuda.current_stream())
             with torch.cuda.stream(self.stream):
                 frame = self._cas(frame.to(dtype=self.dType), amount=None)
             self.stream.synchronize()
@@ -649,6 +654,9 @@ class UnifiedRestoreTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        # The frame was made on the caller's stream; reading it on normStream before that
+        # work finishes copies a half-written frame (seen as a garbage restore).
+        self.normStream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.normStream):
             if self.padding[1] or self.padding[3]:
                 frame = torch.nn.functional.pad(frame, self.padding, mode=self.padMode)
@@ -660,6 +668,7 @@ class UnifiedRestoreTensorRT:
 
     @torch.inference_mode()
     def processOutput(self):
+        waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
             output = self.dummyOutput[
                 :, :, : self.originalHeight, : self.originalWidth
@@ -672,6 +681,7 @@ class UnifiedRestoreTensorRT:
     def __call__(self, frame):
         self.processFrame(frame)
 
+        waitForCaller(self.stream)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
@@ -786,7 +796,7 @@ class UnifiedRestoreDirectML:
                     self.model, "OpenVINOExecutionProvider", "OpenVINO restore"
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 f"{self.restoreMethod} provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(

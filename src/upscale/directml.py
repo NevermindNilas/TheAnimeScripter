@@ -6,7 +6,7 @@ import torch
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
-from src.infra.providerCheck import warnIfProviderMissing
+from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -135,7 +135,7 @@ class UniversalDirectML:
                     self.model, "OpenVINOExecutionProvider", "OpenVINO upscale"
                 )
         else:
-            logWarning(
+            warnCpuFallback(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
@@ -145,12 +145,35 @@ class UniversalDirectML:
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
 
+        # Bind by the model's own tensor names and, for a custom model, its own
+        # precision: the bundled exports are named input/output and come in the
+        # --half precision, but a user's export (usually fp32) failed on the
+        # first frame under the default --half, or on any other tensor name.
+        modelInput = self.model.get_inputs()[0]
+        self.inputName = modelInput.name
+        self.outputName = self.model.get_outputs()[0].name
+        if self.customModel:
+            customHalf = modelInput.type == "tensor(float16)"
+            if customHalf != self.half:
+                logging.info(
+                    f"Custom model takes {modelInput.type}; running it "
+                    f"{'fp16' if customHalf else 'fp32'} instead of --half {self.half}"
+                )
+            self.half = customHalf
+
         if self.half:
             self.numpyDType = self.np.float16
             self.torchDType = torch.float16
         else:
             self.numpyDType = self.np.float32
             self.torchDType = torch.float32
+        # A custom export may also return another precision than it takes
+        # (fp16 in, fp32 out); the output buffer is bound in its own type.
+        outputHalf = self.half
+        if self.customModel:
+            outputHalf = self.model.get_outputs()[0].type == "tensor(float16)"
+        self.outputNumpyDType = self.np.float16 if outputHalf else self.np.float32
+        self.outputTorchDType = torch.float16 if outputHalf else torch.float32
 
         self.modelPath = modelPath
 
@@ -182,7 +205,7 @@ class UniversalDirectML:
                 self.paddedWidth * self.upscaleFactor,
             ),
             device=self.deviceType,
-            dtype=self.torchDType,
+            dtype=self.outputTorchDType,
         ).contiguous()
 
         self.usingCpuFallback = False
@@ -229,15 +252,15 @@ class UniversalDirectML:
 
         self.IoBinding = self.model.io_binding()
         self.IoBinding.bind_output(
-            name="output",
+            name=self.outputName,
             device_type=self.deviceType,
             device_id=0,
-            element_type=self.numpyDType,
+            element_type=self.outputNumpyDType,
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
         self.IoBinding.bind_input(
-            name="input",
+            name=self.inputName,
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -267,7 +290,7 @@ class UniversalDirectML:
             self.dummyInput.copy_(paddedFrame.contiguous(), non_blocking=False)
 
             self.IoBinding.bind_input(
-                name="input",
+                name=self.inputName,
                 device_type=self.deviceType,
                 device_id=0,
                 element_type=self.numpyDType,
@@ -276,10 +299,10 @@ class UniversalDirectML:
             )
 
             self.IoBinding.bind_output(
-                name="output",
+                name=self.outputName,
                 device_type=self.deviceType,
                 device_id=0,
-                element_type=self.numpyDType,
+                element_type=self.outputNumpyDType,
                 shape=self.dummyOutput.shape,
                 buffer_ptr=self.dummyOutput.data_ptr(),
             )
@@ -404,7 +427,9 @@ class AnimeSRDirectML:
                 self.model, "OpenVINOExecutionProvider", "OpenVINO AnimeSR upscale"
             )
         else:
-            logWarning("DirectML/OpenVINO provider not available, falling back to CPU")
+            warnCpuFallback(
+                "DirectML/OpenVINO provider not available, falling back to CPU"
+            )
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
