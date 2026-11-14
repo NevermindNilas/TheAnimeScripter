@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `--dedup_method block` / `--smooth_dedup_method block`: full-resolution duplicate detection that compares 32 px block means of the luma against the last kept frame. On bit-exact labels from a lossless anime master and six re-encodes it drops 2.0–2.2% of real changes and misses at most 1.3% of duplicates, against 18–19% of real changes dropped by `ssim`.
 - `--autoclip_method omnishotcut` (plus `omnishotcut-rocm`; CPU when there is no GPU): OmniShotCut shot detection, which also recognizes dissolves and fades and cuts at their middle. On a 10-minute anime episode it found 6 hard cuts that `transnetv2` missed and missed 4 that it found, with 123 of its 155 cuts within 2 frames of `transnetv2`'s; both are limited by decoding (1650 vs 1880 fps on 1080p). `--autoclip_sens` has no effect on it.
 - `--autoclip_method transnetv2` warns when the input is not provably constant frame rate, since its cut times then drift (as `omnishotcut`'s do).
 - `--depth_method moge3` (plus `-mps`, `-rocm`, `-tensorrt`, `-directml`, `-openvino`): MoGe-3 ViT-L depth with its sparse 3D refiner, using vendored FlexGEMM on CUDA and TensorRT where Triton can compile (on an RTX 3090 at 720p about 10.2 and 11.6 fps at `--depth_quality low`, 4.4 at `high`, with 1.1 to 1.8 GB peak VRAM; 15 s of first-run setup) and a plain torch refiner elsewhere, including macOS. Refiner output matches upstream to about 1e-4 in log depth.
@@ -20,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `-rocm` methods now run on Windows through the new `windows-rocm` profile (experimental): AMD's torch 2.15 and torchvision builds plus the GPU kernels for the AMD target the installer detects, overridable with `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100`). On ROCm the encoder gets 8-bit host copies of the frames and `--decode_method nvdec` falls back to CPU decoding, since nelux's GPU paths are NVIDIA-only.
 
 ### Changed
+- `--dedup` and `--smooth_dedup` default to the `block` detector (was `ssim`); `--smooth_dedup_max_diff` applies only to the other detectors. `--dedup_method ssim` restores the old behaviour.
 - `--smooth_dedup`: a run longer than `--smooth_dedup_max_span` (default now 4, was 6) holds the previous drawing and interpolates only its last frames, instead of filling the whole gap with copies and jumping to the next drawing with no in-between. Shorter runs are unchanged.
 - `--smooth_dedup` re-checks every frame its detector calls a duplicate at full resolution and keeps it when any pixel changed by more than `--smooth_dedup_max_diff` (new, default 40 of 255; `max_diff=` inline; 255 turns it off). On a 77 s anime clip the default SSIM detector dropped 66% of frames, including mouth flaps, HUD pop-ins and slow pans; with the check, 52%.
 - Portable builds and CI use Python 3.14.10 (was 3.14.6).

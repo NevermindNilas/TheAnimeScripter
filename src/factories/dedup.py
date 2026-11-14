@@ -49,6 +49,11 @@ def buildDedupProcess(self, method=None, sens=None, width=None, height=None):
                 self.half,
             )
 
+        case "block":
+            from src.dedup.dedup import DedupBlock
+
+            return DedupBlock(sens)
+
         case "vmaf" | "vmaf-cuda" | "vmaf-rocm":
             from src.dedup.dedup import DedupVMAF
 

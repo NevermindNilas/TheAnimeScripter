@@ -106,7 +106,7 @@ KIND_KEYS = {
 # Used only when no parser is at hand (a namespace built by another
 # entrypoint); the parser's own defaults win otherwise.
 FALLBACK_DEFAULTS = {
-    ("dedup", "method"): "ssim",
+    ("dedup", "method"): "block",
     ("dedup", "sens"): 35,
     ("restore", "methods"): ("anime1080fixer",),
     ("upscale", "method"): "shufflecugan",
@@ -117,7 +117,7 @@ FALLBACK_DEFAULTS = {
     ("interpolate", "ensemble"): False,
     ("interpolate", "dynamicScale"): False,
     ("interpolate", "staticStep"): False,
-    ("smooth_dedup", "detector"): "ssim",
+    ("smooth_dedup", "detector"): "block",
     ("smooth_dedup", "sens"): 35,
     ("smooth_dedup", "maxSpan"): 4,
     ("smooth_dedup", "maxDiff"): 40,

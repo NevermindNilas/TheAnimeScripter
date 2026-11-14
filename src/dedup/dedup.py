@@ -525,6 +525,87 @@ class DedupVMAF:
         return tensor
 
 
+class DedupBlock:
+    """Duplicate when no block of the frame changed, on average, by more than
+    ``threshold`` (8-bit luma scale) from the last kept frame.
+
+    Full resolution, so a mouth flap or a blink is not averaged away the way
+    the 224px SSIM/MSE downsample does, and a per-block mean of the absolute
+    change rather than a per-pixel max, so a few strong compression errors
+    (ringing around line art) are diluted by their block instead of vetoing a
+    real duplicate the way PixelDiffGuard's max does. Blocks
+    are 32 pixels at 1080p and scale with the frame height, so the same
+    threshold means the same fraction of the picture at any size.
+
+    Runs on whatever device the frame is on. The comparison is against the
+    last KEPT frame, as for every other detector, so a slow fade or drift
+    accumulates until a block crosses the threshold instead of vanishing.
+    """
+
+    def __init__(self, threshold=5.0, blockSize=32):
+        self.threshold = float(threshold) / 255.0
+        self.blockSize = blockSize
+        self.prevFrame = None
+        self._weights = None
+        # Not an SSIM/MSE score, so the scene-cut detector computes its own.
+        self.lastReusableScore = None
+
+    def _kernel(self, height: int) -> int:
+        return max(2, round(self.blockSize * height / 1080))
+
+    _LUMA = (0.299, 0.587, 0.114)
+
+    def _luma(self, frame):
+        """(N, 1, H, W) fp32 luma as a NEW tensor, never a view of ``frame``:
+        it may become the reference, and the pipeline reuses frame buffers."""
+        if frame.shape[1] < 3:
+            return frame[:, :1].to(torch.float32, copy=True)
+        key = (frame.device, frame.dtype)
+        if self._weights is None or self._weights[0] != key:
+            weights = torch.tensor(self._LUMA, device=frame.device, dtype=frame.dtype)
+            self._weights = (key, weights.view(1, 3, 1, 1))
+        # One kernel: multiply in the frame's dtype, accumulate in fp32. RGBA
+        # ignores the alpha.
+        return (frame[:, :3] * self._weights[1]).sum(
+            1, keepdim=True, dtype=torch.float32
+        )
+
+    def score(self, frame):
+        """Largest block-mean |luma change| against the reference (0-1 scale),
+        and the frame's luma, so a kept frame does not convert it twice."""
+        luma = self._luma(frame)
+        h, w = luma.shape[-2:]
+        k = self._kernel(h)
+        # Adaptive pooling splits the frame into ceil(h/k) x ceil(w/k) nearly
+        # equal blocks. A fixed k-stride grid either drops the leftover rows
+        # and columns (1080 = 33*32 + 24: a subtitle line in the bottom strip
+        # would sit outside every block) or keeps them as a strip a few pixels
+        # wide, where noise on a handful of pixels counts as a whole block.
+        grid = (-(-h // k), -(-w // k))
+        change = (luma - self.prevFrame).abs_()
+        if k >= 8:
+            # Same block means at a sixteenth of the cost on CUDA (adaptive
+            # pooling with ~32 px windows is the slow part): average 4x4 cells
+            # first. A partial last cell (a height not divisible by 4) then
+            # counts as a full one, which only reweights a 1-3 px edge strip.
+            change = F.avg_pool2d(change, 4, 4, ceil_mode=True)
+        change = F.adaptive_avg_pool2d(change, grid)
+        return change.amax().item(), luma
+
+    def __call__(self, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        if self.prevFrame is None:
+            self.prevFrame = self._luma(frame)
+            return False
+        value, luma = self.score(frame)
+        if value <= self.threshold:
+            return True
+        self.prevFrame = luma
+        return False
+
+
 class DedupSSIMROCm(DedupSSIMCuda):
     """ROCm (HIP) SSIM dedup. Same eager compare as CUDA; HIP device."""
 

@@ -893,7 +893,7 @@ def _addDedupOptions(argParser):
     dedupGroup.add_argument(
         "--dedup_method",
         type=str,
-        default="ssim",
+        default="block",
         choices=[
             "ssim",
             "mse",
@@ -903,6 +903,7 @@ def _addDedupOptions(argParser):
             "mse-rocm",
             "flownets",
             "flownets-rocm",
+            "block",
             "vmaf",
             "vmaf-cuda",
             "vmaf-rocm",
@@ -929,7 +930,7 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup.add_argument(
         "--smooth_dedup_method",
         type=str,
-        default="ssim",
+        default="block",
         choices=[
             "ssim",
             "mse",
@@ -939,6 +940,7 @@ def _addSmoothDedupOptions(argParser):
             "mse-rocm",
             "flownets",
             "flownets-rocm",
+            "block",
             "vmaf",
             "vmaf-cuda",
             "vmaf-rocm",
@@ -964,7 +966,7 @@ def _addSmoothDedupOptions(argParser):
         "--smooth_dedup_max_diff",
         type=int,
         default=40,
-        help="Largest per-pixel change (0-255) a frame may have and still count as a duplicate for --smooth_dedup, checked at full resolution so mouth flaps, blinks and small UI changes are kept. 255 turns the check off",
+        help="Largest per-pixel change (0-255) a frame may have and still count as a duplicate for --smooth_dedup, checked at full resolution so mouth flaps, blinks and small UI changes are kept. Applies to ssim, mse, vmaf and flownets; the default block detector already compares at full resolution. 255 turns the check off",
         **childFlag(),
     )
 

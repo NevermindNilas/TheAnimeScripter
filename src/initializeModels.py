@@ -214,7 +214,9 @@ def initializeModels(self, plan):
             detector = buildDedupProcess(
                 view, method, sens, width=unit.inWidth, height=unit.inHeight
             )
-            if smooth and view.smoothDedupMaxDiff < 255:
+            # "block" already scores every block at full resolution, so the
+            # per-pixel guard would only add its noise vetoes on top.
+            if smooth and view.smoothDedupMaxDiff < 255 and method != "block":
                 # The detectors score a 224px downsample; a dropped frame would
                 # be replaced by an interpolated one, so a small local change
                 # (a mouth flap) must veto the verdict at full resolution.

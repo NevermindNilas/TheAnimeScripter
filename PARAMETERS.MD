@@ -165,7 +165,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 
 > **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
 >
-> **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication, stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
+> **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication (the default `block` detector runs wherever the frame is), stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
 
 ---
 
@@ -429,7 +429,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--dedup` | values | - | method, sensitivity | **Duplicate removal stage** — `--dedup mse 40`; repeatable. Also enabled by `--dedup_method` alone |
-| `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** — specifying a non-default method auto-enables deduplication |
+| `--dedup_method` | str | "block" | [see table](#deduplication-methods) | **Detection algorithm** — specifying a non-default method auto-enables deduplication |
 | `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
 
@@ -444,6 +444,15 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | **flownets** | ⚡ | ⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA, ROCm |
 | **vmaf** | ⚡ | ⭐⭐⭐⭐ | <2GB | Perceptual duplicate detection | CPU |
 | **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA, ROCm |
+| **block** (default) | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | Low | Anime: keeps mouth flaps and small changes, tolerates compression | Runs where the frame is (CPU, CUDA, ROCm, MPS) |
+
+`block` compares the full-resolution frame with the last kept one and calls it a duplicate when no
+block changed, on average, by more than `--dedup_sens / 7` on the 0–255 luma scale (default 35 → 5).
+Blocks are 32 px at 1080p and scale with the height. Against bit-exact labels from a lossless anime
+master and six re-encodes (x264 CRF 18–36, 720p, AV1), the default dropped 2.0–2.2% of real changes
+and missed at most 1.3% of duplicates, where `ssim` dropped 18–19% of real changes. On heavily
+compressed sources (well below 1 Mbps at 1080p) it starts missing duplicates; raise `--dedup_sens`
+there. With `--smooth_dedup`, `--smooth_dedup_max_diff` does not apply to `block`.
 
 > **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
 >
@@ -454,7 +463,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--smooth_dedup` | values | - | interpolation and detection values | **Interpolate across duplicate frames** — an interpolation stage of its own (`--smooth_dedup rife4.26 2x mse 20%`): at most one, the first interpolation, runs where it is typed. Without interpolation values it takes over a single `--interpolate`. Disables every `--dedup`, keeps audio |
-| `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup`; places interpolation only if `--interpolate` was not typed |
+| `--smooth_dedup_method` | str | "block" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup`; places interpolation only if `--interpolate` was not typed |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
 | `--smooth_dedup_max_span` | int | 4 | 0+ | **Most source frames one motion is spread over** — a longer hold keeps the previous drawing and interpolates only its last frames. 0 = no cap, spread over the whole run |
 | `--smooth_dedup_max_diff` | int | 40 | 0-255 | **Largest per-pixel change a duplicate may have**, checked at full resolution so mouth flaps, blinks and small UI changes are kept. 255 = off |
@@ -488,10 +497,11 @@ drawing early nor jumps into it without an in-between. Raising it costs inferenc
 so the motion is spread over the whole run no matter how long; useful when the "duplicates" are
 really slow motion (a baked slowdown) rather than static holds. Negative values are treated as 0.
 
-The detectors compare a 224×224 downsample, which cannot see a mouth opening or a small UI element
-appearing. `--smooth_dedup_max_diff` (default 40, on a 0–255 scale) re-checks every frame called a
-duplicate at full resolution and keeps it if any pixel changed by more than that; compression noise
-on a true hold stays well below it. `255` turns the check off.
+`ssim`, `mse` and `vmaf` compare a 224×224 downsample and `flownets` averages its flow over the whole
+frame, so none of them can see a mouth opening or a small UI element appearing. For them, `--smooth_dedup_max_diff` (default 40, on a 0–255 scale) re-checks every frame called a
+duplicate at full resolution and keeps it if any pixel changed by more than that. On low-bitrate
+sources compression noise alone can exceed it, so true holds are kept. `255` turns the check off.
+The default `block` detector already compares at full resolution and ignores this setting.
 
 Works alongside `--upscale` (either pipeline order), a second interpolation (`--smooth_dedup 1x --interpolate 2x`), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop

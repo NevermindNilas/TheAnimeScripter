@@ -360,6 +360,11 @@ def _mapDedupSensitivity(method, sensitivity):
         return 100.0 - (sensitivity / 10.0)
     if method in ["flownets", "flownets-rocm"]:
         return sensitivity / 100
+    if method == "block":
+        # Largest 32px-block mean luma change on the 0-255 scale; the default
+        # 35 lands on 5, the best single threshold measured across lossless to
+        # CRF 36 encodes. Higher sensitivity -> larger change still a duplicate.
+        return sensitivity / 7.0
     # MSE takes the raw value.
     return sensitivity
 
@@ -579,6 +584,15 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         settings["detector"] = _downgradeCudaDetector(
             settings["detector"], stage.flagName("smooth_dedup_method"), cudaAvailable
         )
+        if settings["detector"] == "block" and settings["maxDiff"] not in (40, 255):
+            # The full-resolution guard only wraps the 224px detectors; block
+            # already compares at full resolution (src/initializeModels.py).
+            logAndPrint(
+                f"{stage.flagName('smooth_dedup_max_diff')} {settings['maxDiff']} has "
+                "no effect with the block detector; use --smooth_dedup_sens to "
+                "change what counts as a duplicate",
+                "yellow",
+            )
 
         # Duration is preserved, so audio stays in sync and is left enabled.
         settings["threshold"] = _mapDedupSensitivity(
