@@ -29,7 +29,12 @@ widens gaps by dropped duplicates.
 import torch
 
 from src.infra.cudaStreams import waitForCaller
-from src.interpolate._timesteps import cutHoldSplit, gapPlan, sourceOnGrid
+from src.interpolate._timesteps import (
+    cutHoldSplit,
+    gapPlan,
+    slotsThrough,
+    sourceOnGrid,
+)
 from src.io.frameWindow import FrameSlot, LagRing, Window, temporalDemand
 from src.pipeline.planner import factorFraction
 from src.pipeline.stages import DROP, isStatelessUpscale
@@ -341,8 +346,11 @@ class ExpandNode(_Node):
 
     The gap for source frame ``k`` covers ``(previous, k]``, so a smooth-dedup
     gap widened by dropped duplicates gets proportionally more slots. A gap over a
-    hard cut, or a hold longer than ``smoothDedupMaxSpan``, is filled with copies
-    instead of inference (see ``_emitHeldGap``).
+    hard cut is filled with copies instead of inference (see ``_emitHeldGap``). A
+    smooth-dedup hold longer than ``smoothDedupMaxSpan`` source frames keeps the
+    previous drawing on screen and interpolates only across its last
+    ``smoothDedupMaxSpan`` frames, so a long hold does not drift into the next
+    drawing early and still moves into it smoothly.
     """
 
     def __init__(
@@ -397,7 +405,6 @@ class ExpandNode(_Node):
         dups = centre.dupsBefore if self.smoothDedup else 0
         curPos = prevPos + 1 + dups
         span = curPos - prevPos
-        holdGap = bool(self.smoothDedup and self.maxSpan and span > self.maxSpan)
         # The output grid is anchored on the first frame this expander receives
         # (sourcePos 1 = output slot 0), so a fractional factor's slots fall at
         # first + o / factor, not at a phantom frame before the first one.
@@ -409,11 +416,20 @@ class ExpandNode(_Node):
             # buffer cached on the common path.
             timesteps = None
         onGrid = sourceOnGrid(gridCur, num, den)
-        holdFromPrev = (
-            cutHoldSplit(gridPrev, gridCur, num, den)
-            if centre.isCut
-            else framesToInsert
-        )
+        holdFromPrev = cutHoldSplit(gridPrev, gridCur, num, den) if centre.isCut else 0
+        # A run longer than the cap: the previous drawing holds until the last
+        # ``maxSpan`` source frames, and only those are interpolated. The held
+        # head and the driven tail together own exactly the gap's slots.
+        driveFrames, driveTimesteps = framesToInsert, timesteps
+        if (
+            not centre.isCut
+            and self.smoothDedup
+            and self.maxSpan
+            and span > self.maxSpan
+        ):
+            gridSplit = gridCur - self.maxSpan
+            holdFromPrev = slotsThrough(gridPrev, gridSplit, num, den)
+            driveFrames, driveTimesteps = gapPlan(gridSplit, gridCur, num, den)
         self.sourcePos = curPos
         self._origin = centre.sourcePos
         if self.maskedSink is not None:
@@ -425,11 +441,13 @@ class ExpandNode(_Node):
 
         self._clearMemos()
         try:
-            if centre.isCut or holdGap:
+            if centre.isCut:
                 fromCurrent = self._emitHeldGap(centre, framesToInsert, holdFromPrev)
                 self.driver.cacheFrameReset(centre.frame)
             else:
-                self._drive(centre, nextFrame, framesToInsert, timesteps)
+                if holdFromPrev:
+                    self._emitHeldGap(centre, holdFromPrev, holdFromPrev)
+                self._drive(centre, nextFrame, driveFrames, driveTimesteps)
                 fromCurrent = 0
             if onGrid:
                 self._emitCentre(centre, curPos, fromCurrent)

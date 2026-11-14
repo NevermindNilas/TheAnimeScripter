@@ -53,6 +53,7 @@ KEYS = {
         "detector": "detector",
         "sens": "sens",
         "max_span": "maxSpan",
+        "max_diff": "maxDiff",
     },
     "resize": {"size": "target", "scale": "target"},
 }
@@ -69,6 +70,7 @@ SETTING_NAMES = {
     "detector": "detector",
     "sens": "sens",
     "maxSpan": "max_span",
+    "maxDiff": "max_diff",
     "target": "target (size or scale)",
 }
 
@@ -105,7 +107,7 @@ ACCEPTS = {
     "smooth_dedup": (
         "an interpolation method, a detection method, a factor (2x), a "
         "sensitivity (40%), ensemble, dynamic_scale, static_step, method=, "
-        "factor=, detector=, sens=, max_span="
+        "factor=, detector=, sens=, max_span=, max_diff="
     ),
     "resize": (
         "a size (1920x1080, 1440p, 4k, 8k) or a scale (0.5, 0.5x, 50%), size=, scale="
@@ -365,6 +367,12 @@ def _parseKeyed(kind, label, key, text, context):
         if not re.match(r"^[+-]?\d+$", text):
             raise StageChainError(
                 f"{label}: 'max_span={text}' must be a whole number of frames."
+            )
+        return settingsKey, int(text)
+    if key == "max_diff":
+        if not re.match(r"^\d+$", text) or int(text) > 255:
+            raise StageChainError(
+                f"{label}: 'max_diff={text}' must be a whole number from 0 to 255."
             )
         return settingsKey, int(text)
     if key == "sens":

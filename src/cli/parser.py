@@ -923,7 +923,7 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup = argParser.add_argument_group("Smooth Deduplication")
     smoothDedupGroup.add_argument(
         "--smooth_dedup",
-        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. It is an interpolate stage of its own (at most one, and the first interpolation) and disables every --dedup. Values: an interpolation method, a detection method, a factor (2x), a sensitivity (40%% or sens=40), ensemble, dynamic_scale, static_step, detector=, max_span=. Without interpolation values it takes over a single --interpolate",
+        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. It is an interpolate stage of its own (at most one, and the first interpolation) and disables every --dedup. Values: an interpolation method, a detection method, a factor (2x), a sensitivity (40%% or sens=40), ensemble, dynamic_scale, static_step, detector=, max_span=, max_diff=. Without interpolation values it takes over a single --interpolate",
         **stageFlag("smooth_dedup"),
     )
     smoothDedupGroup.add_argument(
@@ -956,8 +956,15 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup.add_argument(
         "--smooth_dedup_max_span",
         type=int,
-        default=6,
-        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. 0 removes the cap so every run is interpolated. Raising it costs inference time, not memory",
+        default=4,
+        help="Most source frames --smooth_dedup spreads one motion over; a longer hold keeps the previous drawing and interpolates only its last frames, so motion does not start early. 0 removes the cap so the motion is spread over the whole run",
+        **childFlag(),
+    )
+    smoothDedupGroup.add_argument(
+        "--smooth_dedup_max_diff",
+        type=int,
+        default=40,
+        help="Largest per-pixel change (0-255) a frame may have and still count as a duplicate for --smooth_dedup, checked at full resolution so mouth flaps, blinks and small UI changes are kept. 255 turns the check off",
         **childFlag(),
     )
 

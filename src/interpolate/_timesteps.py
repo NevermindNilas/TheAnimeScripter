@@ -46,6 +46,20 @@ def sourceOnGrid(pos, factorNum, factorDen):
     return (pos * factorNum) % factorDen == 0
 
 
+def slotsThrough(prevPos, splitPos, factorNum, factorDen):
+    """How many output slots fall in ``(prevPos, splitPos]``.
+
+    Those are the slots ``floor(prevPos * f) + 1 .. floor(splitPos * f)``. For
+    any ``curPos >= splitPos``, the rest of the interval ``(prevPos, curPos]``'s
+    slots are exactly what ``gapPlan(splitPos, curPos)`` plans, so a gap can be
+    split into a held head and an interpolated tail without changing how many
+    slots it owns.
+    """
+    return max(
+        0, (splitPos * factorNum) // factorDen - (prevPos * factorNum) // factorDen
+    )
+
+
 def cutHoldSplit(prevPos, curPos, factorNum, factorDen):
     """How many of a gap's synthesized slots precede its final source step.
 
@@ -57,9 +71,7 @@ def cutHoldSplit(prevPos, curPos, factorNum, factorDen):
     a cut without ``--smooth_dedup`` fills entirely from the incoming frame as it
     always has.
     """
-    outPrev = (prevPos * factorNum) // factorDen
-    lastStep = ((curPos - 1) * factorNum) // factorDen
-    return max(0, lastStep - outPrev)
+    return slotsThrough(prevPos, curPos - 1, factorNum, factorDen)
 
 
 def interpolateTimestep(index, framesToInsert, timesteps=None):

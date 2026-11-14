@@ -456,7 +456,8 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | `--smooth_dedup` | values | - | interpolation and detection values | **Interpolate across duplicate frames** — an interpolation stage of its own (`--smooth_dedup rife4.26 2x mse 20%`): at most one, the first interpolation, runs where it is typed. Without interpolation values it takes over a single `--interpolate`. Disables every `--dedup`, keeps audio |
 | `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup`; places interpolation only if `--interpolate` was not typed |
 | `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
-| `--smooth_dedup_max_span` | int | 6 | 0+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies. 0 = no cap, interpolate every run |
+| `--smooth_dedup_max_span` | int | 4 | 0+ | **Most source frames one motion is spread over** — a longer hold keeps the previous drawing and interpolates only its last frames. 0 = no cap, spread over the whole run |
+| `--smooth_dedup_max_diff` | int | 40 | 0-255 | **Largest per-pixel change a duplicate may have**, checked at full resolution so mouth flaps, blinks and small UI changes are kept. 255 = off |
 
 Anime is animated on twos or threes: a 24 fps master carries 8–12 unique drawings per second, each
 held for 2–3 identical frames. Plain interpolation synthesizes frames *between two identical
@@ -480,12 +481,17 @@ source, on 2s:    A   A   B   B   C     24 fps, 5 frames
   --interpolate_method rife4.25 --interpolate_factor 2
 ```
 
-Runs longer than `--smooth_dedup_max_span` are filled with copies rather than interpolated: the
-frames in such a gap were duplicates anyway, so inference there costs full throughput for no visible
-gain. Raising it costs inference time, not memory — a long gap is written out as it is produced
-rather than held whole. `0` removes the cap entirely, so every duplicate run is interpolated no
-matter how long; useful when the "duplicates" are really slow motion (a pan misdetected at high
-sensitivity, a baked slowdown) rather than static holds. Negative values are treated as 0.
+A run longer than `--smooth_dedup_max_span` keeps the previous drawing on screen and spreads the
+motion only over its last `max_span` source frames, so a long hold neither drifts into the next
+drawing early nor jumps into it without an in-between. Raising it costs inference time, not memory
+— a long gap is written out as it is produced rather than held whole. `0` removes the cap entirely,
+so the motion is spread over the whole run no matter how long; useful when the "duplicates" are
+really slow motion (a baked slowdown) rather than static holds. Negative values are treated as 0.
+
+The detectors compare a 224×224 downsample, which cannot see a mouth opening or a small UI element
+appearing. `--smooth_dedup_max_diff` (default 40, on a 0–255 scale) re-checks every frame called a
+duplicate at full resolution and keeps it if any pixel changed by more than that; compression noise
+on a true hold stays well below it. `255` turns the check off.
 
 Works alongside `--upscale` (either pipeline order), a second interpolation (`--smooth_dedup 1x --interpolate 2x`), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop
@@ -496,8 +502,8 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 > `--smooth_dedup --interpolate_factor 1 --smooth_dedup_sens 1 --smooth_dedup_max_span 0` to
 > regenerate each duplicated slot as a true in-between while keeping duration and fps unchanged.
 > `--smooth_dedup_max_span 0` removes the run-length cap: a heavy slowdown (4x and beyond) holds
-> each drawing for many frames, and any run past the cap would be kept as copies — exactly the
-> stutter being removed. The strict sensitivity matters too: baked duplicates are (near-)exact,
+> each drawing for many frames, and any run past the cap would hold most of its frames and move
+> only over the last few — exactly the stutter being removed. The strict sensitivity matters too: baked duplicates are (near-)exact,
 > and the default of 35 also swallows slow *real* motion, merging real movement into the duplicate
 > runs. It cannot tell slowdown duplicates from intentional animation holds (twos/threes), so
 > motion comes out fully smoothed.
@@ -981,7 +987,7 @@ A stage flag takes zero or more values, up to the next option. The `=` form (`--
 | `--restore` | one or more restore methods, run in the order given (one stage) | - | - | - | - | `method=` (repeatable) | - |
 | `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
 | `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=` | `ensemble`, `dynamic_scale`, `static_step` |
-| `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=` | as `--interpolate` |
+| `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=`, `max_diff=` | as `--interpolate` |
 | `--resize` | - | scale | scale (`50%` = 0.5) | scale below 16; 16 or more is an **error**: ambiguous, write `1080p` or `1080x` | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
 
 A `-` means that form is an error for that stage.
@@ -1023,9 +1029,9 @@ A `-` means that form is an error for that stage.
 
 ### Long flags
 
-`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step` and `--smooth_dedup_method`/`_sens`/`_max_span` keep working:
+`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step` and `--smooth_dedup_method`/`_sens`/`_max_span`/`_max_diff` keep working:
 
-- A long flag applies to the **last stage of its kind typed before it**. `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale` and `--static_step` apply to the last `--interpolate` or `--smooth_dedup`; `--smooth_dedup_method`, `--smooth_dedup_sens` and `--smooth_dedup_max_span` apply only to `--smooth_dedup`; `--custom_model` applies to `--upscale`.
+- A long flag applies to the **last stage of its kind typed before it**. `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale` and `--static_step` apply to the last `--interpolate` or `--smooth_dedup`; `--smooth_dedup_method`, `--smooth_dedup_sens`, `--smooth_dedup_max_span` and `--smooth_dedup_max_diff` apply only to `--smooth_dedup`; `--custom_model` applies to `--upscale`.
 - Typed **before every stage of its kind**, it is the default for all of them. Typed there twice, the last one wins, as before.
 - With **no stage of its kind** at all, a method, factor or sensitivity flag adds one stage where it is typed, as before: `--upscale_method span` alone upscales. `--custom_model`, `--ensemble`, `--dynamic_scale` and `--static_step` never add a stage.
 - A long flag that disagrees with a value given on its stage, or with another long flag applied to the same stage, is an error. Equal values are fine.

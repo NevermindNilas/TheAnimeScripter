@@ -17,7 +17,7 @@ done before a spec is built, so every key is always present):
 - ``interpolate``: ``method`` (str), ``factor`` (float), ``ensemble`` (bool),
   ``dynamicScale`` (bool), ``staticStep`` (bool). The smooth-dedup instance
   (``smooth=True``) also has ``detector`` (str), ``sens`` (float),
-  ``threshold`` (float) and ``maxSpan`` (int).
+  ``threshold`` (float), ``maxSpan`` (int) and ``maxDiff`` (int, 0-255).
 - ``resize``: ``target``, one of ``("size", width, height)``,
   ``("height", height)`` or ``("scale", factor)``. The planner turns it into
   concrete dimensions, because ``height`` and ``scale`` depend on the size the

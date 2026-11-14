@@ -415,7 +415,8 @@ def _legacyStages(args):
                     "ensemble": getattr(args, "ensemble", False),
                     "detector": args.smooth_dedup_method,
                     "sens": args.smooth_dedup_sens,
-                    "maxSpan": getattr(args, "smooth_dedup_max_span", 6),
+                    "maxSpan": getattr(args, "smooth_dedup_max_span", 4),
+                    "maxDiff": getattr(args, "smooth_dedup_max_diff", 40),
                 },
                 smooth=True,
             )
@@ -454,6 +455,7 @@ def _writeLegacyStages(args, stages):
                 args.ensemble = settings["ensemble"]
         if stage.smooth:
             args.smooth_dedup_max_span = settings["maxSpan"]
+            args.smooth_dedup_max_diff = settings["maxDiff"]
             args.smooth_dedup_method = settings["detector"]
             args.smooth_dedup_sens_raw = settings["sens"]
             args.smooth_dedup_sens = settings["threshold"]
@@ -547,15 +549,28 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         # --dedup is already forced off and --interpolate on, in
         # _applyImpliedFlags, ahead of every guard that reads them.
         #
-        # The cap chooses copies over inference for a gap wider than it; it is
-        # NOT a memory bound, and never was. What bounds memory is the
-        # interpolation stage handing a gap on as it fills -- see
-        # src/pipeline/executor.py:ExpandNode.collectLimit, which keeps a long
-        # hold from holding the whole gap at once. 0 disables the cap (every run is
-        # interpolated, however long); negatives normalize to 0 rather than
-        # inverting the span comparison into "hold everything".
+        # The cap is how many source frames a gap's motion may be spread over:
+        # a wider gap holds the previous drawing first and interpolates only its
+        # last maxSpan frames. It is NOT a memory bound, and never was. What
+        # bounds memory is the interpolation stage handing a gap on as it fills
+        # -- see src/pipeline/executor.py:ExpandNode.collectLimit, which keeps a
+        # long hold from holding the whole gap at once. 0 disables the cap (the
+        # motion is spread over the whole run, however long); negatives
+        # normalize to 0 rather than inverting the span comparison.
         settings = stage.settings
         settings["maxSpan"] = max(0, int(settings["maxSpan"]))
+        # Largest per-pixel change (8-bit scale) a duplicate may have; 255 turns
+        # the full-resolution check off. max_diff= refuses other values, the
+        # long flag and JSON are clamped, with a warning: 0 would keep almost
+        # every frame and silently turn smooth dedup off.
+        maxDiff = int(settings["maxDiff"])
+        settings["maxDiff"] = min(255, max(0, maxDiff))
+        if settings["maxDiff"] != maxDiff:
+            logAndPrint(
+                f"{stage.flagName('smooth_dedup_max_diff')} {maxDiff} is outside "
+                f"0-255; using {settings['maxDiff']}",
+                "yellow",
+            )
 
         # First CUDA guard in this function resolves the shared probe; every
         # later guard below reuses it instead of constructing its own checker.

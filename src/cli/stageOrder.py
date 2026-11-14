@@ -87,10 +87,11 @@ CHILD_FLAGS = {
     "smooth_dedup_method": ("smooth_dedup", "detector", True),
     "smooth_dedup_sens": ("smooth_dedup", "sens", True),
     "smooth_dedup_max_span": ("smooth_dedup", "maxSpan", True),
+    "smooth_dedup_max_diff": ("smooth_dedup", "maxDiff", True),
 }
 
 INTERPOLATE_KEYS = ("method", "factor", "ensemble", "dynamicScale", "staticStep")
-SMOOTH_KEYS = ("detector", "sens", "maxSpan")
+SMOOTH_KEYS = ("detector", "sens", "maxSpan", "maxDiff")
 
 # Settings keys each draft resolves, in a stable order.
 KIND_KEYS = {
@@ -118,7 +119,8 @@ FALLBACK_DEFAULTS = {
     ("interpolate", "staticStep"): False,
     ("smooth_dedup", "detector"): "ssim",
     ("smooth_dedup", "sens"): 35,
-    ("smooth_dedup", "maxSpan"): 6,
+    ("smooth_dedup", "maxSpan"): 4,
+    ("smooth_dedup", "maxDiff"): 40,
 }
 
 # --json keys that configure a stage. Any of them next to "chain" is an error.
@@ -717,6 +719,7 @@ def syncStageGlobals(args, drafts=None):
         s = first["smooth"].settings
         args.smooth_dedup_method = s["detector"]
         args.smooth_dedup_max_span = s["maxSpan"]
+        args.smooth_dedup_max_diff = s["maxDiff"]
         if "threshold" in s:
             args.smooth_dedup_sens = s["threshold"]
             args.smooth_dedup_sens_raw = s["sens"]
@@ -735,6 +738,7 @@ def specsFromDrafts(drafts):
             if draft.smooth:
                 settings["sens"] = float(settings["sens"])
                 settings["maxSpan"] = int(settings["maxSpan"])
+                settings["maxDiff"] = int(settings["maxDiff"])
         elif draft.kind == "upscale":
             settings["factor"] = int(settings["factor"])
             settings["customModel"] = settings["customModel"] or ""

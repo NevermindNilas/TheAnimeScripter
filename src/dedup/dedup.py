@@ -571,3 +571,79 @@ class DedupFlownetSROCm(DedupFlownetS):
             self.prevFrame.copy_(frame, non_blocking=True)
 
         return isDuplicate
+
+
+def reseed(detector, frame) -> None:
+    """Make ``frame`` the detector's reference, as if it had just been kept.
+
+    Every detector above seeds its reference from the first frame it sees
+    (``prevFrame is None``) and reports it as not a duplicate, so clearing the
+    reference and calling it once re-seeds it in that detector's own format.
+    """
+    detector.prevFrame = None
+    detector(frame)
+
+
+class PixelDiffGuard:
+    """Vetoes a duplicate verdict when any pixel changed more than ``maxDiff``.
+
+    The detectors score a small downsample of the frame (224x224), so a local
+    change -- a mouth flap, a blink, a HUD element appearing -- scores as a
+    duplicate, and ``--smooth_dedup`` would replace that real drawing with an
+    interpolated one. This compares the full-resolution frame with the last
+    kept one and keeps the frame when its largest per-pixel difference, on an
+    8-bit scale, is above ``maxDiff`` (DDFI's rule; 255 never vetoes). Only
+    frames the detector already called duplicates are checked.
+
+    The largest pixel, not an area average: in a dark scene a real new mouth
+    shape can clear the limit at a single pixel, while the rest of it changes
+    by 20-35 levels. A lone noise pixel above the limit therefore keeps a true
+    duplicate now and then (about 1% of frames on a 1080p H.264 anime clip),
+    which only costs that gap some smoothness; averaging would drop real
+    drawings instead.
+
+    On a veto the detector is re-seeded on the kept frame, so it and the guard
+    keep comparing against the same frame.
+    """
+
+    def __init__(self, detector, maxDiff):
+        self.detector = detector
+        # Half a level of slack keeps the limit inclusive for float frames:
+        # they are uint8 / 255, so a change of exactly maxDiff levels can land
+        # a rounding error above maxDiff / 255.
+        self.maxDiff = (float(maxDiff) + 0.5) / 255.0
+        self.reference = None
+
+    @property
+    def lastReusableScore(self):
+        # The scene-cut detector reuses this score when it directly follows the
+        # duplicate detector; a vetoed frame leaves none (the re-seed clears it).
+        return getattr(self.detector, "lastReusableScore", None)
+
+    def __call__(self, frame):
+        isDuplicate = bool(self.detector(frame))
+        if isDuplicate and self.reference is not None:
+            if self._largestChange(frame) <= self.maxDiff:
+                return True
+            reseed(self.detector, frame)
+        self._keep(frame)
+        return False
+
+    def _largestChange(self, frame) -> float:
+        reference = self.reference
+        if frame.is_floating_point():
+            return (frame - reference).abs().amax().item()
+        white = torch.iinfo(frame.dtype).max
+        return (frame.int() - reference.int()).abs().amax().item() / white
+
+    def _keep(self, frame) -> None:
+        reference = self.reference
+        if (
+            reference is None
+            or reference.shape != frame.shape
+            or reference.dtype != frame.dtype
+            or reference.device != frame.device
+        ):
+            self.reference = frame.clone()
+        else:
+            reference.copy_(frame)

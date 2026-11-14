@@ -59,6 +59,7 @@ _STAGE_ATTRIBUTES = {
         "smoothDedupMethod",
         "smoothDedupSens",
         "smoothDedupMaxSpan",
+        "smoothDedupMaxDiff",
     ),
 }
 _ALL_STAGE_ATTRIBUTES = frozenset(
@@ -96,6 +97,7 @@ def stageSettings(unit) -> dict:
             "smoothDedupMethod": settings["detector"],
             "smoothDedupSens": settings["threshold"],
             "smoothDedupMaxSpan": int(settings["maxSpan"]),
+            "smoothDedupMaxDiff": int(settings["maxDiff"]),
         }
     return {}
 
@@ -209,9 +211,17 @@ def initializeModels(self, plan):
 
             from src.factories.dedup import buildDedupProcess
 
-            drivers[name] = buildDedupProcess(
+            detector = buildDedupProcess(
                 view, method, sens, width=unit.inWidth, height=unit.inHeight
             )
+            if smooth and view.smoothDedupMaxDiff < 255:
+                # The detectors score a 224px downsample; a dropped frame would
+                # be replaced by an interpolated one, so a small local change
+                # (a mouth flap) must veto the verdict at full resolution.
+                from src.dedup.dedup import PixelDiffGuard
+
+                detector = PixelDiffGuard(detector, view.smoothDedupMaxDiff)
+            drivers[name] = detector
 
         elif kind == "scenechange":
             _announce(f"Initializing scene-cut detector: {self.sceneChangeMethod}...")
