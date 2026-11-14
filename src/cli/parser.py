@@ -45,6 +45,16 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def resampleCount(value):
+    """--interpolate_resample's converter: a whole number of passes, 0-6."""
+    from src.cli.stageValues import resamplePasses
+
+    try:
+        return resamplePasses(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
+
+
 def encodeMethodName(value):
     """--encode_method's converter: name the replacement for a removed name.
 
@@ -572,7 +582,7 @@ def _addInterpolationOptions(argParser):
     interpolationGroup.add_argument(
         "--interpolate",
         help="Interpolate. Values: a method (rife4.26), a factor (2x, 2.5x or 2), "
-        "ensemble, dynamic_scale, static_step, or method=/factor=. Repeat it to "
+        "ensemble, dynamic_scale, static_step, resample=N, or method=/factor=. Repeat it to "
         "interpolate again; a repeat without values reuses the previous one's "
         "settings. Where it is typed is where it runs",
         **stageFlag("interpolate"),
@@ -726,6 +736,21 @@ def _addInterpolationOptions(argParser):
         "--static_step",
         help="Force Static Timestep generation for Rife CUDA",
         **childFlag(flag=True),
+    )
+    interpolationGroup.add_argument(
+        "--interpolate_resample",
+        type=resampleCount,
+        nargs="?",
+        const=2,
+        default=0,
+        metavar="PASSES",
+        help="Re-time held drawings (anime on twos/threes) without duplicate "
+        "detection: each pass replaces every frame by the flow midpoint of it and "
+        "its neighbour. 2 for twos, 3 for threes, 0-6; alone it means 2 (inline: "
+        "resample=N, or resample). Only on the first interpolation, not with "
+        "--smooth_dedup or a --dedup before it. Binds to the last --interpolate "
+        "typed before it; never adds a stage",
+        **childFlag(),
     )
 
 

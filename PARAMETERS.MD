@@ -370,6 +370,7 @@ Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is 
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
 | `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, ROCm, MPS); ignored by `rife_elexor` and `distildrba` |
+| `--interpolate_resample` | int | 0 | 0-6 | **Resample held drawings** (inline: `resample=N`; bare `resample` or the flag alone = 2) — re-times every frame to the flow midpoint of its neighbours, N passes, removing the judder of anime on twos (2 passes; 3 reduce threes) without duplicate detection. First interpolation only; not with `--smooth_dedup` or a `--dedup` before it; never adds a stage. See [Resampling](#-resampling-re-timing-held-drawings) |
 
 > **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
@@ -517,6 +518,61 @@ Works alongside `--upscale` (either pipeline order), a second interpolation (`--
 > and the default of 35 also swallows slow *real* motion, merging real movement into the duplicate
 > runs. It cannot tell slowdown duplicates from intentional animation holds (twos/threes), so
 > motion comes out fully smoothed.
+
+### 🔁 Resampling (re-timing held drawings)
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `resample=N` on `--interpolate` | int | 0 (off) | 0-6 | **Midpoint passes ahead of the interpolation** — `resample` alone is 2 |
+| `--interpolate_resample [N]` | int | 0 | 0-6 | The same as a long flag (and JSON key); applies to the last `--interpolate` typed before it, or, typed before every one, to the first |
+
+`--smooth_dedup` finds duplicate frames and interpolates across them. Resampling fixes the same
+judder without detecting anything: each pass replaces every frame by the flow midpoint of it and
+its neighbour, so a drawing held for two frames becomes evenly moving. Because it works per pixel,
+it also handles a panning background under a held character, or two characters on different
+cadences, which a whole-frame duplicate detector cannot.
+
+```
+where the motion is (A = 0, B = 1, C = 2), frame by frame:
+source, on 2s:   0     0     1     1     2     2      held: moves every other frame
+after pass 1:    0     0.5   1     1.5   2     2      midpoint of each frame and the next
+after pass 2:    0     0.25  0.75  1.25  1.75  2      midpoint of each frame and the previous:
+                                                       an even half-step every frame
+```
+
+```bash
+# Re-time anime on twos and double the frame rate
+./python.exe ./main.py --input anime.mkv --interpolate rife4.26 2x resample=2 --scenechange
+
+# Resample only: same frame rate and duration, holds removed
+./python.exe ./main.py --input anime.mkv --interpolate rife4.26 1x resample=2 --scenechange
+```
+
+- Two passes remove twos; three passes reduce threes (a faint every-third-frame unevenness
+  remains). Up to 6 for high-frame-rate sources (a 24 fps drawing on twos is held ~5 frames at
+  60 fps).
+- Resampling keeps the frame count, so the frame rate, duration and audio are unchanged; the
+  factor alone sets the output rate (`1x` = resample only). An odd pass count puts the picture
+  half a source frame ahead of the audio (about 21 ms at 24 fps); even counts cancel out. The
+  first and last frame or two of each shot are approximate.
+- Costs: every output frame is an interpolated one, so content animated on ones loses some
+  detail, and quality depends on the interpolation model. Each pass keeps one more model in
+  VRAM, ~330 MB at 720p with `rife4.26`, and costs about one extra model run per source frame.
+  On `-ncnn` backends each pass is an 8-bit round
+  trip, so a 10/16-bit source is quantized once per pass; they are limited to 2 passes.
+- Use `--scenechange`: without it every pass morphs across hard cuts, so each cut becomes a short
+  cross-fade (TAS warns).
+- Only the first interpolation may resample, and only once per run: it cannot be combined with
+  `--smooth_dedup` (pick one) or with a `--dedup` before it. `maxine-*` is refused (each pass needs
+  its own instance, which is unverified for Maxine), and so is `distildrba*`: DRBA keeps the
+  source's timing by design, so its passes leave held drawings held (2 passes on a 3s clip: 52%
+  of animated frames still held vs 6% with `rife4.26`). Use RIFE to resample, DistilDRBA to keep
+  the original pacing. `--mask` protects resampled frames too;
+  `--slowmo`, `--upscale`, `--restore` and `--resize` work as usual. Ignored by the standalone
+  operations (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`).
+- The startup order line shows the passes: `interpolate rife4.26 2x resample 2`. The output name
+  gains `-Resample2`.
+- Based on SVFI's spatiotemporal resampling (MultiPassDedup, MIT).
 
 ### 🔧 Restoration & Enhancement
 
@@ -996,7 +1052,7 @@ A stage flag takes zero or more values, up to the next option. The `=` form (`--
 | `--dedup` | a dedup method | - | sensitivity | sensitivity | - | `method=`, `sens=` | - |
 | `--restore` | one or more restore methods, run in the order given (one stage) | - | - | - | - | `method=` (repeatable) | - |
 | `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
-| `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=` | `ensemble`, `dynamic_scale`, `static_step` |
+| `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=`, `resample=` | `ensemble`, `dynamic_scale`, `static_step`, `resample` (= `resample=2`) |
 | `--smooth_dedup` | an interpolation method or a detection method | factor | sensitivity | **error**: ambiguous, write `2x` or `40%` | - | the interpolate keys, `detector=`, `sens=`, `max_span=`, `max_diff=` | as `--interpolate` |
 | `--resize` | - | scale | scale (`50%` = 0.5) | scale below 16; 16 or more is an **error**: ambiguous, write `1080p` or `1080x` | `WxH`, `Np`, `4k`, `8k` | `size=`, `scale=` | - |
 
@@ -1004,7 +1060,7 @@ A `-` means that form is an error for that stage.
 
 - **Method names** match exactly and are always one value. `--interpolate rife 4.26` is an error ("did you mean 'rife4.26'"), never "rife" plus a factor of 4.26. `--smooth_dedup` tells an interpolation method from a detection method by name; the two lists never overlap.
 - **Factors** are written `2x`, `x2`, `2.5x` (the `x` is case-insensitive). Numbers are plain decimals: `1e3`, `inf`, `nan`, `1_000` and signed values such as `-2x` are refused.
-- **Ranges** are checked per stage: sensitivity 0-100 (a value on the stage flag; `--dedup_sens` and `--smooth_dedup_sens` accept what they always did), upscale factor 2, 3 or 4, interpolation factor at least 1 (1 only does something on `--smooth_dedup`).
+- **Ranges** are checked per stage: sensitivity 0-100 (a value on the stage flag; `--dedup_sens` and `--smooth_dedup_sens` accept what they always did), upscale factor 2, 3 or 4, interpolation factor at least 1 (1 only does something on `--smooth_dedup` or with `resample=`), `resample=` 0-6 passes. A bare number right after the word `resample` (`resample 3`) is an error: write `resample=3` for passes or `3x` for the factor.
 - **Bool settings** are a bare word (`ensemble`) or `ensemble=true` / `ensemble=false` (also `yes`/`no`, `1`/`0`).
 - **One setting per flag:** `--interpolate 2x 4x` or `--upscale span method=cyte` is an error. The same value twice is fine. To run a second stage, type the flag again.
 - **Custom models:** a value containing `/` or `\`, or ending in `.pt`, `.pth`, `.ckpt`, `.safetensors` or `.onnx`, is a custom model path for `--upscale` and must exist (`model=PATH` does the same). Quote paths with spaces.
@@ -1032,18 +1088,19 @@ A `-` means that form is an error for that stage.
 - A repeat inherits what the previous stage asked for, and each stage is then checked on its own: in `--interpolate rife4.26-tensorrt --dynamic_scale --interpolate rife4.26`, `dynamic_scale` is dropped (with a warning) on the TensorRT stage and kept on the second.
 - A plain `--interpolate` after a `--smooth_dedup` that has values of its own reuses its interpolation settings (method, factor, `ensemble`, ...), not its detection settings.
 - A repeated `--restore` reuses the whole method list.
+- `resample=` does not carry over: only the first interpolation may resample (`--interpolate rife4.26 resample=2 --interpolate 2x` resamples once, then interpolates twice).
 - An `--upscale` that names its own method does not reuse a previous custom model.
 - Each stage loads its own model, so VRAM adds up.
 - Stages are named `upscale`, `upscale#2`, ... in the log; error messages say `upscale #2 (span)`.
-- The output name repeats the kind's suffix in chain order: `--interpolate --interpolate 3x` gives `-Int2-Int3`, and a resize adds its target (`-Resize1440p`).
+- The output name repeats the kind's suffix in chain order: `--interpolate --interpolate 3x` gives `-Int2-Int3`, a resize adds its target (`-Resize1440p`) and a resampling stage its passes (`-Resample2`).
 
 ### Long flags
 
-`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step` and `--smooth_dedup_method`/`_sens`/`_max_span`/`_max_diff` keep working:
+`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step`, `--interpolate_resample` and `--smooth_dedup_method`/`_sens`/`_max_span`/`_max_diff` keep working:
 
 - A long flag applies to the **last stage of its kind typed before it**. `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale` and `--static_step` apply to the last `--interpolate` or `--smooth_dedup`; `--smooth_dedup_method`, `--smooth_dedup_sens`, `--smooth_dedup_max_span` and `--smooth_dedup_max_diff` apply only to `--smooth_dedup`; `--custom_model` applies to `--upscale`.
-- Typed **before every stage of its kind**, it is the default for all of them. Typed there twice, the last one wins, as before.
-- With **no stage of its kind** at all, a method, factor or sensitivity flag adds one stage where it is typed, as before: `--upscale_method span` alone upscales. `--custom_model`, `--ensemble`, `--dynamic_scale` and `--static_step` never add a stage.
+- Typed **before every stage of its kind**, it is the default for all of them (`--interpolate_resample`: for the first interpolation only). Typed there twice, the last one wins, as before.
+- With **no stage of its kind** at all, a method, factor or sensitivity flag adds one stage where it is typed, as before: `--upscale_method span` alone upscales. `--custom_model`, `--ensemble`, `--dynamic_scale`, `--static_step` and `--interpolate_resample` never add a stage (`--interpolate_resample` with no interpolation warns and is ignored).
 - A long flag that disagrees with a value given on its stage, or with another long flag applied to the same stage, is an error. Equal values are fine.
 - **Precedence** for each setting: a value on the stage flag > a long flag applied to that stage > the previous stage of the same kind > a long flag typed before every stage of its kind > the built-in default.
 
@@ -1067,7 +1124,7 @@ A `-` means that form is an error for that stage.
 ### Order notes
 
 - `--scenechange` is a modifier, not a stage. It runs before the first upscale or interpolation (a resize does not count).
-- `--dedup` after an interpolation still runs, with a warning: it discards most of the frames interpolated across held drawings.
+- `--dedup` after an interpolation still runs, with a warning: it discards most of the frames interpolated across held drawings. A `1x` interpolation inserts no frames, so it gets no warning.
 - A stage after `--upscale` (or an enlarging `--resize`) works on the larger frames, and a stage after `--interpolate` works on every interpolated frame. `--dedup flownets` after an N× upscale compares flow in upscaled pixels, so its sensitivity is about N× stricter.
 - The output frame rate is the source rate times every interpolation factor (`--interpolate --interpolate 3x` = 6x); `--slowmo` keeps the source rate.
 - Motion blur, depth, segmentation, object detection, stabilization and autoclip run outside the frame loop and have no place in the chain.
@@ -1102,6 +1159,9 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 
 # Interpolate twice: 2x, then 3x on the result (6x in total)
 ./python.exe ./main.py --input in.mp4 --interpolate rife4.26 --interpolate 3x
+
+# Re-time anime on twos without duplicate detection (resample only, same frame rate), then double it
+./python.exe ./main.py --input in.mp4 --interpolate rife4.26 1x resample=2 --scenechange --interpolate 2x
 
 # Smooth the motion of anime on twos (2x), then double it again: 4x the source frame rate
 ./python.exe ./main.py --input in.mp4 --smooth_dedup rife4.26 --interpolate 2x
@@ -1141,6 +1201,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 
 - `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `dedup*`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`half`, `slowmo`, `scenechange`, encode options, ...) are fine.
 - An empty list means no frame-loop stages. A non-string or empty entry, or an unknown stage name, is an error naming the entry's index (`"chain"[2]`).
+- `"interpolate_resample"` configures the first interpolation, the smooth-dedup one included, where it is an error. A front end must send `0` (or leave the key out) while `--smooth_dedup` is selected; with no interpolation at all a non-zero value only warns.
 - Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"` and `"resize_factor"` were removed and stop with a message.
 
 > A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.

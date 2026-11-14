@@ -528,11 +528,14 @@ class VideoProcessor:
         pipeline = None
 
         maskedSinkFactory = None
-        if self.maskPath and self.plan.ofKind("interpolate"):
+        # Resample passes mask too (a 1x resampling stage has no interpolate unit).
+        if self.maskPath and (
+            self.plan.ofKind("interpolate") or self.plan.ofKind("resample")
+        ):
             from src.masking import MaskedSink, ProtectionMask
 
             # One mask (its weight tensors are cached per frame size, device
-            # and dtype), one sink per interpolate stage.
+            # and dtype), one sink per interpolate stage and resample pass.
             mask = ProtectionMask.forRun(
                 self.maskPath, self.fps, self.inpoint, self.outpoint
             )

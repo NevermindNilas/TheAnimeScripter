@@ -228,7 +228,7 @@ def validateSegmentMask(args):
         raise CliValidationError(f"--segment_mask image cannot be read: {first}")
 
 
-def interpolateFactorWarning(rawFactor, smooth, label=None):
+def interpolateFactorWarning(rawFactor, smooth, label=None, resample=0):
     """Reject an interpolation factor below 1; leave 1 and above alone.
 
     Nothing bounded this flag. ``gapPlan`` owes 0 frames for any factor <= 1
@@ -240,7 +240,8 @@ def interpolateFactorWarning(rawFactor, smooth, label=None):
     Factor 1 is deliberately left enabled: on the smooth-dedup stage it is the
     supported path that regenerates each duplicated slot as a true in-between
     at unchanged duration and fps. Disabling interpolation here would silently
-    switch that feature off.
+    switch that feature off. With ``resample`` passes it is "resample only":
+    every frame is re-timed at the source frame rate, so nothing to warn about.
     """
     flag = "the interpolation factor" if label else "--interpolate_factor"
     try:
@@ -266,7 +267,7 @@ def interpolateFactorWarning(rawFactor, smooth, label=None):
             "frame rate, which desynchronizes the audio. To slow footage down "
             "use --slowmo, which keeps the source frame rate."
         )
-    if factor == 1 and not smooth:
+    if factor == 1 and not smooth and not resample:
         return (
             f"{_prefix(label)}{flag} 1 without --smooth_dedup writes the source "
             "frames unchanged; the interpolation model is still loaded."
@@ -278,7 +279,9 @@ def validateInterpolateFactor(args):
     if not getattr(args, "interpolate", False):
         return None
     return interpolateFactorWarning(
-        getattr(args, "interpolate_factor", 2), getattr(args, "smooth_dedup", False)
+        getattr(args, "interpolate_factor", 2),
+        getattr(args, "smooth_dedup", False),
+        resample=getattr(args, "interpolate_resample", 0),
     )
 
 
@@ -358,7 +361,12 @@ def validateStageFactors(drafts):
         label = draft.label if _repeated(drafts, draft) else None
         if draft.kind == "interpolate":
             warnings.append(
-                interpolateFactorWarning(draft.settings["factor"], draft.smooth, label)
+                interpolateFactorWarning(
+                    draft.settings["factor"],
+                    draft.smooth,
+                    label,
+                    resample=draft.settings.get("resample", 0),
+                )
             )
     return [warning for warning in warnings if warning]
 

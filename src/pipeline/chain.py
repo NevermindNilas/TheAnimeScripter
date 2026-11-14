@@ -15,7 +15,10 @@ done before a spec is built, so every key is always present):
 - ``upscale``: ``method`` (str), ``factor`` (int), ``customModel`` (str, "" if
   none).
 - ``interpolate``: ``method`` (str), ``factor`` (float), ``ensemble`` (bool),
-  ``dynamicScale`` (bool), ``staticStep`` (bool). The smooth-dedup instance
+  ``dynamicScale`` (bool), ``staticStep`` (bool), ``resample`` (int, 0-6
+  midpoint passes ahead of the stage, 0 = off; the CLI allows it only on the
+  first interpolation and never on the smooth one; specs built elsewhere may
+  omit it, so the engine reads it with a default of 0). The smooth-dedup instance
   (``smooth=True``) also has ``detector`` (str), ``sens`` (float),
   ``threshold`` (float), ``maxSpan`` (int) and ``maxDiff`` (int, 0-255).
 - ``resize``: ``target``, one of ``("size", width, height)``,

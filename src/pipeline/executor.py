@@ -24,6 +24,13 @@ source position, gap plan, cut holds, ``MaskedSink`` and stream pin. A later
 expander's "source" is the stream the stages before it hand on, so its gaps are
 measured in those frames; only the smooth-dedup expander (always the first)
 widens gaps by dropped duplicates.
+
+Resample passes. A ``ResampleNode`` replaces every frame with the flow midpoint
+of it and a neighbour and keeps the frame count. Passes alternate: a LEAD pass
+writes slot k as mid(k, k+1) and copies the last frame, a LAG pass writes
+mid(k-1, k) and copies the first, so an even number of passes does not shift
+the picture in time. A cut starts and ends a shot like the stream does, so the
+passes never blend two shots and the cut stays on the same slot.
 """
 
 import torch
@@ -402,6 +409,9 @@ class ExpandNode(_Node):
             nextFrame = window.following.frame
 
         prevPos = self.sourcePos
+        # A cut on the very first frame has no previous shot to hold: the driver
+        # still has to be seeded, and the gap before it is the normal first one.
+        isCut = centre.isCut and self._lastFed is not None
         dups = centre.dupsBefore if self.smoothDedup else 0
         curPos = prevPos + 1 + dups
         span = curPos - prevPos
@@ -416,17 +426,12 @@ class ExpandNode(_Node):
             # buffer cached on the common path.
             timesteps = None
         onGrid = sourceOnGrid(gridCur, num, den)
-        holdFromPrev = cutHoldSplit(gridPrev, gridCur, num, den) if centre.isCut else 0
+        holdFromPrev = cutHoldSplit(gridPrev, gridCur, num, den) if isCut else 0
         # A run longer than the cap: the previous drawing holds until the last
         # ``maxSpan`` source frames, and only those are interpolated. The held
         # head and the driven tail together own exactly the gap's slots.
         driveFrames, driveTimesteps = framesToInsert, timesteps
-        if (
-            not centre.isCut
-            and self.smoothDedup
-            and self.maxSpan
-            and span > self.maxSpan
-        ):
+        if not isCut and self.smoothDedup and self.maxSpan and span > self.maxSpan:
             gridSplit = gridCur - self.maxSpan
             holdFromPrev = slotsThrough(gridPrev, gridSplit, num, den)
             driveFrames, driveTimesteps = gapPlan(gridSplit, gridCur, num, den)
@@ -441,7 +446,7 @@ class ExpandNode(_Node):
 
         self._clearMemos()
         try:
-            if centre.isCut:
+            if isCut:
                 fromCurrent = self._emitHeldGap(centre, framesToInsert, holdFromPrev)
                 self.driver.cacheFrameReset(centre.frame)
             else:
@@ -450,7 +455,7 @@ class ExpandNode(_Node):
                 self._drive(centre, nextFrame, driveFrames, driveTimesteps)
                 fromCurrent = 0
             if onGrid:
-                self._emitCentre(centre, curPos, fromCurrent)
+                self._emitCentre(centre, curPos, fromCurrent, isCut)
             self._flushCollected()
         finally:
             self._collected.clear()
@@ -497,10 +502,10 @@ class ExpandNode(_Node):
         else:
             self.driver(centre.frame, sink, framesToInsert, timesteps)
 
-    def _emitCentre(self, centre, curPos, fromCurrent) -> None:
+    def _emitCentre(self, centre, curPos, fromCurrent, isCut) -> None:
         # The centre opens the new shot only when no copy of the new frame came
         # before it; otherwise the first copy did.
-        isCut = centre.isCut and fromCurrent == 0
+        isCut = isCut and fromCurrent == 0
         cacheKey = centre if fromCurrent else None
         self._emit(
             FrameSlot(
@@ -591,6 +596,134 @@ class ExpandNode(_Node):
         ) // self.factorDen
         self.sourcePos = endPos
         return owed
+
+
+class _PassSink:
+    """Collects what a resample pass's driver emits for one call."""
+
+    __slots__ = ("frames",)
+
+    def __init__(self):
+        self.frames = []
+
+    def put(self, frame) -> None:
+        self.frames.append(frame)
+
+
+class ResampleNode(_Node):
+    """One resample pass: every frame becomes a flow midpoint, the count is kept.
+
+    The driver is called once per input frame, exactly as an expander calls it
+    with one frame per gap (``(1, None)`` is t=0.5): the first frame seeds it, a
+    cut re-anchors it (``cacheFrameReset``, so no pair spans two shots), and
+    every other frame yields mid(previous, frame). Output slot k always carries
+    input slot k's metadata:
+
+    - LAG (``lead=False``): slot k = mid(k-1, k); a shot's first frame is
+      written as is.
+    - LEAD (``lead=True``): slot k = mid(k, k+1); a shot's last frame is written
+      as is, at the next cut or at the end of the stream.
+
+    A midpoint is handed on only after the driver returns (never from inside its
+    ``put``), clamped to [0, 1] out of place because the next pass feeds it to a
+    model again. A frame written as is is forwarded once and never modified, so
+    it is not copied. With a mask, protected pixels of slot k come from input
+    slot k, so they stay on their source frame through every pass.
+    """
+
+    def __init__(
+        self, name, driver, lead, downstream, *, maskedSink=None, outShape=(0, 0)
+    ):
+        past, future = getattr(driver, "temporalWindow", (0, 0))
+        super().__init__(name, (past, future), downstream, outShape)
+        self.driver = driver
+        self.lead = bool(lead)
+        self.maskedSink = maskedSink
+        # A driver that declares a future neighbour is handed it as an argument.
+        self.takesNext = future > 0
+        self._sink = _PassSink()
+        self._fed = False
+        self._previous = None  # the last input slot (the driver's anchor)
+        self._pending = None  # LEAD: the input slot whose output is still owed
+        self._emitted = 0
+
+    def _run(self, window) -> None:
+        slot = window.centre
+        nextFrame = None
+        if self.takesNext and window.following is not None:
+            nextFrame = window.following.frame
+        if not self._fed:
+            # Seed even if the first slot is flagged a cut: RIFE's
+            # cacheFrameReset keeps firstRun, which would swallow the next pair.
+            self._call(slot, nextFrame, None, None, expected=0)
+            self._fed = True
+            if not self.lead:
+                self._forward(slot.frame, slot, slot.gapPositions)
+        elif slot.isCut:
+            self.driver.cacheFrameReset(slot.frame)
+            ended = self._pending if self.lead else slot
+            self._forward(ended.frame, ended, ended.gapPositions)
+        else:
+            owner = self._pending if self.lead else slot
+            positions = None
+            if self.maskedSink is not None:
+                # The midpoint's pixels come from both frames of the pair.
+                positions = tuple(
+                    sorted({*_slotPositions(self._previous), *_slotPositions(slot)})
+                )
+            midpoint = self._call(slot, nextFrame, owner, positions, expected=1)
+            out = midpoint.clamp(0, 1)
+            _syncAfter(out)
+            self._forward(out, owner, positions)
+        self._previous = slot
+        if self.lead:
+            self._pending = slot
+
+    def end(self) -> None:
+        for window in self.ring.flush():
+            self._run(window)
+        if self.lead and self._pending is not None:
+            last = self._pending
+            self._pending = None
+            self._forward(last.frame, last, last.gapPositions)
+        self.downstream.end()
+
+    def _call(self, slot, nextFrame, owner, positions, *, expected: int):
+        """Run the driver for ``slot``; return the one midpoint (``expected=1``).
+
+        With a mask, ``owner`` (the input slot the output is written for) is the
+        pristine frame whose protected pixels the midpoint keeps.
+        """
+        frames = self._sink.frames
+        frames.clear()
+        sink = self._sink
+        if self.maskedSink is not None and owner is not None:
+            sink = self.maskedSink.bind(sink, owner.frame, positions)
+        if self.takesNext:
+            self.driver(slot.frame, nextFrame, sink, 1, None)
+        else:
+            self.driver(slot.frame, sink, 1, None)
+        if len(frames) != expected:
+            raise RuntimeError(
+                f"the {self.name} stage expected {expected} frame(s) from its "
+                f"interpolation driver for one call, got {len(frames)}"
+            )
+        if not expected:
+            return None
+        # Not kept here: the raw midpoint would stay alive until the next call
+        # (a frame per pass that no ring count includes).
+        midpoint = frames[0]
+        frames.clear()
+        return midpoint
+
+    def _forward(self, frame, owner, positions) -> None:
+        # A cut before the stream's first frame means nothing, and an expander
+        # downstream must not treat its first frame as a held gap.
+        isCut = owner.isCut and self._emitted > 0
+        self._emitted += 1
+        self.downstream.put(
+            FrameSlot(frame, isCut, 0, owner.sourcePos, True, None, positions)
+        )
 
 
 class _Terminal:
@@ -713,6 +846,16 @@ class Pipeline:
                 downstream,
                 smoothDedup=smooth,
                 smoothDedupMaxSpan=int(spec["maxSpan"]) if smooth else 0,
+                maskedSink=maskedSinkFactory() if maskedSinkFactory else None,
+                outShape=outShape,
+            )
+        if kind == "resample":
+            # Pass 1 leads, pass 2 lags, ...: an even count cancels the shift.
+            return ResampleNode(
+                name,
+                drivers[name],
+                unit.passIndex % 2 == 1,
+                downstream,
                 maskedSink=maskedSinkFactory() if maskedSinkFactory else None,
                 outShape=outShape,
             )
@@ -853,5 +996,6 @@ __all__ = [
     "MapNode",
     "AnnotateNode",
     "Pipeline",
+    "ResampleNode",
     "Resize",
 ]

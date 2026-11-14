@@ -32,6 +32,8 @@ def _releaseBuildCache():
 _BUILD_ORDER = {
     "upscale": 0,
     "interpolate": 1,
+    # A resampling stage's passes build with it, before it (chain order).
+    "resample": 1,
     "restore": 2,
     "dedup": 3,
     "smooth-dedup": 3,
@@ -62,6 +64,13 @@ _STAGE_ATTRIBUTES = {
         "smoothDedupMaxDiff",
     ),
 }
+# A resample pass runs the interpolate stage's model under the same names.
+_STAGE_ATTRIBUTES["resample"] = _STAGE_ATTRIBUTES["interpolate"]
+# A resample pass is a 2x driver that never writes its centre: one frame at
+# t=0.5 per pair. Built at the stage's own factor, RifeCuda would leave its
+# CUDA graph at 1x (encoder-head arches) or with --dynamic_scale at any factor
+# but 2, and arm its encoder-refresh counter for the wrong cadence.
+RESAMPLE_DRIVER_FACTOR = 2
 _ALL_STAGE_ATTRIBUTES = frozenset(
     name for names in _STAGE_ATTRIBUTES.values() for name in names
 )
@@ -77,13 +86,22 @@ def stageSettings(unit) -> dict:
             "upscaleFactor": int(settings["factor"]),
             "customModel": settings.get("customModel") or None,
         }
-    if kind == "interpolate":
+    if kind in ("interpolate", "resample"):
+        from src.pipeline.planner import resampleCount
+
+        resample = kind == "resample"
         return {
             "interpolateMethod": settings["method"],
-            "interpolateFactor": settings["factor"],
+            "interpolateFactor": (
+                RESAMPLE_DRIVER_FACTOR if resample else settings["factor"]
+            ),
             "ensemble": bool(settings.get("ensemble", False)),
             "dynamicScale": bool(settings.get("dynamicScale", False)),
             "staticStep": bool(settings.get("staticStep", False)),
+            # 1-based pass number (0 for the interpolation itself) and the
+            # stage's pass count, for the factory's log line.
+            "resamplePass": unit.passIndex if resample else 0,
+            "resamplePasses": resampleCount(unit.spec),
         }
     if kind == "restore":
         methods = settings["methods"]
@@ -184,8 +202,16 @@ def initializeModels(self, plan):
                 view, width=unit.inWidth, height=unit.inHeight
             )
 
-        elif kind == "interpolate":
-            _announce(f"Initializing interpolation model: {view.interpolateMethod}...")
+        elif kind in ("interpolate", "resample"):
+            if kind == "resample":
+                _announce(
+                    f"Initializing resample pass {view.resamplePass}/"
+                    f"{view.resamplePasses}: {view.interpolateMethod}..."
+                )
+            else:
+                _announce(
+                    f"Initializing interpolation model: {view.interpolateMethod}..."
+                )
 
             from src.factories.interpolate import buildInterpolateProcess
 

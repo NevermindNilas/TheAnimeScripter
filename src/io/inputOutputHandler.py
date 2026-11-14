@@ -280,6 +280,10 @@ def _chainSuffixes(chain):
         if spec.kind == "interpolate":
             suffixes.append(f"-Int{_sanitize(_number(spec['factor']))}")
     for spec in chain:
+        # Only when on: chains without resampling keep their names.
+        if spec.kind == "interpolate" and spec.settings.get("resample", 0):
+            suffixes.append(f"-Resample{spec.settings['resample']}")
+    for spec in chain:
         if spec.kind == "upscale":
             suffixes.append(f"-Up{_sanitize(_number(spec['factor']))}")
     for spec in chain:

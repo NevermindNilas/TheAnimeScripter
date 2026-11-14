@@ -5,6 +5,8 @@ import sys
 import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.stageOrder import (
+    ChildEvent,
+    recordedEvents,
     stageDrafts,
     stageLabel,
     stageOrderWarning,
@@ -281,16 +283,124 @@ _STANDALONE_CAPABILITIES = (
 )
 
 
+# Interpolation methods resample refuses, by name prefix: method -> why.
+_RESAMPLE_REFUSED = {
+    "maxine-": (
+        "Maxine frame generation has not been verified to run as several "
+        "instances at once, and each resample pass needs its own"
+    ),
+    # Measured on a 3s anime clip: 2 passes leave 52% of frames in animated
+    # stretches held (source 53%; rife4.26: 6%). DRBA keeps the original
+    # timing by design, so its "midpoint" of a held pair stays on the hold.
+    "distildrba": (
+        "DistilDRBA keeps the source's timing, so a pass leaves held drawings "
+        "held; resample with a RIFE model instead, e.g. --interpolate rife4.26 "
+        "resample=2"
+    ),
+}
+# Backends that round every pass to 8 bits: drift grows with each pass.
+_RESAMPLE_8BIT_SUFFIXES = ("-ncnn",)
+_RESAMPLE_8BIT_MAX_PASSES = 2
+
+
+def _resampleLabel(spec, chain):
+    """``interpolate (rife4.26)`` when the chain has one interpolation, else
+    ``interpolate #2 (rife4.26)`` / ``smooth_dedup (rife4.26)``."""
+    single = sum(1 for other in chain if other.kind == "interpolate") == 1
+    if single and not spec.smooth:
+        return f"interpolate ({spec['method']})"
+    return stageLabel(spec)
+
+
+def _checkResample(args):
+    """The resample rules (one hold-fixer per run, the first interpolation
+    only), on the final chain and after the backend fallback, so a refused
+    method is judged on the backend that will run. Raises
+    :class:`CliValidationError`; prints the scene-cut and no-stage warnings.
+    """
+    chain = args.chain
+    interpolations = [spec for spec in chain if spec.kind == "interpolate"]
+    if not interpolations:
+        for event in recordedEvents(args):
+            if (
+                isinstance(event, ChildEvent)
+                and event.key == "resample"
+                and not event.default
+                and event.value
+            ):
+                logAndPrint(
+                    f"{event.flag} {event.value} has no interpolation stage to "
+                    "apply to; ignoring it. Add --interpolate (e.g. --interpolate "
+                    f"rife4.26 1x resample={event.value} to resample at the "
+                    "source frame rate).",
+                    "yellow",
+                )
+                break
+        return
+
+    smooth = any(spec.smooth for spec in interpolations)
+    for spec in interpolations:
+        passes = spec.settings.get("resample", 0)
+        if not passes:
+            continue
+        label = _resampleLabel(spec, chain)
+        if smooth:
+            raise CliValidationError(
+                f"{label}: resample={passes} cannot be combined with "
+                "--smooth_dedup. Both fix motion held on twos or threes: "
+                "--smooth_dedup detects the duplicate frames and interpolates "
+                "across them, resample re-times every frame without detecting "
+                "anything. Use one of them."
+            )
+        if spec is not interpolations[0]:
+            raise CliValidationError(
+                f"{label}: resample={passes} is only allowed on the first "
+                "interpolation, the one that still sees the source's held "
+                f"drawings, and {_resampleLabel(interpolations[0], chain)} comes "
+                "before it. Put resample= on the first --interpolate."
+            )
+        before = chain[: chain.index(spec)]
+        dedup = next((other for other in before if other.kind == "dedup"), None)
+        if dedup is not None:
+            raise CliValidationError(
+                f"{label}: resample={passes} needs the source's held frames, but "
+                f"{stageLabel(dedup)} before it removes them. Remove --dedup: "
+                "resample handles held drawings without it."
+            )
+        method = spec["method"]
+        for prefix, reason in _RESAMPLE_REFUSED.items():
+            if method.startswith(prefix):
+                raise CliValidationError(
+                    f"{label}: resample is not supported by {method}: {reason}."
+                )
+        if (
+            method.endswith(_RESAMPLE_8BIT_SUFFIXES)
+            and passes > _RESAMPLE_8BIT_MAX_PASSES
+        ):
+            raise CliValidationError(
+                f"{label}: {method} rounds every pass to 8 bits, so resample is "
+                f"limited to {_RESAMPLE_8BIT_MAX_PASSES} passes there (got "
+                f"{passes})."
+            )
+        if not getattr(args, "scenechange", False):
+            logAndPrint(
+                f"{label}: resample morphs across scene cuts; add --scenechange "
+                "to hold at cuts.",
+                "yellow",
+            )
+
+
 def _finalizeChain(args):
     """Set ``args.chain``, the per-kind booleans and the first-instance globals.
 
     Must run after :func:`_applyImpliedFlags` and every other enable/disable
     step, because it reads the final state. Also prints the one order warning
-    (a dedup stage after an interpolate stage). Raises
+    (a dedup stage after an interpolate stage) and the resample warnings. Raises
     :class:`CliValidationError` for a standalone capability given more than
     one ``--resize``, a single-instance backend used twice, an upscale stage
-    whose model cannot produce its factor (``span 4x``), and an NCNN upscale
-    stage whose package is not installed.
+    whose model cannot produce its factor (``span 4x``), an NCNN upscale
+    stage whose package is not installed, and a resample= the chain cannot
+    run (:func:`_checkResample`).
     """
     drafts = stageDrafts(args)
     if drafts is None:
@@ -308,6 +418,8 @@ def _finalizeChain(args):
             f"--{standalone} runs outside the frame loop and takes at most one "
             f"--resize (the decoder applies it); got {len(resizes)}."
         )
+
+    _checkResample(args)
 
     # A backend that cannot run as two live instances: refused here, naming
     # the stages, rather than when the second driver is built.

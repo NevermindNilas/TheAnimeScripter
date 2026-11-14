@@ -7,7 +7,7 @@ classified on its own, so their order is free. The order of the checks is:
 1. ``key=value`` with a key the kind knows (bool keys also stand alone);
 2. a method name (exact match);
 3. a bool word (interpolate and smooth_dedup): ``ensemble``, ``dynamic_scale``,
-   ``static_step``;
+   ``static_step``; and ``resample`` alone, which means ``resample=2``;
 4. a size (resize only): ``WxH``, ``Np``, ``4k``, ``8k``;
 5. a factor ``Nx`` / ``xN``;
 6. a percent ``N%``;
@@ -34,12 +34,19 @@ MODEL_EXTENSIONS = (".pt", ".pth", ".ckpt", ".safetensors", ".onnx")
 
 BOOL_KEYS = ("ensemble", "dynamic_scale", "static_step")
 
+# resample=N: midpoint passes that re-time held drawings (0 = off). The bare
+# word means the common case, animation on twos.
+RESAMPLE_MAX_PASSES = 6
+RESAMPLE_WORD_PASSES = 2
+_RESAMPLE_HINT = "(2 for animation on twos, 3 for threes)"
+
 _INTERPOLATE_KEYS = {
     "method": "method",
     "factor": "factor",
     "ensemble": "ensemble",
     "dynamic_scale": "dynamicScale",
     "static_step": "staticStep",
+    "resample": "resample",
 }
 
 # key typed by the user -> settings key on the StageSpec.
@@ -67,6 +74,7 @@ SETTING_NAMES = {
     "ensemble": "ensemble",
     "dynamicScale": "dynamic_scale",
     "staticStep": "static_step",
+    "resample": "resample",
     "detector": "detector",
     "sens": "sens",
     "maxSpan": "max_span",
@@ -102,12 +110,12 @@ ACCEPTS = {
     ),
     "interpolate": (
         "an interpolation method, a factor (2x, 2.5x or 2), ensemble, "
-        "dynamic_scale, static_step, method=, factor="
+        "dynamic_scale, static_step, resample, method=, factor=, resample="
     ),
     "smooth_dedup": (
         "an interpolation method, a detection method, a factor (2x), a "
         "sensitivity (40%), ensemble, dynamic_scale, static_step, method=, "
-        "factor=, detector=, sens=, max_span=, max_diff="
+        "factor=, detector=, sens=, max_span=, max_diff=, resample="
     ),
     "resize": (
         "a size (1920x1080, 1440p, 4k, 8k) or a scale (0.5, 0.5x, 50%), size=, scale="
@@ -319,6 +327,40 @@ def _modelPath(label, text):
     return path
 
 
+def resamplePasses(value, shown=None):
+    """A resample pass count, 0 to ``RESAMPLE_MAX_PASSES``, from the text of
+    ``resample=N``, ``--interpolate_resample N`` or a JSON value.
+
+    Raises ``ValueError`` with a message that quotes ``shown`` (the value as
+    the user wrote it) and says it is a number of passes, so ``2x`` is not
+    read as a factor typo.
+    """
+    shown = str(value) if shown is None else shown
+    number = None
+    if isinstance(value, str):
+        text = value.strip()
+        if text.lower() == "auto":
+            raise ValueError(
+                f"'{shown}' is not supported; give the number of passes: 2 for "
+                "animation on twos, 3 for threes."
+            )
+        if re.fullmatch(r"\d+", text):
+            number = int(text)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        number = value
+    if number is None or number < 0:
+        raise ValueError(
+            f"'{shown}' must be a whole number of passes from 0 to "
+            f"{RESAMPLE_MAX_PASSES} {_RESAMPLE_HINT}."
+        )
+    if number > RESAMPLE_MAX_PASSES:
+        raise ValueError(
+            f"'{shown}' is too many passes; use 0 to {RESAMPLE_MAX_PASSES} "
+            f"{_RESAMPLE_HINT}."
+        )
+    return number
+
+
 def _str2bool(label, key, text):
     from src.cli.parser import str2bool
 
@@ -369,6 +411,11 @@ def _parseKeyed(kind, label, key, text, context):
                 f"{label}: 'max_span={text}' must be a whole number of frames."
             )
         return settingsKey, int(text)
+    if key == "resample":
+        try:
+            return settingsKey, resamplePasses(text, f"resample={text}")
+        except ValueError as error:
+            raise StageChainError(f"{label}: {error}") from None
     if key == "max_diff":
         if not re.match(r"^\d+$", text) or int(text) > 255:
             raise StageChainError(
@@ -447,6 +494,8 @@ def classifyValue(kind, value, label, context, neighbours=()):
         close = difflib.get_close_matches(key, list(KEYS[kind]), n=1, cutoff=0.6)
         if close:
             message += f" Did you mean '{close[0]}='?"
+        if key == "resample":
+            message += " resample= is an --interpolate setting."
         raise StageChainError(message)
 
     # 2. a method name
@@ -457,6 +506,8 @@ def classifyValue(kind, value, label, context, neighbours=()):
     # 3. bool words
     if kind in ("interpolate", "smooth_dedup") and value in BOOL_KEYS:
         return KEYS[kind][value], True
+    if kind in ("interpolate", "smooth_dedup") and value == "resample":
+        return "resample", RESAMPLE_WORD_PASSES
 
     # 4-7. size, factor, percent, bare number
     form, number = detectForm(value)
@@ -523,6 +574,23 @@ def classifyValue(kind, value, label, context, neighbours=()):
     )
 
 
+def _refuseCountAfterResampleWord(kind, values, label):
+    """``resample 3`` reads as two values, ``resample`` (2 passes) and a factor
+    of 3, which is surely not what was meant. A bare number right after the bare
+    word is refused; ``resample=3`` and ``3x`` say which."""
+    if kind not in ("interpolate", "smooth_dedup"):
+        return
+    texts = [str(value).strip() for value in values]
+    for word, following in zip(texts, texts[1:], strict=False):
+        if word == "resample" and detectForm(following)[0] == "number":
+            raise StageChainError(
+                f"{label}: '{following}' after 'resample' is read as an "
+                f"interpolation factor, not a pass count. Write "
+                f"resample={following} for {following} passes, or {following}x "
+                "for the factor."
+            )
+
+
 def classifyOccurrence(kind, values, label, context):
     """Classify every value of one stage occurrence.
 
@@ -557,6 +625,7 @@ def classifyOccurrence(kind, values, label, context):
         raise unknown
     if other is not None:
         raise other
+    _refuseCountAfterResampleWord(kind, values, label)
 
     inline = {}
     texts = {}
@@ -593,6 +662,8 @@ __all__ = [
     "KEYS",
     "MIN_DIMENSION",
     "MODEL_EXTENSIONS",
+    "RESAMPLE_MAX_PASSES",
+    "RESAMPLE_WORD_PASSES",
     "SETTING_NAMES",
     "StageChainError",
     "UnknownStageValue",
@@ -603,4 +674,5 @@ __all__ = [
     "detectForm",
     "kindLabel",
     "looksLikePath",
+    "resamplePasses",
 ]

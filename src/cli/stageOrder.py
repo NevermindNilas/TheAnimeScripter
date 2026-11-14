@@ -25,7 +25,9 @@ stage, in order:
    long flags bound to either side become the merged stage's;
 5. settings resolve per stage: inline value > bound long flag > the previous
    same-kind stage ("sticky") > a pre-stage long-flag default > the built-in
-   default.
+   default. ``resample`` is the exception: it is never sticky, and a pre-stage
+   ``--interpolate_resample`` is the default of the first interpolation only,
+   the one stage that may resample.
 
 The validator then resolves each draft (CUDA fallbacks, sensitivity mapping,
 range checks) and :func:`specsFromDrafts` turns them into ``args.chain``.
@@ -84,13 +86,21 @@ CHILD_FLAGS = {
     "ensemble": ("interpolate", "ensemble", False),
     "dynamic_scale": ("interpolate", "dynamicScale", False),
     "static_step": ("interpolate", "staticStep", False),
+    "interpolate_resample": ("interpolate", "resample", False),
     "smooth_dedup_method": ("smooth_dedup", "detector", True),
     "smooth_dedup_sens": ("smooth_dedup", "sens", True),
     "smooth_dedup_max_span": ("smooth_dedup", "maxSpan", True),
     "smooth_dedup_max_diff": ("smooth_dedup", "maxDiff", True),
 }
 
-INTERPOLATE_KEYS = ("method", "factor", "ensemble", "dynamicScale", "staticStep")
+INTERPOLATE_KEYS = (
+    "method",
+    "factor",
+    "ensemble",
+    "dynamicScale",
+    "staticStep",
+    "resample",
+)
 SMOOTH_KEYS = ("detector", "sens", "maxSpan", "maxDiff")
 
 # Settings keys each draft resolves, in a stable order.
@@ -117,6 +127,7 @@ FALLBACK_DEFAULTS = {
     ("interpolate", "ensemble"): False,
     ("interpolate", "dynamicScale"): False,
     ("interpolate", "staticStep"): False,
+    ("interpolate", "resample"): 0,
     ("smooth_dedup", "detector"): "block",
     ("smooth_dedup", "sens"): 35,
     ("smooth_dedup", "maxSpan"): 4,
@@ -633,6 +644,7 @@ def buildStageDrafts(events, context):
             elif (
                 sticky is not None
                 and key in sticky.settings
+                and key != "resample"
                 and not (
                     key == "customModel"
                     and ("method" in draft.inline or "method" in draft.bound)
@@ -640,8 +652,12 @@ def buildStageDrafts(events, context):
             ):
                 # A stage that names its own upscale method does not inherit a
                 # custom model: the model would silently replace the method.
+                # Resampling is never inherited: only the first interpolation
+                # may resample (src/cli/validator.py:_checkResample).
                 settings[key] = sticky.settings[key]
-            elif (defaultGroup, key) in preDefaults:
+            elif (defaultGroup, key) in preDefaults and not (
+                key == "resample" and counts["interpolate"] > 0
+            ):
                 settings[key] = preDefaults[(defaultGroup, key)]
             elif key == "target":
                 raise StageChainError(BARE_RESIZE_MESSAGE)
@@ -715,6 +731,7 @@ def syncStageGlobals(args, drafts=None):
         args.ensemble = s["ensemble"]
         args.dynamic_scale = s["dynamicScale"]
         args.static_step = s["staticStep"]
+        args.interpolate_resample = s["resample"]
     if "smooth" in first:
         s = first["smooth"].settings
         args.smooth_dedup_method = s["detector"]
@@ -735,6 +752,7 @@ def specsFromDrafts(drafts):
         settings = dict(draft.settings)
         if draft.kind == "interpolate":
             settings["factor"] = float(settings["factor"])
+            settings["resample"] = int(settings["resample"])
             if draft.smooth:
                 settings["sens"] = float(settings["sens"])
                 settings["maxSpan"] = int(settings["maxSpan"])
@@ -764,18 +782,32 @@ def stageLabel(spec):
     return f"{name} ({summary})" if summary else name
 
 
+def _insertsFrames(spec):
+    """An interpolate stage that adds frames; a 1x stage (resampling only, or
+    nothing) inserts none for a later dedup to discard."""
+    settings = getattr(spec, "settings", None) or {}
+    try:
+        return float(settings.get("factor", 2)) > 1
+    except TypeError, ValueError:
+        return True
+
+
 def stageOrderWarning(chain):
-    """The one order warning: a dedup stage after an interpolate stage.
+    """The one order warning: a dedup stage after an interpolate stage that
+    inserts frames.
 
     Dedup after interpolation runs the interpolation model on every held
     drawing and then discards most of its in-between frames. The order is
     still honoured; this only says the inference is wasted.
     """
+    chain = list(chain)
     kinds = [spec.kind if hasattr(spec, "kind") else spec for spec in chain]
-    if "interpolate" not in kinds or "dedup" not in kinds:
-        return None
-    firstInterpolate = kinds.index("interpolate")
-    if not any(kind == "dedup" for kind in kinds[firstInterpolate + 1 :]):
+    inserting = [
+        position
+        for position, (kind, spec) in enumerate(zip(kinds, chain, strict=True))
+        if kind == "interpolate" and _insertsFrames(spec)
+    ]
+    if not inserting or "dedup" not in kinds[inserting[0] + 1 :]:
         return None
     return (
         "--dedup comes after --interpolate, so the in-between frames it "

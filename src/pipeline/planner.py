@@ -21,6 +21,10 @@ Placement rules:
   given, so it neither causes nor clears a hop.
 - A resize whose target equals its incoming size has no unit (it is logged
   through ``Plan.skipped``).
+- An interpolate stage with ``resample`` N > 0 gets N ``resample`` units right
+  before it (``resample``, ``resample#2``, ...; ``passIndex`` 1..N). Each pass
+  re-times every frame to a flow midpoint and keeps the frame count. At factor 1
+  the stage's own unit is left out: it would only pass the frames through.
 """
 
 from dataclasses import dataclass, field
@@ -36,10 +40,13 @@ _ROLES = {
     "resize": "map",
     "hop": "map",
     "scenechange": "annotate",
+    "resample": "resample",
     "interpolate": "expand",
 }
 _DEDUP_LIKE = ("dedup", "smooth-dedup")
-_SCENE_BEFORE = ("upscale", "interpolate")
+_SCENE_BEFORE = ("upscale", "resample", "interpolate")
+# Roles whose method decides where the stream leaves the stage (CPU or GPU).
+_MODEL_ROLES = ("map", "resample", "expand")
 _CPU_OUTPUT_SUFFIXES = ("-directml", "-openvino", "-ncnn")
 # LineThin runs on the CPU unless its method names a GPU backend.
 _CPU_OUTPUT_METHODS = frozenset(
@@ -63,9 +70,11 @@ class Unit:
     ``name`` is the unit id (``upscale``, ``upscale#2``, ``smooth-dedup``,
     ``scenechange``, ``hop``...). ``kind`` is the stage kind the executor and
     ``initializeModels`` dispatch on (one of ``KINDS`` or ``smooth-dedup``,
-    ``scenechange``, ``hop``). ``role`` is the node type: filter, map, annotate
-    or expand. ``spec`` is the typed stage (``None`` for ``scenechange`` and
-    ``hop``; the smooth stage for ``smooth-dedup``).
+    ``scenechange``, ``hop``, ``resample``). ``role`` is the node type: filter,
+    map, annotate, resample or expand. ``spec`` is the typed stage (``None`` for
+    ``scenechange`` and ``hop``; the smooth stage for ``smooth-dedup``; the
+    interpolate stage for its ``resample`` passes). ``passIndex`` is a resample
+    unit's 1-based pass number (0 for every other unit).
     """
 
     name: str
@@ -77,6 +86,7 @@ class Unit:
     method: str = ""
     kind: str = ""
     spec: StageSpec | None = None
+    passIndex: int = 0
 
     def __post_init__(self):
         if not self.kind:
@@ -151,6 +161,23 @@ class Plan:
 def factorFraction(value) -> Fraction:
     """An interpolation factor as the fraction the gap planner runs on."""
     return Fraction(value).limit_denominator(FACTOR_MAX_DENOMINATOR)
+
+
+def resampleCount(spec) -> int:
+    """How many resample passes an interpolate ``spec`` asks for (0 = none).
+
+    The one place the ``resample`` key is read: the CLI always sets it, but
+    specs built by tests and tools may leave it out.
+    """
+    if spec is None or spec.kind != "interpolate":
+        return 0
+    return int(spec.settings.get("resample", 0))
+
+
+def elidesExpander(spec) -> bool:
+    """Whether a resampling stage at factor 1 runs without its own expander:
+    at 1x it would only pass the resampled frames through."""
+    return resampleCount(spec) > 0 and factorFraction(spec["factor"]) == 1
 
 
 def _evenRound(value: float) -> int:
@@ -244,6 +271,33 @@ def _validate(chain) -> None:
             )
         if any(spec.kind == "dedup" for spec in chain):
             raise ValueError("--smooth_dedup and --dedup are mutually exclusive")
+    _validateResample(chain)
+
+
+def _validateResample(chain) -> None:
+    """The resample rules the CLI enforces, again for chains built elsewhere."""
+    firstInterpolate = next(
+        (spec for spec in chain if spec.kind == "interpolate"), None
+    )
+    for index, spec in enumerate(chain):
+        count = resampleCount(spec)
+        if count < 0:
+            raise ValueError(f"{spec.id}: resample must be 0 or more, got {count}")
+        if count == 0:
+            continue
+        if spec.smooth:
+            raise ValueError("resample cannot be combined with --smooth_dedup")
+        if spec is not firstInterpolate:
+            raise ValueError(
+                f"{spec.id}: resample is only allowed on the first interpolate stage"
+            )
+        if any(prior.kind == "dedup" for prior in chain[:index]):
+            raise ValueError(f"{spec.id}: resample cannot follow a dedup stage")
+        if str(spec["method"]).startswith("maxine"):
+            raise ValueError(
+                f"{spec.id}: resample is not supported by {spec['method']}: two "
+                f"live Maxine frame-generation instances were never verified"
+            )
 
 
 def planChain(
@@ -286,19 +340,27 @@ def planChain(
             decoderResizes = True
             labels.append(text)
 
-    entries = []  # (name, kind, method, spec) in processing order
+    # (name, kind, method, spec, passIndex) in processing order.
+    entries = []
     smoothSpec = next((spec for spec in rest if spec.smooth), None)
     if smoothSpec is not None:
         detector = str(smoothSpec.settings.get("detector", ""))
-        entries.append(("smooth-dedup", "smooth-dedup", detector, smoothSpec))
+        entries.append(("smooth-dedup", "smooth-dedup", detector, smoothSpec, 0))
+    passes = 0
     for spec in rest:
-        entries.append((spec.id, spec.kind, _methodOf(spec), spec))
+        method = _methodOf(spec)
+        for _ in range(resampleCount(spec)):
+            passes += 1
+            name = "resample" if passes == 1 else f"resample#{passes}"
+            entries.append((name, "resample", method, spec, passes))
+        if not elidesExpander(spec):
+            entries.append((spec.id, spec.kind, method, spec, 0))
     if sceneChange:
         at = next(
             (index for index, entry in enumerate(entries) if entry[1] in _SCENE_BEFORE),
             len(entries),
         )
-        entries.insert(at, ("scenechange", "scenechange", sceneChangeMethod, None))
+        entries.insert(at, ("scenechange", "scenechange", sceneChangeMethod, None, 0))
 
     units = []
     hops = 0
@@ -306,7 +368,7 @@ def planChain(
     # Filters, the scene-cut detector and resizes keep the stream wherever the
     # last model stage left it.
     onCpu = False
-    for name, kind, method, spec in entries:
+    for name, kind, method, spec, passIndex in entries:
         if kind == "upscale":
             factor = int(spec["factor"])
             outW, outH = w * factor, h * factor
@@ -324,10 +386,10 @@ def planChain(
             hopName = "hop" if hops == 1 else f"hop#{hops}"
             units.append(Unit(hopName, "map", w, h, w, h, "cuda", "hop"))
             onCpu = False
-        unit = Unit(name, _ROLES[kind], w, h, outW, outH, method, kind, spec)
+        unit = Unit(name, _ROLES[kind], w, h, outW, outH, method, kind, spec, passIndex)
         units.append(unit)
         labels.append(_label(unit))
-        if unit.role in ("map", "expand") and kind != "resize":
+        if unit.role in _MODEL_ROLES and kind != "resize":
             onCpu = _producesCpu(method)
         w, h = outW, outH
 
@@ -356,6 +418,13 @@ def _label(unit) -> str:
     settings = unit.settings
     if kind == "scenechange":
         return ""
+    if kind == "resample":
+        # A resampling stage's passes show on its interpolate label; at 1x, where
+        # the stage has no unit of its own, its last pass carries that label.
+        spec = unit.spec
+        if unit.passIndex == resampleCount(spec) and elidesExpander(spec):
+            return _interpolateLabel(spec)
+        return ""
     if kind == "smooth-dedup":
         return f"smooth-dedup {unit.method}".rstrip()
     if kind == "dedup":
@@ -377,21 +446,30 @@ def _label(unit) -> str:
         # 2x is the default and stays implicit, as it is on the command line.
         return text if factor == 2 else f"{text} {factor}x"
     if kind == "interpolate":
-        text = (
-            f"interpolate {settings.get('method', '')} "
-            f"{_factorText(settings.get('factor', 1))}"
-        )
-        for key, word in (
-            ("ensemble", "ensemble"),
-            ("dynamicScale", "dynamic_scale"),
-            ("staticStep", "static_step"),
-        ):
-            if settings.get(key):
-                text += f" {word}"
-        return text
+        return _interpolateLabel(unit.spec)
     if kind == "resize":
         return f"resize {resizeTargetText(settings['target'])}"
     return unit.name
+
+
+def _interpolateLabel(spec) -> str:
+    """``interpolate rife4.26 2x``, plus its switches and ``resample N``."""
+    settings = spec.settings
+    text = (
+        f"interpolate {settings.get('method', '')} "
+        f"{_factorText(settings.get('factor', 1))}"
+    )
+    for key, word in (
+        ("ensemble", "ensemble"),
+        ("dynamicScale", "dynamic_scale"),
+        ("staticStep", "static_step"),
+    ):
+        if settings.get(key):
+            text += f" {word}"
+    passes = resampleCount(spec)
+    if passes:
+        text += f" resample {passes}"
+    return text
 
 
 def orderLine(units, labels=None) -> str:
@@ -413,6 +491,10 @@ def orderLine(units, labels=None) -> str:
     if "scenechange" in names:
         index = names.index("scenechange")
         following = units[index + 1].kind if index + 1 < len(units) else "the writer"
+        if following == "resample":
+            # The passes belong to their interpolate stage; the line never
+            # names them on their own.
+            following = "interpolate"
         text += f" (scenechange before {following})"
     return text
 
@@ -422,12 +504,20 @@ def costHints(units, decodeWidth: int | None = None) -> list:
 
     A restore or dedup after interpolation runs on the product of the preceding
     interpolate factors times the source frames; one after an upscale or an
-    enlarging resize runs at its (bigger) input size.
+    enlarging resize runs at its (bigger) input size. A resampling stage costs
+    one model run per frame and one more model in memory per pass.
     """
     hints = []
     if decodeWidth is None:
         decodeWidth = units[0].inWidth if units else 0
     for index, unit in enumerate(units):
+        if unit.kind == "resample" and unit.passIndex == 1:
+            passes = resampleCount(unit.spec)
+            hints.append(
+                f"{unit.spec.id}: resample runs {passes} interpolation "
+                f"pass{'es' if passes > 1 else ''} at {unit.inWidth}x{unit.inHeight}, "
+                f"each one more model run per frame and one more model in memory"
+            )
         if unit.kind not in ("restore",) + _DEDUP_LIKE:
             continue
         before = units[:index]

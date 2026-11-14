@@ -27,29 +27,59 @@ def _methodsOf(spec) -> tuple:
     return (settings.get("method", ""),)
 
 
-def checkChainInstances(chain) -> None:
-    """Raise ``ValueError`` if ``chain`` (``StageSpec``s) needs two instances of
-    a single-instance backend. The message names both stages."""
+def _check(instances) -> None:
+    """Raise if two of ``instances`` ((label, methods) per live driver) share a
+    single-instance method. The message names both."""
     seen = {}
-    for spec in chain:
-        if spec is None or spec.kind not in _MODEL_KINDS:
-            continue
-        for method in _methodsOf(spec):
+    for label, methods in instances:
+        for method in methods:
             reason = SINGLE_INSTANCE_METHODS.get(method)
             if reason is None:
                 continue
             if method in seen:
                 raise ValueError(
                     f"{method} cannot run twice in one chain ({seen[method]} and "
-                    f"{spec.id}): {reason}"
+                    f"{label}): {reason}"
                 )
-            seen[method] = spec.id
+            seen[method] = label
+
+
+def _passLabel(spec, passIndex: int) -> str:
+    return f"{spec.id} (resample pass {passIndex})"
+
+
+def checkChainInstances(chain) -> None:
+    """Raise ``ValueError`` if ``chain`` (``StageSpec``s) needs two instances of
+    a single-instance backend. The message names both stages.
+
+    An interpolate stage with ``resample`` N runs N pass drivers of its method
+    besides its own (none of its own at factor 1, see ``planner.elidesExpander``).
+    """
+    from src.pipeline.planner import elidesExpander, resampleCount
+
+    def instances():
+        for spec in chain:
+            if spec is None or spec.kind not in _MODEL_KINDS:
+                continue
+            methods = _methodsOf(spec)
+            for passIndex in range(1, resampleCount(spec) + 1):
+                yield _passLabel(spec, passIndex), methods
+            if not elidesExpander(spec):
+                yield spec.id, methods
+
+    _check(instances())
 
 
 def checkStageInstances(plan) -> None:
-    """Raise ``ValueError`` if ``plan`` needs two instances of a single-instance backend."""
-    checkChainInstances(
-        unit.spec
+    """Raise ``ValueError`` if ``plan`` needs two instances of a single-instance
+    backend. Every model unit is one live driver, resample passes included."""
+    _check(
+        (
+            _passLabel(unit.spec, unit.passIndex)
+            if unit.kind == "resample"
+            else unit.spec.id,
+            _methodsOf(unit.spec),
+        )
         for unit in plan.units
-        if unit.spec is not None and unit.kind in _MODEL_KINDS
+        if unit.spec is not None and unit.kind in _MODEL_KINDS + ("resample",)
     )

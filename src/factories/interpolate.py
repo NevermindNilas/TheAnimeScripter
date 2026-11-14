@@ -12,10 +12,18 @@ import logging
 
 
 def buildInterpolateProcess(self, interpWidth, interpHeight):
-    logging.info(
-        f"Interpolating from {format(self.fps, '.3f')}fps to "
-        f"{format(self.fps * self.interpolateFactor, '.3f')}fps"
-    )
+    resamplePass = getattr(self, "resamplePass", 0)
+    if resamplePass:
+        # A resample pass keeps the frame rate; it is built as a 2x driver.
+        logging.info(
+            f"Resample pass {resamplePass}/{getattr(self, 'resamplePasses', '?')}: "
+            f"{self.interpolateMethod} at {interpWidth}x{interpHeight}"
+        )
+    else:
+        logging.info(
+            f"Interpolating from {format(self.fps, '.3f')}fps to "
+            f"{format(self.fps * self.interpolateFactor, '.3f')}fps"
+        )
 
     match self.interpolateMethod:
         case (
