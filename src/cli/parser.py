@@ -7,17 +7,6 @@ from src.cli.stageOrder import childFlag, removedFlag, stageFlag
 from src.io.getVideoMetadata import parseTrimArg
 from src.version import __version__
 
-_logAndPrint = None
-
-
-def logAndPrint(message, colorFunc="cyan", level="INFO"):
-    global _logAndPrint
-    if _logAndPrint is None:
-        from src.infra.logAndPrint import logAndPrint as _lap
-
-        _logAndPrint = _lap
-    _logAndPrint(message, colorFunc, level)
-
 
 def _supportsColorStdout():
     if os.environ.get("NO_COLOR"):

@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from src.constants import ADOBE
 from src.depth.backends.cuda import DepthCuda
 from src.depth.backends.directml import DepthDirectMLV2
-from src.depth.backends.mps import DepthMPS
+from src.depth.backends.mps import DepthMPS, ignoreMpsCompileMode
 from src.depth.backends.tensorrt import DepthTensorRTV2
 from src.depth.moge.fast import prepareFastRefiner
 from src.depth.moge.model import (
@@ -129,12 +129,7 @@ class MoGe3MPS(DepthMPS):
         # fp32 whatever --half says, like the other DINOv2 MPS paths.
         self.dtype = torch.float32
         self.half = False
-        if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
-                "yellow",
-            )
-            self.compileMode = "default"
+        ignoreMpsCompileMode(self)
 
     @torch.inference_mode()
     def processBatch(self, frames):

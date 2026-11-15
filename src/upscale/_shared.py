@@ -1,4 +1,4 @@
-"""Pure integer-math helpers for upscale backends (padding, input multiples).
+"""Torch-free helpers for upscale backends (padding, input multiples).
 
 Deliberately free of torch/CUDA imports: backend modules import these names
 function-level lazy, and any module-level torch import here would run on every
@@ -53,6 +53,37 @@ def lookupRequiredMultiple(upscaleMethod: str | None) -> int | None:
     for suffix in _BACKEND_SUFFIXES:
         base = base.removesuffix(suffix)
     return KNOWN_INPUT_MULTIPLES.get(base)
+
+
+def resolveRequiredMultiple(upscaleMethod, customModel, makeRunOK):
+    """The arch's required input multiple: the table for shipped archs, else the
+    ``smallestValidMultiple`` probe. ``makeRunOK()`` builds the probe's runOK and
+    is only called on a miss, so a table hit never builds a probe session (an
+    ONNX one costs ~90-130ms of startup)."""
+    if not customModel:
+        known = lookupRequiredMultiple(upscaleMethod)
+        if known is not None:
+            return known
+    return smallestValidMultiple(makeRunOK())
+
+
+def onnxProbe(modelPath, half):
+    """``smallestValidMultiple``'s runOK over a throwaway CPU ORT session."""
+    import numpy as np
+    import onnxruntime as ort
+
+    probe = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
+    inputName = probe.get_inputs()[0].name
+    npDType = np.float16 if half else np.float32
+
+    def runOK(h, w):
+        try:
+            probe.run(None, {inputName: np.zeros((1, 3, h, w), npDType)})
+            return True
+        except Exception:
+            return False
+
+    return runOK
 
 
 def smallestValidMultiple(runOK, candidates=(1, 2, 4, 8, 16), floor=48):

@@ -236,9 +236,6 @@ class ChildFlagAction(argparse.Action):
     meaning.
     """
 
-    def __init__(self, option_strings, dest, **kwargs):
-        super().__init__(option_strings, dest, **kwargs)
-
     def __call__(self, parser, namespace, values, option_string=None):
         value = self.const if self.nargs == 0 else values
         setattr(namespace, self.dest, value)
@@ -668,7 +665,7 @@ def buildStageDrafts(events, context):
         draft.settings = settings
         counts[draft.kind] += 1
         draft.index = counts[draft.kind]
-        previous["interpolate" if draft.kind == "interpolate" else draft.kind] = draft
+        previous[draft.kind] = draft
     for draft in drafts:
         draft.repeated = counts[draft.kind] > 1
     return drafts

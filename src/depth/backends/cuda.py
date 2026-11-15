@@ -12,6 +12,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.depth.backends._batch import iterBatches
 from src.depth.backends._shared import (
     MEANTENSOR,
     MEANTENSOR_HALF,
@@ -24,6 +25,7 @@ from src.depth.backends._shared import (
     disparityStretch,
     limboDisparity,
     limboResolution,
+    longestSideShape,
     stackFrames,
 )
 from src.infra.cudaStreams import waitForCaller
@@ -72,6 +74,27 @@ def _grayMaps(depths):
     if len({tuple(d.shape) for d in depths}) == 1:
         return list(_disparityGray(torch.stack(depths)))
     return [_disparityGray(d) for d in depths]
+
+
+def _applyCompileMode(driver):
+    """Compile ``driver.model`` per ``--compile_mode``, then reset it to default."""
+    if driver.compileMode == "default":
+        return
+    try:
+        if driver.compileMode == "max":
+            driver.model.compile(mode="max-autotune-no-cudagraphs")
+        elif driver.compileMode == "max-graphs":
+            driver.model.compile(mode="max-autotune-no-cudagraphs", fullgraph=True)
+    except Exception as e:
+        logging.error(
+            f"Error compiling model {driver.depth_method} with mode {driver.compileMode}: {e}"
+        )
+        logAndPrint(
+            f"Error compiling model {driver.depth_method} with mode {driver.compileMode}: {e}",
+            "red",
+        )
+
+    driver.compileMode = "default"
 
 
 class DepthCuda(DepthRunOutcome):
@@ -194,26 +217,8 @@ class DepthCuda(DepthRunOutcome):
             self.width, self.height, self.depthQuality
         )
 
-        if self.compileMode != "default":
-            try:
-                if self.compileMode == "max":
-                    self.model.compile(mode="max-autotune-no-cudagraphs")
-                elif self.compileMode == "max-graphs":
-                    self.model.compile(
-                        mode="max-autotune-no-cudagraphs", fullgraph=True
-                    )
-            except Exception as e:
-                logging.error(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
-                )
-                logAndPrint(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
-                    "red",
-                )
+        _applyCompileMode(self)
 
-            self.compileMode = "default"
-
-        self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
         self.stream = torch.cuda.Stream()
 
@@ -271,23 +276,12 @@ class DepthCuda(DepthRunOutcome):
 
     def process(self):
         frameCount = 0
-        batchSize = self.depthBatch
         with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            while True:
-                frames = []
-                for _ in range(batchSize):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
-                    frames.append(frame)
-                if frames:
-                    self.processBatch(frames)
-                    frameCount += len(frames)
-                    bar(len(frames))
-                # A short read means the decoder's single None sentinel was just
-                # consumed; another read() would block forever.
-                if len(frames) < batchSize:
-                    break
+            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
+                del frames  # free batch N before batch N+1 is decoded
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -345,26 +339,8 @@ class LimboCuda(DepthCuda):
             self.width, self.height, self.depthQuality
         )
 
-        if self.compileMode != "default":
-            try:
-                if self.compileMode == "max":
-                    self.model.compile(mode="max-autotune-no-cudagraphs")
-                elif self.compileMode == "max-graphs":
-                    self.model.compile(
-                        mode="max-autotune-no-cudagraphs", fullgraph=True
-                    )
-            except Exception as e:
-                logging.error(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
-                )
-                logAndPrint(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
-                    "red",
-                )
+        _applyCompileMode(self)
 
-            self.compileMode = "default"
-
-        self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
         self.stream = torch.cuda.Stream()
 
@@ -511,20 +487,10 @@ class DepthV3Cuda(DepthRunOutcome):
             with OrderedFrameSink(
                 self._writeGray, self.recordFailure, bar, maxPending=batchSize
             ) as sink:
-                while True:
-                    frames = []
-                    for _ in range(batchSize):
-                        frame = self.readBuffer.read()
-                        if frame is None:
-                            break
-                        frames.append(frame)
-                    if frames:
-                        self._submitBatch(frames, sink)
-                        frameCount += len(frames)
-                    # A short read means the decoder's single None sentinel was
-                    # just consumed; another read() would block forever.
-                    if len(frames) < batchSize:
-                        break
+                for frames in iterBatches(self.readBuffer.read, batchSize):
+                    self._submitBatch(frames, sink)
+                    frameCount += len(frames)
+                    del frames  # free batch N before batch N+1 is decoded
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -582,31 +548,12 @@ class DepthV3Cuda(DepthRunOutcome):
         # lower_bound_resize stretched the shortest side to that length -- 4K
         # 16:9 decoded at 6832x3850, OOMing the DPT head even on 24 GB.
         self.processResMethod = "upper_bound_resize"
-        scale = self.processRes / max(self.width, self.height)
-        tgt_w = max(14, (max(1, round(self.width * scale)) // 14) * 14)
-        tgt_h = max(14, (max(1, round(self.height * scale)) // 14) * 14)
-        self._decodeWidth = tgt_w
-        self._decodeHeight = tgt_h
+        self._decodeHeight, self._decodeWidth = longestSideShape(
+            self.width, self.height, self.processRes
+        )
         self._decodeResize = True
 
-        if self.compileMode != "default":
-            try:
-                if self.compileMode == "max":
-                    self.model.compile(mode="max-autotune-no-cudagraphs")
-                elif self.compileMode == "max-graphs":
-                    self.model.compile(
-                        mode="max-autotune-no-cudagraphs", fullgraph=True
-                    )
-            except Exception as e:
-                logging.error(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
-                )
-                logAndPrint(
-                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
-                    "red",
-                )
-
-            self.compileMode = "default"
+        _applyCompileMode(self)
 
     def _inferBatch(self, frames):
         """DA3 mono depth for a list of frames in ONE forward, as raw fp32 depth

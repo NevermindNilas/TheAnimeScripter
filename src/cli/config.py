@@ -112,6 +112,25 @@ def validateChoiceForKey(parser, key, value, sourceLabel):
 _TYPE_LABELS = {int: "a whole number", float: "a number", str: "a string"}
 
 
+def _switchValue(value):
+    """A config switch as a bool: a bool, 0/1, or a str2bool word. None for
+    anything else."""
+    if isinstance(value, bool):
+        return value
+    # Keep accepting 0/1 and "true"/"yes"/... -- panels already send those
+    # and they have always worked by truthiness; only ambiguity is an error.
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        from src.cli.parser import str2bool
+
+        try:
+            return str2bool(value)
+        except Exception:
+            return None
+    return None
+
+
 def _expectedLabel(converter):
     """A human-readable name for what a parser ``type=`` converter accepts."""
     if converter in _TYPE_LABELS:
@@ -160,20 +179,10 @@ def coerceValueForKey(parser, key, value, sourceLabel):
     # store_true/store_false: argparse gives them no converter because the
     # command line never supplies a value. A config file can, and does.
     if action.nargs == 0:
-        if isinstance(value, bool):
-            return value
-        # Keep accepting 0/1 and "true"/"yes"/... -- panels already send those
-        # and they have always worked by truthiness; only ambiguity is an error.
-        if isinstance(value, int) and value in (0, 1):
-            return bool(value)
-        if isinstance(value, str):
-            from src.cli.parser import str2bool
-
-            try:
-                return str2bool(value)
-            except Exception:
-                fail(value, "true or false")
-        fail(value, "true or false")
+        switch = _switchValue(value)
+        if switch is None:
+            fail(value, "true or false")
+        return switch
 
     # A list only for an option that takes several values (nargs "+"/"*"),
     # and not an empty one where argparse demands one (nargs "+"): anywhere
@@ -317,17 +326,9 @@ class CliConfig:
         """``"upscale": true`` -- a stage key in key-order mode is on or off."""
         if value is None:
             return False
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, int) and value in (0, 1):
-            return bool(value)
-        if isinstance(value, str):
-            from src.cli.parser import str2bool
-
-            try:
-                return str2bool(value)
-            except Exception:
-                pass
+        switch = _switchValue(value)
+        if switch is not None:
+            return switch
         logAndPrint(
             f"Invalid value for '{key}' in JSON config: {value!r}. Expected true "
             f'or false. For per-stage values use "chain", e.g. "chain": '

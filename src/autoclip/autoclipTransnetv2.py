@@ -3,9 +3,8 @@ import os
 
 import torch
 
-import src.constants as cs
 from src.autoclip._frames import eightBit, openResizedReader, warnIfVariableRate
-from src.autoclip._results import writeCutResults
+from src.autoclip._results import runAutoclip, writeCutResults
 from src.infra.cudaStreams import waitForCaller
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -69,18 +68,7 @@ class AutoClipTransnetv2:
 
         self._loadModel()
 
-        if cs.ADOBE:
-            from src.server.aeComms import progressState
-
-            progressState.update({"status": "Detecting scene changes (transnetv2)..."})
-            try:
-                self._run()
-            except Exception as e:
-                progressState.setFailed(error=str(e))
-                raise
-            progressState.setCompleted(outputPath=self.output)
-        else:
-            self._run()
+        runAutoclip(self._run, "transnetv2", self.output)
 
     def _resolveModelPath(self):
         filename = modelsMap("transnetv2")

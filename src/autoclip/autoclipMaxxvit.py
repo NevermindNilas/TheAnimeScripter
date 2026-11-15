@@ -8,9 +8,8 @@ import torch  # noqa: F401
 import nelux
 
 # isort: on
-import src.constants as cs
 from src.autoclip._frames import eightBit
-from src.autoclip._results import writeCutResults
+from src.autoclip._results import runAutoclip, writeCutResults
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.getVideoMetadata import storedResizeTarget
 from src.sceneChange.scorer6ch import SceneChangeScorer6ch
@@ -56,20 +55,7 @@ class AutoClipMaxxvit:
         # TRT-fp32 pin / DML session selection internally.
         self.scorer = SceneChangeScorer6ch(method, half, size=self.H)
 
-        if cs.ADOBE:
-            from src.server.aeComms import progressState
-
-            progressState.update(
-                {"status": f"Detecting scene changes ({self.method})..."}
-            )
-            try:
-                self._run()
-            except Exception as e:
-                progressState.setFailed(error=str(e))
-                raise
-            progressState.setCompleted(outputPath=self.output)
-        else:
-            self._run()
+        runAutoclip(self._run, self.method, self.output)
 
     def _openReader(self):
         # Linear iter is the fast path. Do NOT switch to ``reader.frame_at(i)``

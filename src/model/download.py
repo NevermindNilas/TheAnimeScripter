@@ -241,7 +241,7 @@ def downloadModels(
     """
     os.makedirs(weightsDir, exist_ok=True)
 
-    downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
+    downloadModel = model.removesuffix("-mps")
     if downloadModel in (
         "video_limbo-tensorrt",
         "video_limbo_v2-tensorrt",

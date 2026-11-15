@@ -45,12 +45,21 @@ def isAnyOtherProcessingMethodEnabled(args):
 _UNPROBED = object()
 
 
-def _probeCudaAvailability():
+def _probeCudaChecker():
     """One CudaChecker construction; None when torch is absent (bare CI)."""
     try:
         from src.infra.isCudaInit import CudaChecker
 
-        return bool(CudaChecker().cudaAvailable)
+        return CudaChecker()
+    except Exception:
+        return None
+
+
+def _probeCudaAvailability():
+    """``_probeCudaChecker``'s ``cudaAvailable``; None when the probe failed."""
+    try:
+        checker = _probeCudaChecker()
+        return None if checker is None else bool(checker.cudaAvailable)
     except Exception:
         return None
 
@@ -72,12 +81,9 @@ def _downgradeCudaDetector(method: str, flagName: str, cudaAvailable=_UNPROBED) 
     """
     if cudaAvailable is _UNPROBED:
         cudaAvailable = _probeCudaAvailability()
-    if cudaAvailable is None:
-        # No torch at all (a bare CI venv): leave the pick alone rather than
-        # rewriting it on the strength of a failed probe.
-        return method
-
-    if cudaAvailable:
+    if cudaAvailable is None or cudaAvailable:
+        # None is no torch at all (a bare CI venv): leave the pick alone rather
+        # than rewriting it on the strength of a failed probe.
         return method
 
     downgrade = {
@@ -520,16 +526,19 @@ class _LegacyStage:
 
 def _legacyStages(args):
     stages = []
+    interpolate = {
+        "method": getattr(args, "interpolate_method", "rife4.6"),
+        "factor": getattr(args, "interpolate_factor", 2),
+        "staticStep": getattr(args, "static_step", False),
+        "dynamicScale": getattr(args, "dynamic_scale", False),
+        "ensemble": getattr(args, "ensemble", False),
+    }
     if getattr(args, "smooth_dedup", False):
         stages.append(
             _LegacyStage(
                 "interpolate",
                 {
-                    "method": getattr(args, "interpolate_method", "rife4.6"),
-                    "factor": getattr(args, "interpolate_factor", 2),
-                    "staticStep": getattr(args, "static_step", False),
-                    "dynamicScale": getattr(args, "dynamic_scale", False),
-                    "ensemble": getattr(args, "ensemble", False),
+                    **interpolate,
                     "detector": args.smooth_dedup_method,
                     "sens": args.smooth_dedup_sens,
                     "maxSpan": getattr(args, "smooth_dedup_max_span", 4),
@@ -539,18 +548,7 @@ def _legacyStages(args):
             )
         )
     elif getattr(args, "interpolate", False):
-        stages.append(
-            _LegacyStage(
-                "interpolate",
-                {
-                    "method": getattr(args, "interpolate_method", "rife4.6"),
-                    "factor": getattr(args, "interpolate_factor", 2),
-                    "staticStep": getattr(args, "static_step", False),
-                    "dynamicScale": getattr(args, "dynamic_scale", False),
-                    "ensemble": getattr(args, "ensemble", False),
-                },
-            )
-        )
+        stages.append(_LegacyStage("interpolate", interpolate))
     if getattr(args, "dedup", False):
         stages.append(
             _LegacyStage(
@@ -668,12 +666,12 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
         #
         # The cap is how many source frames a gap's motion may be spread over:
         # a wider gap holds the previous drawing first and interpolates only its
-        # last maxSpan frames. It is NOT a memory bound, and never was. What
-        # bounds memory is the interpolation stage handing a gap on as it fills
-        # -- see src/pipeline/executor.py:ExpandNode.collectLimit, which keeps a
-        # long hold from holding the whole gap at once. 0 disables the cap (the
-        # motion is spread over the whole run, however long); negatives
-        # normalize to 0 rather than inverting the span comparison.
+        # last maxSpan frames. It is NOT a memory bound, and never was. What bounds memory is the
+        # interpolation stage handing a gap on as it fills -- see
+        # src/pipeline/executor.py:ExpandNode.collectLimit, which keeps a long
+        # hold from holding the whole gap at once. 0 disables the cap (every run is
+        # interpolated, however long); negatives normalize to 0 rather than
+        # inverting the span comparison into "hold everything".
         settings = stage.settings
         settings["maxSpan"] = max(0, int(settings["maxSpan"]))
         # Largest per-pixel change (8-bit scale) a duplicate may have; 255 turns
@@ -845,20 +843,13 @@ def _adjustMethodsBasedOnCuda(
         from src.infra.isCudaInit import detectGPUArchitecture
 
         if cudaChecker is _UNPROBED:
-            try:
-                from src.infra.isCudaInit import CudaChecker
-
-                cudaChecker = CudaChecker()
-            except Exception:
-                # No torch at all (a bare CI venv): without a usable
-                # torch.cuda there is no CUDA path, so fall back.
-                cudaChecker = None
-
-        isCuda = cudaChecker
+            # None without torch at all (a bare CI venv): without a usable
+            # torch.cuda there is no CUDA path, so fall back.
+            cudaChecker = _probeCudaChecker()
 
         needsFallback = False
-        if isCuda is not None and isCuda.cudaAvailable:
-            if isCuda.rocmAvailable:
+        if cudaChecker is not None and cudaChecker.cudaAvailable:
+            if cudaChecker.rocmAvailable:
                 # ROCm/HIP torch on AMD: torch.cuda works, but NVML/nvidia-smi
                 # see no NVIDIA GPU, so detectGPUArchitecture would report
                 # "not modern" and needlessly downgrade to DirectML. The CUDA
@@ -1075,12 +1066,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
     # torch at all, e.g. a bare CI venv -- which the guards treat as "no CUDA"
     # (the dedup guards leave CUDA picks alone rather than rewriting them on
     # a failed probe).
-    try:
-        from src.infra.isCudaInit import CudaChecker
-
-        cudaChecker = CudaChecker()
-    except Exception:
-        cudaChecker = None
+    cudaChecker = _probeCudaChecker()
     cudaAvailable = bool(cudaChecker.cudaAvailable) if cudaChecker is not None else None
 
     _configureProcessingSettings(args, cudaAvailable=cudaAvailable)

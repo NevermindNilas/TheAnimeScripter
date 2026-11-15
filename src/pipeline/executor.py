@@ -873,21 +873,12 @@ class Pipeline:
                 name, resize, (0, 0), downstream, outShape=outShape, forwardsKey=True
             )
         driver = drivers[name]
-        if kind == "upscale":
-            return MapNode(
-                name,
-                driver,
-                temporalDemand(driver),
-                downstream,
-                takesNext=True,
-                outShape=outShape,
-            )
         return MapNode(
             name,
             driver,
             temporalDemand(driver),
             downstream,
-            takesNext=False,
+            takesNext=kind == "upscale",
             outShape=outShape,
         )
 

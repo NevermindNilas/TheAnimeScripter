@@ -277,6 +277,16 @@ def videoDepthInputSize(width, height, depthQuality="low"):
     return size
 
 
+def longestSideShape(width, height, longest):
+    """(height, width) with the longest side scaled to ``longest``, the source
+    aspect kept, each side floored to a multiple of 14 (at least 14)."""
+    scale = longest / max(width, height)
+    return (
+        max(14, (max(1, round(height * scale)) // 14) * 14),
+        max(14, (max(1, round(width * scale)) // 14) * 14),
+    )
+
+
 # (height, width) of the two resolutions Limbo is hosted at -- the ones the
 # model was trained at, and what --depth_quality low runs at on every backend.
 LIMBO_SHAPES = ((280, 504), (378, 504))
@@ -297,11 +307,7 @@ def limboResolution(width, height, depthQuality="low"):
     """
     if depthQuality in ("medium", "high"):
         longest = calculateAspectRatio(width, height, depthQuality, isV3=True)
-        scale = longest / max(width, height)
-        shape = (
-            max(14, (max(1, round(height * scale)) // 14) * 14),
-            max(14, (max(1, round(width * scale)) // 14) * 14),
-        )
+        shape = longestSideShape(width, height, longest)
     else:
         aspect = max(width, 1) / max(height, 1)
         shape = min(

@@ -60,6 +60,76 @@ def _encodeSkippedPair(model, I1):
         model.f0 = model.f1.clone()
 
 
+# The reference arches --static_step needs (bakedTimestep) exist only for these.
+_STATIC_STEP_METHODS = ("rife4.6", "rife4.15", "rife4.15-lite")
+
+
+def _uhdScale(width, height, half):
+    """RIFE runs above 1080p at scale 0.5, in fp32. Returns (scale, half)."""
+    if width > 1920 and height > 1080:
+        if half:
+            logAndPrint(
+                "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
+                "yellow",
+            )
+        return 0.5, False
+    return 1.0, half
+
+
+def _supportedStaticStep(method, staticStep):
+    if method == "rife_elexor" and staticStep:
+        logAndPrint(
+            "Static step is not supported for rife_elexor, automatically disabling it",
+            "yellow",
+        )
+        return False
+    if method not in _STATIC_STEP_METHODS and staticStep:
+        logAndPrint(
+            "Static step is not supported for this interpolation model yet, automatically disabling it",
+            "yellow",
+        )
+        return False
+    return staticStep
+
+
+def _buildRifeArch(
+    method,
+    ensemble,
+    dynamicScale,
+    scale,
+    interpolateFactor,
+    staticStep,
+    dType,
+    device,
+    width,
+    height,
+):
+    """Construct the (unloaded) arch. --static_step needs the reference arch
+    (bakedTimestep); every other run, fp16 or fp32, uses the unified fast arch."""
+    IFNet = importRifeArch(method, "v1", staticStep=staticStep, ensemble=ensemble)
+    if method == "rife_elexor" and not hasattr(IFNet, "cfg"):
+        return IFNet(scale, ensemble, dType, device, width, height, interpolateFactor)
+    if method in _STATIC_STEP_METHODS:
+        return IFNet(ensemble, dynamicScale, scale, interpolateFactor, staticStep)
+    return IFNet(ensemble, dynamicScale, scale, interpolateFactor)
+
+
+def _paddedFrameBuffers(method, scale, dynamicScale, width, height, dType, device):
+    """Padding plus the I0, I1 and timestep buffers at the padded size."""
+    mul = _padMultiple(method, scale, dynamicScale)
+    ph = ((height - 1) // mul + 1) * mul
+    pw = ((width - 1) // mul + 1) * mul
+    padding = (0, pw - width, 0, ph - height)
+    I0 = torch.zeros(1, 3, ph, pw, dtype=dType, device=device).to(
+        memory_format=torch.channels_last
+    )
+    I1 = torch.zeros(1, 3, ph, pw, dtype=dType, device=device).to(
+        memory_format=torch.channels_last
+    )
+    timestepBuffer = torch.zeros((1, 1, ph, pw), dtype=dType, device=device)
+    return padding, I0, I1, timestepBuffer
+
+
 class RifeCuda:
     def __init__(
         self,
@@ -87,7 +157,6 @@ class RifeCuda:
             staticStep (bool, optional): Use static timestep. Defaults to False.
         """
         self.half = half
-        self.scale = 1.0
         self.width = width
         self.height = height
         self.interpolateMethod = interpolateMethod
@@ -97,14 +166,7 @@ class RifeCuda:
         self.staticStep = staticStep
         self.compileMode = compileMode
 
-        if self.width > 1920 and self.height > 1080:
-            self.scale = 0.5
-            if self.half:
-                logAndPrint(
-                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
-                    "yellow",
-                )
-                self.half = False
+        self.scale, self.half = _uhdScale(self.width, self.height, self.half)
 
         self.handleModel()
 
@@ -126,56 +188,19 @@ class RifeCuda:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        if self.interpolateMethod in ["rife_elexor"] and self.staticStep:
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for rife_elexor, automatically disabling it",
-                "yellow",
-            )
-        if (
-            self.interpolateMethod not in ["rife4.6", "rife4.15", "rife4.15-lite"]
-            and self.staticStep
-        ):
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for this interpolation model yet, automatically disabling it",
-                "yellow",
-            )
-        # --static_step needs the reference arch (bakedTimestep); every other
-        # run, fp16 or fp32, uses the unified fast arch.
-        IFNet = importRifeArch(
+        self.staticStep = _supportedStaticStep(self.interpolateMethod, self.staticStep)
+        self.model = _buildRifeArch(
             self.interpolateMethod,
-            "v1",
-            half=self.half,
-            staticStep=self.staticStep,
-            ensemble=self.ensemble,
+            self.ensemble,
+            self.dynamicScale,
+            self.scale,
+            self.interpolateFactor,
+            self.staticStep,
+            self.dType,
+            checker.device,
+            self.width,
+            self.height,
         )
-        if self.interpolateMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
-            self.model = IFNet(
-                self.scale,
-                self.ensemble,
-                self.dType,
-                checker.device,
-                self.width,
-                self.height,
-                self.interpolateFactor,
-            )
-        else:
-            if self.interpolateMethod in ["rife4.6", "rife4.15", "rife4.15-lite"]:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                    self.staticStep,
-                )
-            else:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                )
 
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict)
@@ -231,38 +256,23 @@ class RifeCuda:
                 "yellow",
             )
 
-        mul = _padMultiple(self.interpolateMethod, self.scale, self.dynamicScale)
-        ph = ((self.height - 1) // mul + 1) * mul
-        pw = ((self.width - 1) // mul + 1) * mul
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        self.I0 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=checker.device,
-        ).to(memory_format=torch.channels_last)
-
-        self.I1 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=checker.device,
-        ).to(memory_format=torch.channels_last)
-
+        (
+            self.padding,
+            self.I0,
+            self.I1,
+            self._timestep_buffer,
+        ) = _paddedFrameBuffers(
+            self.interpolateMethod,
+            self.scale,
+            self.dynamicScale,
+            self.width,
+            self.height,
+            self.dType,
+            checker.device,
+        )
         self.firstRun = True
         self.stream = torch.cuda.Stream()
         self.normStream = torch.cuda.Stream()
-
-        self._timestep_buffer = torch.zeros(
-            (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-            dtype=self.dType,
-            device=checker.device,
-        )
         self._cachedTimestepValue = None
 
         self._setupCudaGraph()
@@ -730,7 +740,6 @@ class RifeMPS:
         compileMode: str = "default",
     ):
         self.half = half
-        self.scale = 1.0
         self.width = width
         self.height = height
         self.interpolateMethod = interpolateMethod
@@ -742,14 +751,7 @@ class RifeMPS:
         self.compileMode = compileMode
         self.device = torch.device("mps")
 
-        if self.width > 1920 and self.height > 1080:
-            self.scale = 0.5
-            if self.half:
-                logAndPrint(
-                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
-                    "yellow",
-                )
-                self.half = False
+        self.scale, self.half = _uhdScale(self.width, self.height, self.half)
 
         self.handleModel()
 
@@ -766,53 +768,19 @@ class RifeMPS:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        if self.baseMethod in ["rife_elexor"] and self.staticStep:
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for rife_elexor, automatically disabling it",
-                "yellow",
-            )
-        if (
-            self.baseMethod not in ["rife4.6", "rife4.15", "rife4.15-lite"]
-            and self.staticStep
-        ):
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for this interpolation model yet, automatically disabling it",
-                "yellow",
-            )
-
-        # --static_step needs the reference arch (bakedTimestep); every other
-        # run, fp16 or fp32, uses the unified fast arch.
-        IFNet = importRifeArch(
-            self.baseMethod, "v1", staticStep=self.staticStep, ensemble=self.ensemble
+        self.staticStep = _supportedStaticStep(self.baseMethod, self.staticStep)
+        self.model = _buildRifeArch(
+            self.baseMethod,
+            self.ensemble,
+            self.dynamicScale,
+            self.scale,
+            self.interpolateFactor,
+            self.staticStep,
+            self.dType,
+            self.device,
+            self.width,
+            self.height,
         )
-        if self.baseMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
-            self.model = IFNet(
-                self.scale,
-                self.ensemble,
-                self.dType,
-                self.device,
-                self.width,
-                self.height,
-                self.interpolateFactor,
-            )
-        else:
-            if self.baseMethod in ["rife4.6", "rife4.15", "rife4.15-lite"]:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                    self.staticStep,
-                )
-            else:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                )
 
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict)
@@ -856,36 +824,21 @@ class RifeMPS:
                 "yellow",
             )
 
-        mul = _padMultiple(self.baseMethod, self.scale, self.dynamicScale)
-        ph = ((self.height - 1) // mul + 1) * mul
-        pw = ((self.width - 1) // mul + 1) * mul
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        self.I0 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=self.device,
-        ).to(memory_format=torch.channels_last)
-
-        self.I1 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=self.device,
-        ).to(memory_format=torch.channels_last)
-
-        self.firstRun = True
-
-        self._timestep_buffer = torch.zeros(
-            (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-            dtype=self.dType,
-            device=self.device,
+        (
+            self.padding,
+            self.I0,
+            self.I1,
+            self._timestep_buffer,
+        ) = _paddedFrameBuffers(
+            self.baseMethod,
+            self.scale,
+            self.dynamicScale,
+            self.width,
+            self.height,
+            self.dType,
+            self.device,
         )
+        self.firstRun = True
         self._cachedTimestepValue = None
 
     @torch.inference_mode()
@@ -1013,7 +966,6 @@ class RifeROCm:
         compileMode: str = "default",
     ):
         self.half = half
-        self.scale = 1.0
         self.width = width
         self.height = height
         self.interpolateMethod = interpolateMethod
@@ -1025,14 +977,7 @@ class RifeROCm:
         self.compileMode = compileMode
         self.device = checker.device
 
-        if self.width > 1920 and self.height > 1080:
-            self.scale = 0.5
-            if self.half:
-                logAndPrint(
-                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
-                    "yellow",
-                )
-                self.half = False
+        self.scale, self.half = _uhdScale(self.width, self.height, self.half)
 
         self.handleModel()
 
@@ -1049,57 +994,19 @@ class RifeROCm:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        if self.baseMethod in ["rife_elexor"] and self.staticStep:
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for rife_elexor, automatically disabling it",
-                "yellow",
-            )
-        if (
-            self.baseMethod not in ["rife4.6", "rife4.15", "rife4.15-lite"]
-            and self.staticStep
-        ):
-            self.staticStep = False
-            logAndPrint(
-                "Static step is not supported for this interpolation model yet, automatically disabling it",
-                "yellow",
-            )
-
-        # --static_step needs the reference arch (bakedTimestep); every other
-        # run, fp16 or fp32, uses the unified fast arch.
-        IFNet = importRifeArch(
+        self.staticStep = _supportedStaticStep(self.baseMethod, self.staticStep)
+        self.model = _buildRifeArch(
             self.baseMethod,
-            "v1",
-            half=self.half,
-            staticStep=self.staticStep,
-            ensemble=self.ensemble,
+            self.ensemble,
+            self.dynamicScale,
+            self.scale,
+            self.interpolateFactor,
+            self.staticStep,
+            self.dType,
+            self.device,
+            self.width,
+            self.height,
         )
-        if self.baseMethod in ["rife_elexor"] and not hasattr(IFNet, "cfg"):
-            self.model = IFNet(
-                self.scale,
-                self.ensemble,
-                self.dType,
-                self.device,
-                self.width,
-                self.height,
-                self.interpolateFactor,
-            )
-        else:
-            if self.baseMethod in ["rife4.6", "rife4.15", "rife4.15-lite"]:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                    self.staticStep,
-                )
-            else:
-                self.model = IFNet(
-                    self.ensemble,
-                    self.dynamicScale,
-                    self.scale,
-                    self.interpolateFactor,
-                )
 
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict)
@@ -1133,36 +1040,21 @@ class RifeROCm:
                 "yellow",
             )
 
-        mul = _padMultiple(self.baseMethod, self.scale, self.dynamicScale)
-        ph = ((self.height - 1) // mul + 1) * mul
-        pw = ((self.width - 1) // mul + 1) * mul
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        self.I0 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=self.device,
-        ).to(memory_format=torch.channels_last)
-
-        self.I1 = torch.zeros(
-            1,
-            3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
-            dtype=self.dType,
-            device=self.device,
-        ).to(memory_format=torch.channels_last)
-
-        self.firstRun = True
-
-        self._timestep_buffer = torch.zeros(
-            (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-            dtype=self.dType,
-            device=self.device,
+        (
+            self.padding,
+            self.I0,
+            self.I1,
+            self._timestep_buffer,
+        ) = _paddedFrameBuffers(
+            self.baseMethod,
+            self.scale,
+            self.dynamicScale,
+            self.width,
+            self.height,
+            self.dType,
+            self.device,
         )
+        self.firstRun = True
         self._cachedTimestepValue = None
 
         # Eager warmup, no graph capture. A --static_step arch is warmed through

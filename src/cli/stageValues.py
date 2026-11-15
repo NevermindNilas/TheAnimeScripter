@@ -389,18 +389,16 @@ def _parseKeyed(kind, label, key, text, context):
     settingsKey = KEYS[kind][key]
     if key in BOOL_KEYS:
         return settingsKey, _str2bool(label, key, text)
-    if key == "method":
-        methods = context.methods["interpolate" if kind == "smooth_dedup" else kind]
+    if key in ("method", "detector"):
+        # detector= is the smooth stage's detection method; its method= is an
+        # interpolation method.
+        if key == "detector":
+            methods = context.methods["smooth_dedup"]
+        else:
+            methods = context.methods["interpolate" if kind == "smooth_dedup" else kind]
         if text not in methods:
             raise UnknownStageValue(
-                _unknownMessage(label, f"method={text}", text, methods, ()), text
-            )
-        return settingsKey, text
-    if key == "detector":
-        methods = context.methods["smooth_dedup"]
-        if text not in methods:
-            raise UnknownStageValue(
-                _unknownMessage(label, f"detector={text}", text, methods, ()), text
+                _unknownMessage(label, f"{key}={text}", text, methods, ()), text
             )
         return settingsKey, text
     if key == "model":

@@ -20,6 +20,84 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
+def _loadUpscaleArch(method, upscaleFactor, modelPath, customModel):
+    """Build ``method``'s arch from ``modelPath`` and return it in eval mode."""
+    from src.spandrelCompat import ImageModelDescriptor, loadSpandrelModel
+
+    if method == "saryn":
+        from src.extraArches.RTMoSR import RTMoSR
+
+        model = RTMoSR()
+        stateDict = torch.load(modelPath, map_location="cpu")
+        model.load_state_dict(stateDict)
+        del stateDict
+    elif method == "figsr":
+        from src.extraArches.figsr import FIGSR
+
+        stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
+        model = FIGSR(scale=upscaleFactor, dim=32)
+        model.load_state_dict(stateDict, strict=False)
+        del stateDict
+    elif method == "smosr":
+        # SMoSR is a registered spandrel arch; spandrel reads the
+        # .safetensors, auto-detects dim/depth/rep, and reparameterizes
+        # (fuses) the rep branches when .eval() runs below.
+        model = loadSpandrelModel(modelPath)
+        if not isinstance(model, ImageModelDescriptor):
+            raise TypeError(
+                f"SMoSR model {modelPath} did not resolve to an image model descriptor"
+            )
+        model = model.model
+    elif method == "gauss":
+        from safetensors.torch import load_file
+
+        from src.extraArches.DIS import DIS
+
+        model = DIS(scale=2, num_features=32, num_blocks=12)
+        stateDict = load_file(modelPath)
+        model.load_state_dict(stateDict)
+        del stateDict
+    else:
+        if customModel:
+            model = loadSpandrelModel(modelPath)
+            if not isinstance(model, ImageModelDescriptor):
+                raise TypeError(
+                    f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
+                )
+        else:
+            model = torch.load(modelPath, map_location="cpu", weights_only=False)
+            if isinstance(model, dict):
+                model = loadSpandrelModel(modelPath, model)
+
+        try:
+            # SPANDREL HAXX
+            model = model.model
+        except Exception:
+            pass
+
+    return model.eval()
+
+
+def _torchProbe(model, device, dtype, channelsLast):
+    """``smallestValidMultiple``'s runOK: one tiny forward of ``model``."""
+
+    def runOK(h, w):
+        try:
+            probe = torch.zeros((1, 3, h, w), device=device, dtype=dtype)
+            if channelsLast:
+                probe = probe.contiguous().to(memory_format=torch.channels_last)
+            # no_grad, not inference_mode: archs that lazily reparameterize on
+            # first forward (SPAN's eval_conv) would otherwise cache an
+            # inference-mode tensor that the grad-tracked warmup cannot reuse.
+            with torch.no_grad():
+                model(probe)
+            return True
+        except Exception:
+            return False
+
+    return runOK
+
+
 class UniversalPytorch:
     def __init__(
         self,
@@ -62,11 +140,7 @@ class UniversalPytorch:
                 {"status": f"Loading upscale model: {self.upscaleMethod}..."}
             )
 
-        from src.spandrelCompat import (
-            ImageModelDescriptor,
-            UnsupportedDtypeError,
-            loadSpandrelModel,
-        )
+        from src.spandrelCompat import UnsupportedDtypeError
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -85,65 +159,9 @@ class UniversalPytorch:
                     f"Custom model file {self.customModel} not found"
                 )
 
-        if self.upscaleMethod == "saryn":
-            from src.extraArches.RTMoSR import RTMoSR
-
-            self.model = RTMoSR()
-            stateDict = torch.load(modelPath, map_location="cpu")
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        elif self.upscaleMethod == "figsr":
-            from src.extraArches.figsr import FIGSR
-
-            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
-            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
-
-            self.model.load_state_dict(stateDict, strict=False)
-            del stateDict
-        elif self.upscaleMethod == "smosr":
-            # SMoSR is a registered spandrel arch; spandrel reads the
-            # .safetensors, auto-detects dim/depth/rep, and reparameterizes
-            # (fuses) the rep branches when .eval() runs below.
-            self.model = loadSpandrelModel(modelPath)
-            if not isinstance(self.model, ImageModelDescriptor):
-                raise TypeError(
-                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
-                )
-            self.model = self.model.model
-        elif self.upscaleMethod == "gauss":
-            from safetensors.torch import load_file
-
-            from src.extraArches.DIS import DIS
-
-            self.model = DIS(scale=2, num_features=32, num_blocks=12)
-            stateDict = load_file(modelPath)
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        else:
-            if self.customModel:
-                self.model = loadSpandrelModel(modelPath)
-                if not isinstance(self.model, ImageModelDescriptor):
-                    raise TypeError(
-                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
-                    )
-            else:
-                self.model = torch.load(
-                    modelPath, map_location="cpu", weights_only=False
-                )
-
-                if isinstance(self.model, dict):
-                    self.model = loadSpandrelModel(modelPath, self.model)
-
-            if self.customModel:
-                assert isinstance(self.model, ImageModelDescriptor)
-
-            try:
-                # SPANDREL HAXX
-                self.model = self.model.model
-            except Exception:
-                pass
-
-        self.model = self.model.eval()
+        self.model = _loadUpscaleArch(
+            self.upscaleMethod, self.upscaleFactor, modelPath, self.customModel
+        )
 
         if self.half and checker.cudaAvailable:
             try:
@@ -176,8 +194,18 @@ class UniversalPytorch:
         # mismatch, so the input is reflect-padded to the multiple and the
         # surplus cropped off the output. Fully-convolutional archs resolve to
         # 1, so padding stays zero and the output is bit-identical.
-        self.requiredMultiple = self._detectRequiredMultiple()
-        from src.upscale._shared import calculatePadding
+        from src.upscale._shared import calculatePadding, resolveRequiredMultiple
+
+        self.requiredMultiple = resolveRequiredMultiple(
+            self.upscaleMethod,
+            self.customModel,
+            lambda: _torchProbe(
+                self.model,
+                checker.device,
+                torch.float16 if self.half else torch.float32,
+                channelsLast=True,
+            ),
+        )
 
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
@@ -230,7 +258,7 @@ class UniversalPytorch:
         self.stream = torch.cuda.Stream()
 
         waitForCaller(self.stream)
-        # no_grad, not inference_mode (see _detectRequiredMultiple): with grad
+        # no_grad, not inference_mode (see _torchProbe): with grad
         # on, every warmup forward recorded an autograd graph holding all of
         # its activations (span at 714p fp16: 4.6 GiB peak instead of 1.7).
         # TorchScript models (rtmosr) keep the caller's grad mode, as before:
@@ -262,40 +290,6 @@ class UniversalPytorch:
         if self.compileMode == "default":
             self.cudaGraph = torch.cuda.CUDAGraph()
             self.initTorchCudaGraph()
-
-    def _detectRequiredMultiple(self) -> int:
-        """Look up the arch's required spatial multiple, probing unknown archs.
-
-        Known shipped archs resolve from KNOWN_INPUT_MULTIPLES without running
-        the model; custom models and unlisted archs fall back to tiny probe
-        forwards.
-        """
-        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
-
-        if not self.customModel:
-            known = lookupRequiredMultiple(self.upscaleMethod)
-            if known is not None:
-                return known
-
-        dtype = torch.float16 if self.half else torch.float32
-
-        def runOK(h, w):
-            try:
-                probe = (
-                    torch.zeros((1, 3, h, w), device=checker.device, dtype=dtype)
-                    .contiguous()
-                    .to(memory_format=torch.channels_last)
-                )
-                # no_grad, not inference_mode: archs that lazily reparameterize on
-                # first forward (SPAN's eval_conv) would otherwise cache an
-                # inference-mode tensor that the grad-tracked warmup cannot reuse.
-                with torch.no_grad():
-                    self.model(probe)
-                return True
-            except Exception:
-                return False
-
-        return smallestValidMultiple(runOK)
 
     @torch.inference_mode()
     def initTorchCudaGraph(self):
@@ -380,11 +374,7 @@ class UniversalPytorchMPS:
                 {"status": f"Loading MPS upscale model: {self.upscaleMethod}..."}
             )
 
-        from src.spandrelCompat import (
-            ImageModelDescriptor,
-            UnsupportedDtypeError,
-            loadSpandrelModel,
-        )
+        from src.spandrelCompat import UnsupportedDtypeError
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -402,57 +392,9 @@ class UniversalPytorchMPS:
                 )
             modelPath = self.customModel
 
-        if self.baseMethod == "saryn":
-            from src.extraArches.RTMoSR import RTMoSR
-
-            self.model = RTMoSR()
-            stateDict = torch.load(modelPath, map_location="cpu")
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        elif self.baseMethod == "figsr":
-            from src.extraArches.figsr import FIGSR
-
-            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
-            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
-            self.model.load_state_dict(stateDict, strict=False)
-            del stateDict
-        elif self.baseMethod == "smosr":
-            self.model = loadSpandrelModel(modelPath)
-            if not isinstance(self.model, ImageModelDescriptor):
-                raise TypeError(
-                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
-                )
-            self.model = self.model.model
-        elif self.baseMethod == "gauss":
-            from safetensors.torch import load_file
-
-            from src.extraArches.DIS import DIS
-
-            self.model = DIS(scale=2, num_features=32, num_blocks=12)
-            stateDict = load_file(modelPath)
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        else:
-            if self.customModel:
-                self.model = loadSpandrelModel(modelPath)
-                if not isinstance(self.model, ImageModelDescriptor):
-                    raise TypeError(
-                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
-                    )
-            else:
-                self.model = torch.load(
-                    modelPath, map_location="cpu", weights_only=False
-                )
-                if isinstance(self.model, dict):
-                    self.model = loadSpandrelModel(modelPath, self.model)
-
-            try:
-                # SPANDREL HAXX
-                self.model = self.model.model
-            except Exception:
-                pass
-
-        self.model = self.model.eval()
+        self.model = _loadUpscaleArch(
+            self.baseMethod, self.upscaleFactor, modelPath, self.customModel
+        )
 
         if self.half:
             try:
@@ -481,8 +423,15 @@ class UniversalPytorchMPS:
         # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
         # input dims divisible by 4; detect the requirement and reflect-pad to it,
         # cropping the surplus off the output. Fully-conv archs report 1 (no pad).
-        self.requiredMultiple = self._detectRequiredMultiple()
-        from src.upscale._shared import calculatePadding
+        from src.upscale._shared import calculatePadding, resolveRequiredMultiple
+
+        self.requiredMultiple = resolveRequiredMultiple(
+            self.baseMethod,
+            self.customModel,
+            lambda: _torchProbe(
+                self.model, self.device, self.dtype, channelsLast=False
+            ),
+        )
 
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
@@ -498,29 +447,6 @@ class UniversalPytorchMPS:
             for _ in range(2):
                 _ = self.model(dummy)
             torch.mps.synchronize()
-
-    def _detectRequiredMultiple(self) -> int:
-        """Look up the arch's required spatial multiple, probing unknown archs."""
-        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
-
-        if not self.customModel:
-            known = lookupRequiredMultiple(self.baseMethod)
-            if known is not None:
-                return known
-
-        def runOK(h, w):
-            try:
-                probe = torch.zeros((1, 3, h, w), device=self.device, dtype=self.dtype)
-                # no_grad, not inference_mode: archs that lazily reparameterize on
-                # first forward (SPAN's eval_conv) would otherwise cache an
-                # inference-mode tensor that the grad-tracked warmup cannot reuse.
-                with torch.no_grad():
-                    self.model(probe)
-                return True
-            except Exception:
-                return False
-
-        return smallestValidMultiple(runOK)
 
     @torch.inference_mode()
     def __call__(self, frame: torch.Tensor, nextFrame=None) -> torch.Tensor:
@@ -580,11 +506,7 @@ class UniversalPytorchROCm:
                 {"status": f"Loading ROCm upscale model: {self.upscaleMethod}..."}
             )
 
-        from src.spandrelCompat import (
-            ImageModelDescriptor,
-            UnsupportedDtypeError,
-            loadSpandrelModel,
-        )
+        from src.spandrelCompat import UnsupportedDtypeError
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -602,56 +524,9 @@ class UniversalPytorchROCm:
                 )
             modelPath = self.customModel
 
-        if self.baseMethod == "saryn":
-            from src.extraArches.RTMoSR import RTMoSR
-
-            self.model = RTMoSR()
-            stateDict = torch.load(modelPath, map_location="cpu")
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        elif self.baseMethod == "figsr":
-            from src.extraArches.figsr import FIGSR
-
-            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
-            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
-            self.model.load_state_dict(stateDict, strict=False)
-            del stateDict
-        elif self.baseMethod == "smosr":
-            self.model = loadSpandrelModel(modelPath)
-            if not isinstance(self.model, ImageModelDescriptor):
-                raise TypeError(
-                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
-                )
-            self.model = self.model.model
-        elif self.baseMethod == "gauss":
-            from safetensors.torch import load_file
-
-            from src.extraArches.DIS import DIS
-
-            self.model = DIS(scale=2, num_features=32, num_blocks=12)
-            stateDict = load_file(modelPath)
-            self.model.load_state_dict(stateDict)
-            del stateDict
-        else:
-            if self.customModel:
-                self.model = loadSpandrelModel(modelPath)
-                if not isinstance(self.model, ImageModelDescriptor):
-                    raise TypeError(
-                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
-                    )
-            else:
-                self.model = torch.load(
-                    modelPath, map_location="cpu", weights_only=False
-                )
-                if isinstance(self.model, dict):
-                    self.model = loadSpandrelModel(modelPath, self.model)
-
-            try:
-                self.model = self.model.model
-            except Exception:
-                pass
-
-        self.model = self.model.eval()
+        self.model = _loadUpscaleArch(
+            self.baseMethod, self.upscaleFactor, modelPath, self.customModel
+        )
 
         if self.half:
             try:
@@ -682,8 +557,13 @@ class UniversalPytorchROCm:
             )
             self.compileMode = "default"
 
-        self.requiredMultiple = self._detectRequiredMultiple()
-        from src.upscale._shared import calculatePadding
+        from src.upscale._shared import calculatePadding, resolveRequiredMultiple
+
+        self.requiredMultiple = resolveRequiredMultiple(
+            self.baseMethod,
+            self.customModel,
+            lambda: _torchProbe(self.model, self.device, self.dtype, channelsLast=True),
+        )
 
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
 
@@ -706,29 +586,6 @@ class UniversalPytorchROCm:
                 _ = self.model(dummy)
             if self.device.type == "cuda":
                 torch.cuda.synchronize()
-
-    def _detectRequiredMultiple(self) -> int:
-        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
-
-        if not self.customModel:
-            known = lookupRequiredMultiple(self.baseMethod)
-            if known is not None:
-                return known
-
-        def runOK(h, w):
-            try:
-                probe = (
-                    torch.zeros((1, 3, h, w), device=self.device, dtype=self.dtype)
-                    .contiguous()
-                    .to(memory_format=torch.channels_last)
-                )
-                with torch.no_grad():
-                    self.model(probe)
-                return True
-            except Exception:
-                return False
-
-        return smallestValidMultiple(runOK)
 
     @torch.inference_mode()
     def __call__(self, frame: torch.Tensor, nextFrame=None) -> torch.Tensor:

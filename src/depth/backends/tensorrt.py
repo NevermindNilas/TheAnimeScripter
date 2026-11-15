@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.depth.backends._batch import iterBatches
 from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
@@ -291,21 +292,11 @@ class DepthTensorRTV2(DepthRunOutcome):
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            while True:
-                frames = []
-                for _ in range(self._batch):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
-                    frames.append(frame)
-                if frames:
-                    self.processBatch(frames)
-                    frameCount += len(frames)
-                    bar(len(frames))
-                # A short read means the decoder's single None sentinel was just
-                # consumed; another read() would block forever.
-                if len(frames) < self._batch:
-                    break
+            for frames in iterBatches(self.readBuffer.read, self._batch):
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
+                del frames  # free batch N before batch N+1 is decoded
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()

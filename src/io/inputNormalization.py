@@ -39,13 +39,13 @@ def processUrlInput(args, outputPath, processingEnabled):
 
     if args.output is None:
         outputFolder = os.path.join(outputPath, "output")
-        os.makedirs(os.path.join(outputFolder), exist_ok=True)
+        os.makedirs(outputFolder, exist_ok=True)
         args.output = os.path.join(
             outputFolder, generateOutputName(args, args.input, title)
         )
     elif os.path.isdir(args.output):
         outputFolder = args.output
-        os.makedirs(os.path.join(outputFolder), exist_ok=True)
+        os.makedirs(outputFolder, exist_ok=True)
         if not processingEnabled:
             # The rename below needs a file in that folder, not the folder.
             args.output = os.path.join(
@@ -53,7 +53,7 @@ def processUrlInput(args, outputPath, processingEnabled):
             )
     else:
         outputFolder = os.path.dirname(args.output)
-        os.makedirs(os.path.join(outputFolder), exist_ok=True)
+        os.makedirs(outputFolder, exist_ok=True)
 
     # The download is the processing run's input, so it is named after the
     # video alone (always .mp4, yt-dlp's merge format): with the run's

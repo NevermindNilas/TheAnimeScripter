@@ -20,8 +20,8 @@ import torch
 
 from src.infra.cudaStreams import waitForCaller
 from src.infra.providerCheck import warnCpuFallback, warnIfProviderMissing
-from src.model.download import downloadModels
-from src.model.registry import modelsMap, weightsDir
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 
 class SceneChangeScorer6ch:
@@ -59,12 +59,13 @@ class SceneChangeScorer6ch:
         folderName = self.method.replace("-tensorrt", "-onnx").replace(
             "-directml", "-onnx"
         )
-        modelPath = os.path.join(weightsDir, folderName, filename)
-        if not os.path.exists(modelPath):
-            modelPath = downloadModels(
-                model=self.method, half=weightHalf, modelType="onnx"
-            )
-        return modelPath
+        return resolveWeightPath(
+            folderName,
+            filename,
+            downloadModel=self.method,
+            modelType="onnx",
+            half=weightHalf,
+        )
 
     def _loadModel(self):
         self.modelPath = self._resolveModelPath()

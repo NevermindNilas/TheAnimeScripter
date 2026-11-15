@@ -19,6 +19,7 @@ from src.depth.backends._shared import (
     calculateAspectRatio,
     limboDisparity,
     limboResolution,
+    longestSideShape,
 )
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -28,6 +29,15 @@ from src.model.registry import modelsMap
 
 if ADOBE:
     from src.server.aeComms import progressState
+
+
+def ignoreMpsCompileMode(driver):
+    if driver.compileMode != "default":
+        logAndPrint(
+            f"compileMode '{driver.compileMode}' ignored on MPS depth backend (unsupported).",
+            "yellow",
+        )
+        driver.compileMode = "default"
 
 
 class DepthMPS(DepthRunOutcome):
@@ -137,12 +147,7 @@ class DepthMPS(DepthRunOutcome):
 
         self.model = self.model.to(self.device)
 
-        if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
-                "yellow",
-            )
-            self.compileMode = "default"
+        ignoreMpsCompileMode(self)
 
     def _warmup(self):
         with torch.inference_mode():
@@ -289,12 +294,7 @@ class LimboMPS(DepthMPS):
         self.dtype = torch.float32
         self.half = False
 
-        if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
-                "yellow",
-            )
-            self.compileMode = "default"
+        ignoreMpsCompileMode(self)
 
         self._warmup()
 
@@ -476,19 +476,12 @@ class DepthV3MPS(DepthRunOutcome):
         # lower_bound_resize stretched the shortest side to that length -- 4K
         # 16:9 decoded at 6832x3850, OOMing the DPT head even on 24 GB.
         self.processResMethod = "upper_bound_resize"
-        scale = self.processRes / max(self.width, self.height)
-        tgt_w = max(14, (max(1, round(self.width * scale)) // 14) * 14)
-        tgt_h = max(14, (max(1, round(self.height * scale)) // 14) * 14)
-        self._decodeWidth = tgt_w
-        self._decodeHeight = tgt_h
+        self._decodeHeight, self._decodeWidth = longestSideShape(
+            self.width, self.height, self.processRes
+        )
         self._decodeResize = True
 
-        if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS depth backend (unsupported).",
-                "yellow",
-            )
-            self.compileMode = "default"
+        ignoreMpsCompileMode(self)
 
     @torch.inference_mode()
     def _inferBatch(self, frames):

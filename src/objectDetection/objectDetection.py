@@ -89,57 +89,11 @@ def _rescaleBoxes(owner, boxes):
     return boxes
 
 
-class ObjectDetectionDML:
-    def __init__(
-        self,
-        input,
-        output,
-        width,
-        height,
-        fps,
-        inpoint=0,
-        outpoint=0,
-        encodeMethod="x264",
-        benchmark=False,
-        half=False,
-        objDetectMethod="yolov9_small-directml",
-        totalFrames=0,
-        disableAnnotations=False,
-        decodeResize=False,
-    ):
-        import onnxruntime as ort
+class _ObjectDetector:
+    """The run, per-frame draw and frame loop both backends share; each
+    subclass loads its model in ``handleModels`` and infers in ``detect``."""
 
-        self.ort = ort
-        self.ort.set_default_logger_severity(3)
-
-        self.input = input
-        self.output = output
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        # Read back by the standalone factory so main.py can count a failed
-        # run as failed; these paths never reach start()'s own bookkeeping.
-        self.processingError: Exception | None = None
-        self.encodeMethod = encodeMethod
-        self.benchmark = benchmark
-        self.half = half
-        self.objDetectMethod = objDetectMethod
-        self.totalFrames = totalFrames
-        self.disableAnnotations = disableAnnotations
-        # A --resize target the decoder scales to: frames are written to the
-        # encoder as they were decoded, at width x height.
-        self.decodeResize = decodeResize
-        self.confThreshold = 0.25
-
-        if "openvino" in objDetectMethod:
-            logAndPrint(
-                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
-                "yellow",
-            )
-            import openvino  # noqa: F401
-
+    def _runJob(self):
         self.handleModels()
 
         try:
@@ -191,6 +145,134 @@ class ObjectDetectionDML:
             # This path bypasses main.py's start()/_notifyAdobe, so nothing
             # else would ever tell the panel the render finished or failed.
             reportTerminalStatus(self.processingError, self.output, self.benchmark)
+
+    def prepareInput(self, image):
+        self.imgHeight, self.imgWidth = image.shape[:2]
+        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
+        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
+            np.float32
+        )
+        inputTensor *= _INV_255
+        return inputTensor
+
+    def rescaleBoxes(self, boxes):
+        return _rescaleBoxes(self, boxes)
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            frame = _rgb8(frame)
+            classIds, boxes, confidences = self.detect(frame)
+            if boxes.size == 0:
+                _writeRgbFrame(
+                    self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
+                )
+                return
+
+            # readBuffer already delivers RGB. Draw straight onto it with the
+            # channel-reversed palette instead of the old RGB->BGR->RGB round
+            # trip (two full-frame cvtColors/frame, ~1.5ms at 1080p); the output
+            # is byte-identical to the previous draw-in-BGR-then-swap path.
+            if self.disableAnnotations:
+                outputImg = frame.copy()
+                outputImg = draw_masks(
+                    outputImg, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
+                )
+                for classId, box in zip(classIds, boxes, strict=False):
+                    color = colors_rgb[classId]
+                    draw_box(outputImg, box, color)
+            else:
+                outputImg = draw_detections(
+                    frame, boxes, confidences, classIds, palette=colors_rgb
+                )
+
+            _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
+
+        except Exception as e:
+            # Recorded, not just logged: the loop keeps going, so without this
+            # a run where every frame raised finished with a header-only file
+            # and reported success -- the same hole --depth had.
+            if self.processingError is None:
+                self.processingError = e
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
+        frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames, title="Object detection") as bar:
+                while (frame := self.readBuffer.read()) is not None:
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(1)
+
+            logging.info(f"Processed {frameCount} frames")
+        finally:
+            # The decoder signals a mid-stream death only by putting its
+            # end-of-stream sentinel, which reads like a clean EOF, so without
+            # this a truncated decode wrote a short file and exited 0.
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
+            if decodeError is not None and self.processingError is None:
+                self.processingError = decodeError
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
+
+
+class ObjectDetectionDML(_ObjectDetector):
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        inpoint=0,
+        outpoint=0,
+        encodeMethod="x264",
+        benchmark=False,
+        half=False,
+        objDetectMethod="yolov9_small-directml",
+        totalFrames=0,
+        disableAnnotations=False,
+        decodeResize=False,
+    ):
+        import onnxruntime as ort
+
+        self.ort = ort
+        self.ort.set_default_logger_severity(3)
+
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
+        self.encodeMethod = encodeMethod
+        self.benchmark = benchmark
+        self.half = half
+        self.objDetectMethod = objDetectMethod
+        self.totalFrames = totalFrames
+        self.disableAnnotations = disableAnnotations
+        # A --resize target the decoder scales to: frames are written to the
+        # encoder as they were decoded, at width x height.
+        self.decodeResize = decodeResize
+        self.confThreshold = 0.25
+
+        if "openvino" in objDetectMethod:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
+        self._runJob()
 
     def handleModels(self):
         if ADOBE:
@@ -262,15 +344,6 @@ class ObjectDetectionDML:
         self._boxScale = None
         self._boxScaleShape = None
 
-    def prepareInput(self, image):
-        self.imgHeight, self.imgWidth = image.shape[:2]
-        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
-        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
-            np.float32
-        )
-        inputTensor *= _INV_255
-        return inputTensor
-
     def processOutput(self, output):
         confidences = output[:, -2]
         mask = confidences > self.confThreshold
@@ -281,78 +354,13 @@ class ObjectDetectionDML:
         boxes = self.rescaleBoxes(boxes)
         return classIds, boxes, confidences
 
-    def rescaleBoxes(self, boxes):
-        return _rescaleBoxes(self, boxes)
-
     def detect(self, image):
         inputTensor = self.prepareInput(image)
         outputs = self.session.run(self.outputNames, {self.inputName: inputTensor})
         return self.processOutput(outputs[0])
 
-    @torch.inference_mode()
-    def processFrame(self, frame):
-        try:
-            frame = _rgb8(frame)
-            classIds, boxes, confidences = self.detect(frame)
-            if boxes.size == 0:
-                _writeRgbFrame(
-                    self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
-                )
-                return
 
-            # readBuffer already delivers RGB. Draw straight onto it with the
-            # channel-reversed palette instead of the old RGB->BGR->RGB round
-            # trip (two full-frame cvtColors/frame, ~1.5ms at 1080p); the output
-            # is byte-identical to the previous draw-in-BGR-then-swap path.
-            if self.disableAnnotations:
-                outputImg = frame.copy()
-                outputImg = draw_masks(
-                    outputImg, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
-                )
-                for classId, box in zip(classIds, boxes, strict=False):
-                    color = colors_rgb[classId]
-                    draw_box(outputImg, box, color)
-            else:
-                outputImg = draw_detections(
-                    frame, boxes, confidences, classIds, palette=colors_rgb
-                )
-
-            _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
-
-        except Exception as e:
-            # Recorded, not just logged: the loop keeps going, so without this
-            # a run where every frame raised finished with a header-only file
-            # and reported success -- the same hole --depth had.
-            if self.processingError is None:
-                self.processingError = e
-            logging.exception(f"Something went wrong while processing the frame, {e}")
-
-    def process(self):
-        # try/finally, not a trailing call: if this loop raises, the writer
-        # never gets its None sentinel and the enclosing ThreadPoolExecutor
-        # joins forever, with the exception buried in a future nobody reads.
-        frameCount = 0
-        try:
-            with ProgressBarLogic(self.totalFrames, title="Object detection") as bar:
-                while (frame := self.readBuffer.read()) is not None:
-                    self.processFrame(frame)
-                    frameCount += 1
-                    bar(1)
-
-            logging.info(f"Processed {frameCount} frames")
-        finally:
-            # The decoder signals a mid-stream death only by putting its
-            # end-of-stream sentinel, which reads like a clean EOF, so without
-            # this a truncated decode wrote a short file and exited 0.
-            decodeError = truncatedDecodeError(
-                self.readBuffer, self.totalFrames, self.writeBuffer
-            )
-            if decodeError is not None and self.processingError is None:
-                self.processingError = decodeError
-            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
-
-
-class ObjectDetectionTensorRT:
+class ObjectDetectionTensorRT(_ObjectDetector):
     def __init__(
         self,
         input,
@@ -403,57 +411,7 @@ class ObjectDetectionTensorRT:
         self.decodeResize = decodeResize
         self.confThreshold = 0.25
 
-        self.handleModels()
-
-        try:
-            self.readBuffer = BuildBuffer(
-                videoInput=self.input,
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-                resize=self.decodeResize,
-                width=self.width,
-                height=self.height,
-                toTorch=False,
-            )
-
-            self.writeBuffer = createWriteBuffer(
-                input=self.input,
-                output=self.output,
-                encode_method=self.encodeMethod,
-                width=self.width,
-                height=self.height,
-                fps=self.fps,
-                grayscale=False,
-                benchmark=self.benchmark,
-                # BuildBuffer above trims the video to [inpoint, outpoint];
-                # without these the writer muxes the FULL-length source audio
-                # and subtitles against it, desyncing the output by inpoint.
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-            )
-            self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
-
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer)
-                executor.submit(self.readBuffer)
-                processFuture = executor.submit(self.process)
-                # .result(): without it a raise inside process() is discarded
-                # with the future and the run reports success on a broken output.
-                processFuture.result()
-
-        except Exception as e:
-            # Recorded as well as logged: --obj_detect bypasses start(), so main.py
-            # otherwise decides success purely from the output file size and
-            # counts a half-written video as a successful run.
-            self.processingError = e
-            logging.exception(f"Something went wrong, {e}")
-
-        # Every thread has finished: a late encoder error counts too.
-        recordWriterFailure(self)
-        if ADOBE:
-            # This path bypasses main.py's start()/_notifyAdobe, so nothing
-            # else would ever tell the panel the render finished or failed.
-            reportTerminalStatus(self.processingError, self.output, self.benchmark)
+        self._runJob()
 
     def trtDtypeToTorch(self, trtDtype):
         if trtDtype == self.trt.DataType.FLOAT:
@@ -571,16 +529,6 @@ class ObjectDetectionTensorRT:
                 self.stream.synchronize()
 
     @torch.inference_mode()
-    def prepareInput(self, image):
-        self.imgHeight, self.imgWidth = image.shape[:2]
-        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
-        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
-            np.float32
-        )
-        inputTensor *= _INV_255
-        return inputTensor
-
-    @torch.inference_mode()
     def processOutput(self, output):
         if isinstance(output, torch.Tensor):
             output = output.detach().cpu().numpy()
@@ -604,10 +552,6 @@ class ObjectDetectionTensorRT:
             )
 
         return classIds, boxes, confidences
-
-    @torch.inference_mode()
-    def rescaleBoxes(self, boxes):
-        return _rescaleBoxes(self, boxes)
 
     @torch.inference_mode()
     def detect(self, image):
@@ -638,65 +582,3 @@ class ObjectDetectionTensorRT:
             np.empty((0, 4), dtype=np.float32),
             np.array([], dtype=np.float32),
         )
-
-    @torch.inference_mode()
-    def processFrame(self, frame):
-        try:
-            frame = _rgb8(frame)
-            classIds, boxes, confidences = self.detect(frame)
-            if boxes.size == 0:
-                _writeRgbFrame(
-                    self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
-                )
-                return
-
-            # readBuffer already delivers RGB. Draw straight onto it with the
-            # channel-reversed palette instead of the old RGB->BGR->RGB round
-            # trip (two full-frame cvtColors/frame, ~1.5ms at 1080p); the output
-            # is byte-identical to the previous draw-in-BGR-then-swap path.
-            if self.disableAnnotations:
-                outputImg = frame.copy()
-                outputImg = draw_masks(
-                    outputImg, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
-                )
-                for classId, box in zip(classIds, boxes, strict=False):
-                    color = colors_rgb[classId]
-                    draw_box(outputImg, box, color)
-            else:
-                outputImg = draw_detections(
-                    frame, boxes, confidences, classIds, palette=colors_rgb
-                )
-
-            _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
-
-        except Exception as e:
-            # Recorded, not just logged: the loop keeps going, so without this
-            # a run where every frame raised finished with a header-only file
-            # and reported success -- the same hole --depth had.
-            if self.processingError is None:
-                self.processingError = e
-            logging.exception(f"Something went wrong while processing the frame, {e}")
-
-    def process(self):
-        # try/finally, not a trailing call: if this loop raises, the writer
-        # never gets its None sentinel and the enclosing ThreadPoolExecutor
-        # joins forever, with the exception buried in a future nobody reads.
-        frameCount = 0
-        try:
-            with ProgressBarLogic(self.totalFrames, title="Object detection") as bar:
-                while (frame := self.readBuffer.read()) is not None:
-                    self.processFrame(frame)
-                    frameCount += 1
-                    bar(1)
-
-            logging.info(f"Processed {frameCount} frames")
-        finally:
-            # The decoder signals a mid-stream death only by putting its
-            # end-of-stream sentinel, which reads like a clean EOF, so without
-            # this a truncated decode wrote a short file and exited 0.
-            decodeError = truncatedDecodeError(
-                self.readBuffer, self.totalFrames, self.writeBuffer
-            )
-            if decodeError is not None and self.processingError is None:
-                self.processingError = decodeError
-            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

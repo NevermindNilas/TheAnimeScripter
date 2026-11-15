@@ -113,11 +113,6 @@ def isUrlInput(value) -> bool:
     return text.lower().startswith(_URL_PREFIXES) and not os.path.exists(text)
 
 
-def _isURL(value):
-    """True if the input string is an http(s) URL (see :func:`isUrlInput`)."""
-    return isUrlInput(value)
-
-
 def _sanitize(value):
     """Replace filesystem-unsafe characters in a name fragment."""
     return _UNSAFE_CHARS.sub("_", str(value))
@@ -204,7 +199,7 @@ def titleFileName(title):
 
 def _baseName(videoInput, title=None):
     """Derive the leading filename component from an input path/URL."""
-    if _isURL(videoInput):
+    if isUrlInput(videoInput):
         return titleFileName(title) or "TAS-YTDLP"
     if not videoInput:
         return "TAS"
@@ -234,7 +229,7 @@ def _resolveExtension(args, videoInput):
         return ".gif"  # -c:v gif into the input's container fails the muxer
     # URLs and printf-style sequence patterns have no trustworthy extension to
     # copy, so fall back to the container default rather than parsing garbage.
-    if _isURL(videoInput) or (videoInput and "%" in str(videoInput)):
+    if isUrlInput(videoInput) or (videoInput and "%" in str(videoInput)):
         return ".mp4"
     if videoInput:
         # Only copy a container TAS can actually mux into -- EXTENSIONS is
@@ -320,7 +315,7 @@ def generateOutputName(args, videoInput, title=None):
     if chain is None:
         features = stageFeatures + features
 
-    isUrl = _isURL(videoInput)
+    isUrl = isUrlInput(videoInput)
     suffixes = [] if chain is None else _chainSuffixes(chain)
     for arg, label, valAttr in features:
         # A URL's name is the video title or TAS-YTDLP; no YTDLP suffix.
@@ -333,9 +328,7 @@ def generateOutputName(args, videoInput, title=None):
             # Integral floats print as ints (35.0 -> "35", not "35.0").
             if valAttr:
                 rawAttr = f"{valAttr}_raw"
-                val = getattr(args, rawAttr, getattr(args, valAttr, ""))
-                if isinstance(val, float) and val.is_integer():
-                    val = int(val)
+                val = _number(getattr(args, rawAttr, getattr(args, valAttr, "")))
             else:
                 val = ""
             suffixes.append(f"-{label}{_sanitize(val)}")
@@ -564,7 +557,7 @@ def getVideoFiles(videosInput):
         return all_files
 
     # Handle URL input
-    if _isURL(videosInput):
+    if isUrlInput(videosInput):
         return [videosInput]
 
     # Handle image sequence pattern (e.g., frames_%05d.png)
@@ -667,9 +660,9 @@ def processInputOutputPaths(args, defaultOutputPath):
 
     usedPaths = set()
     results = []
-    localInputs = [video for video in videoFiles if not _isURL(video)]
+    localInputs = [video for video in videoFiles if not isUrlInput(video)]
     for video in videoFiles:
-        if not _isURL(video):
+        if not isUrlInput(video):
             # Skip existence check for image sequence patterns (they contain %)
             if "%" not in str(video) and not os.path.exists(video):
                 raise FileNotFoundError(f"File {video} does not exist")

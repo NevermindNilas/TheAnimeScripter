@@ -3,9 +3,8 @@ import os
 
 import torch
 
-import src.constants as cs
 from src.autoclip._frames import eightBit, openResizedReader, warnIfVariableRate
-from src.autoclip._results import writeCutResults
+from src.autoclip._results import runAutoclip, writeCutResults
 from src.autoclip.omnishotcut_arch import (
     HEIGHT,
     INTER_NAMES,
@@ -153,18 +152,7 @@ class AutoClipOmniShotCut:
 
         self._loadModel()
 
-        if cs.ADOBE:
-            from src.server.aeComms import progressState
-
-            progressState.update({"status": "Detecting scene changes (omnishotcut)..."})
-            try:
-                self._run()
-            except Exception as e:
-                progressState.setFailed(error=str(e))
-                raise
-            progressState.setCompleted(outputPath=self.output)
-        else:
-            self._run()
+        runAutoclip(self._run, "omnishotcut", self.output)
 
     def _resolveModelPath(self):
         filename = modelsMap("omnishotcut")

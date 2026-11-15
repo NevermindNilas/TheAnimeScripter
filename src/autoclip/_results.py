@@ -37,3 +37,19 @@ def writeCutResults(cuts, outputPath):
                 logging.warning(f"Could not update legacy autoclipresults.txt: {e}")
 
     logAndPrint(f"AutoClip wrote {len(cuts)} cuts to {outputPath}", "green")
+
+
+def runAutoclip(run, label, outputPath):
+    """Run an autoclip job; in ADOBE mode tell the panel it started and how it ended."""
+    if not cs.ADOBE:
+        run()
+        return
+    from src.server.aeComms import progressState
+
+    progressState.update({"status": f"Detecting scene changes ({label})..."})
+    try:
+        run()
+    except Exception as e:
+        progressState.setFailed(error=str(e))
+        raise
+    progressState.setCompleted(outputPath=outputPath)

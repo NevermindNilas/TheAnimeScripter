@@ -121,38 +121,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         if ADOBE:
             progressState.update({"status": "Loading background removal model..."})
 
-        filename = modelsMap("segment")
-        modelPath = resolveWeightPath("segment", filename)
-
-        from .train import AnimeSegmentation
-
-        self.model = AnimeSegmentation.try_load(
-            "isnet_is", modelPath, checker.device, img_size=1024
-        )
-        self.model.eval()
-        # The GT encoder is a training-only distillation branch (6.88M params,
-        # 26 MiB fp32). try_load builds it so the checkpoint's gt_encoder.* keys
-        # load, but inference never calls it; drop it before moving to the GPU.
-        self.model.gt_encoder = None
-        self.model.to(checker.device)
+        self._loadIsnet()
         self.stream = torch.cuda.Stream()
-
-        # The model always runs in a fixed 1024-box, so both the shape and the
-        # batch are static and the whole forward can be captured once.
-        s = 1024
-        h, w = self.height, self.width
-        self.boxHeight, self.boxWidth = (
-            (s, int(s * w / h)) if h > w else (int(s * h / w), s)
-        )
-        ph, pw = s - self.boxHeight, s - self.boxWidth
-        self.padTop, self.padLeft = ph // 2, pw // 2
-        self.pad = (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
-
-        self.dummyInput = torch.zeros(
-            (self.segmentBatch, 3, s, s),
-            device=checker.device,
-            dtype=torch.float32,
-        )
 
         self.cudaGraph = None
         try:
@@ -170,6 +140,40 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         except Exception as e:
             logging.warning(f"CUDA graph capture failed, falling back to eager: {e}")
             self.cudaGraph = None
+
+    def _loadIsnet(self):
+        """ISNet on ``checker.device``, its 1024-box geometry and input buffer."""
+        filename = modelsMap("segment")
+        modelPath = resolveWeightPath("segment", filename)
+
+        from .train import AnimeSegmentation
+
+        self.model = AnimeSegmentation.try_load(
+            "isnet_is", modelPath, checker.device, img_size=1024
+        )
+        self.model.eval()
+        # The GT encoder is a training-only distillation branch (6.88M params,
+        # 26 MiB fp32). try_load builds it so the checkpoint's gt_encoder.* keys
+        # load, but inference never calls it; drop it before moving to the GPU.
+        self.model.gt_encoder = None
+        self.model.to(checker.device)
+
+        # The model always runs in a fixed 1024-box, so both the shape and the
+        # batch are static and the whole forward can be captured once.
+        s = 1024
+        h, w = self.height, self.width
+        self.boxHeight, self.boxWidth = (
+            (s, int(s * w / h)) if h > w else (int(s * h / w), s)
+        )
+        ph, pw = s - self.boxHeight, s - self.boxWidth
+        self.padTop, self.padLeft = ph // 2, pw // 2
+        self.pad = (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
+
+        self.dummyInput = torch.zeros(
+            (self.segmentBatch, 3, s, s),
+            device=checker.device,
+            dtype=torch.float32,
+        )
 
     @torch.inference_mode()
     def initTorchCudaGraph(self):
@@ -278,33 +282,8 @@ class AnimeSegmentROCm(AnimeSegment):
         if ADOBE:
             progressState.update({"status": "Loading ROCm background removal model..."})
 
-        filename = modelsMap("segment")
-        modelPath = resolveWeightPath("segment", filename)
-
-        from .train import AnimeSegmentation
-
-        self.model = AnimeSegmentation.try_load(
-            "isnet_is", modelPath, checker.device, img_size=1024
-        )
-        self.model.eval()
-        self.model.gt_encoder = None
-        self.model.to(checker.device)
+        self._loadIsnet()
         self.stream = None
-
-        s = 1024
-        h, w = self.height, self.width
-        self.boxHeight, self.boxWidth = (
-            (s, int(s * w / h)) if h > w else (int(s * h / w), s)
-        )
-        ph, pw = s - self.boxHeight, s - self.boxWidth
-        self.padTop, self.padLeft = ph // 2, pw // 2
-        self.pad = (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
-
-        self.dummyInput = torch.zeros(
-            (self.segmentBatch, 3, s, s),
-            device=checker.device,
-            dtype=torch.float32,
-        )
 
         self.cudaGraph = None
         with torch.inference_mode():
@@ -560,34 +539,7 @@ class AnimeSegmentTensorRT:
                 self.processingError = e
             logging.exception(f"An error occurred while processing the frame, {e}")
 
-    def process(self):
-        # try/finally, not a trailing call: if this loop raises, the writer
-        # never gets its None sentinel and the enclosing ThreadPoolExecutor
-        # joins forever, with the exception buried in a future nobody reads.
-        frameCount = 0
-        try:
-            with ProgressBarLogic(self.totalFrames, title="Segment") as bar:
-                while True:
-                    frames = _readBatch(self.readBuffer, self.segmentBatch)
-                    if frames:
-                        self.processBatch(frames)
-                        frameCount += len(frames)
-                        bar(len(frames))
-                    if len(frames) < self.segmentBatch:
-                        break
-
-            logging.info(f"Processed {frameCount} frames")
-
-        finally:
-            # The decoder signals a mid-stream death only by putting its
-            # end-of-stream sentinel, which reads like a clean EOF, so without
-            # this a truncated decode wrote a short file and exited 0.
-            decodeError = truncatedDecodeError(
-                self.readBuffer, self.totalFrames, self.writeBuffer
-            )
-            if decodeError is not None and self.processingError is None:
-                self.processingError = decodeError
-            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
+    process = AnimeSegment.process
 
 
 class AnimeSegmentDirectML:
@@ -709,7 +661,6 @@ class AnimeSegmentDirectML:
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
         self.numpyDType = np.float32
-        self.torchDType = torch.float32
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(

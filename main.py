@@ -789,10 +789,7 @@ class VideoProcessor:
             if self.profile:
                 self._runWithProfiler()
             else:
-                with ThreadPoolExecutor(max_workers=3) as executor:
-                    executor.submit(self.readBuffer)
-                    executor.submit(self.writeBuffer)
-                    executor.submit(self.process)
+                self._runThreads()
 
             # The writer has finished now: an encoder error raised after the
             # frame loop ended was not yet visible to process().
@@ -807,15 +804,10 @@ class VideoProcessor:
             # number here. A missing/0-byte output means the encoder never ran.
             try:
                 finalSize = os.path.getsize(self.output)
-            except (OSError, TypeError) as _e:
+            except OSError, TypeError:
                 finalSize = None
 
-            if _videoFailed(
-                self.processingError,
-                self.output,
-                self.benchmark,
-                self.producesVideoFile,
-            ):
+            if self.didFail():
                 # Either process() caught a per-frame exception, or the encoder
                 # produced no output file. Computing FPS from frameCount over
                 # elapsedTime is meaningless in that case (frameCount is usually
@@ -871,9 +863,7 @@ class VideoProcessor:
         """
         if not cs.ADOBE:
             return
-        if _videoFailed(
-            self.processingError, self.output, self.benchmark, self.producesVideoFile
-        ):
+        if self.didFail():
             progressState.setFailed(
                 error=str(self.processingError)
                 if self.processingError is not None
@@ -887,6 +877,13 @@ class VideoProcessor:
         return _videoFailed(
             self.processingError, self.output, self.benchmark, self.producesVideoFile
         )
+
+    def _runThreads(self):
+        """Decode, process and encode on their own threads until all three end."""
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.submit(self.readBuffer)
+            executor.submit(self.writeBuffer)
+            executor.submit(self.process)
 
     def _runWithProfiler(self):
         """
@@ -919,10 +916,7 @@ class VideoProcessor:
             profile_memory=True,
             with_stack=False,
         ) as prof:
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+            self._runThreads()
 
         traceFile = os.path.join(profilePath, "trace.json")
         prof.export_chrome_trace(traceFile)
@@ -1130,10 +1124,9 @@ def main():
                     _videoName = _videoName[:57] + "..."
                 if totalVideos > 1:
                     _setTerminalTitle(f"TAS: {_videoName} [{idx}/{totalVideos}]")
+                    printSubsectionHeader(f"Video {idx} of {totalVideos}")
                 else:
                     _setTerminalTitle(f"TAS: {_videoName}")
-                if totalVideos > 1:
-                    printSubsectionHeader(f"Video {idx} of {totalVideos}")
                 logInfo(f"Input: {entry['videoPath']}")
 
                 if getattr(args, "png_passthrough", False) and not processingEnabled:

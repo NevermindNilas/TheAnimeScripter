@@ -36,7 +36,7 @@ _RIFE_V1 = {
 }
 
 
-def _loadV1(method, half, staticStep=False, ensemble=False):
+def _loadV1(method, staticStep=False, ensemble=False):
     # `half` no longer selects the arch: the unified fast arch is exact in fp32
     # too (and ~1.5x faster than the reference arch there). Only --static_step
     # still needs the reference arch's bakedTimestep.
@@ -181,7 +181,7 @@ def importRifeArch(
 ):
     match version:
         case "v1":
-            return _loadV1(interpolateMethod, half, staticStep, ensemble)
+            return _loadV1(interpolateMethod, staticStep, ensemble)
 
         case "v3":
             return _loadExport(interpolateMethod, ensemble)

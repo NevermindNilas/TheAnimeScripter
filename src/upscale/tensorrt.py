@@ -73,35 +73,6 @@ class UniversalTensorRT:
 
         self.handleModel()
 
-    def _detectRequiredMultiple(self) -> int:
-        """Look up the arch's input multiple; probe a CPU session for unknowns.
-
-        The table hit avoids building a throwaway ort.InferenceSession, which
-        costs ~90-130ms of startup per run for the shipped models.
-        """
-        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
-
-        if not self.customModel:
-            known = lookupRequiredMultiple(self.upscaleMethod)
-            if known is not None:
-                return known
-
-        import numpy as np
-        import onnxruntime as ort
-
-        probe = ort.InferenceSession(self.modelPath, providers=["CPUExecutionProvider"])
-        inputName = probe.get_inputs()[0].name
-        npDType = np.float16 if self.half else np.float32
-
-        def runOK(h, w):
-            try:
-                probe.run(None, {inputName: np.zeros((1, 3, h, w), npDType)})
-                return True
-            except Exception:
-                return False
-
-        return smallestValidMultiple(runOK)
-
     def _createEngineWithStaticRetry(self, enginePath: str):
         inputShape = [1, 3, self.paddedHeight, self.paddedWidth]
         self.engine, self.context = self.tensorRTEngineCreator(
@@ -180,8 +151,17 @@ class UniversalTensorRT:
         # input dims divisible by 4; the engine is built for the padded shape and
         # the input is reflect-padded to it, cropping the surplus off the output.
         # Fully-conv archs report 1, so padding stays zero (bit-identical path).
-        self.requiredMultiple = self._detectRequiredMultiple()
-        from src.upscale._shared import calculatePadding
+        from src.upscale._shared import (
+            calculatePadding,
+            onnxProbe,
+            resolveRequiredMultiple,
+        )
+
+        self.requiredMultiple = resolveRequiredMultiple(
+            self.upscaleMethod,
+            self.customModel,
+            lambda: onnxProbe(self.modelPath, self.half),
+        )
 
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]

@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from src.infra.cudaStreams import waitForCaller
 from src.infra.isCudaInit import CudaChecker
 from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
-from src.model.download import downloadModels
-from src.model.registry import modelsMap, weightsDir
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 checker = CudaChecker()
 
@@ -79,11 +79,7 @@ class DistilDRBACuda:
         from src.rifearches.IFNet_distildrba import IFNet
 
         self.filename = modelsMap(self.interpolateMethod)
-        folderPath = os.path.join(weightsDir, self.interpolateMethod)
-        if not os.path.exists(os.path.join(folderPath, self.filename)):
-            modelPath = downloadModels(model=self.interpolateMethod)
-        else:
-            modelPath = os.path.join(folderPath, self.filename)
+        modelPath = resolveWeightPath(self.interpolateMethod, self.filename)
 
         self.model = IFNet(lite=self.lite, scale=self.scale)
 
@@ -325,12 +321,7 @@ class DistilDRBATensorRT:
 
         baseMethod = self.interpolateMethod.replace("-tensorrt", "")
         self.filename = modelsMap(baseMethod)
-        folderPath = os.path.join(weightsDir, baseMethod)
-
-        if not os.path.exists(os.path.join(folderPath, self.filename)):
-            modelPath = downloadModels(model=baseMethod)
-        else:
-            modelPath = os.path.join(folderPath, self.filename)
+        modelPath = resolveWeightPath(baseMethod, self.filename)
 
         self.model = IFNet(lite=self.lite, scale=self.scale)
         stateDict = torch.load(modelPath, map_location="cpu", weights_only=True)

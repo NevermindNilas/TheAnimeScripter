@@ -65,6 +65,13 @@ CachedReaderMethod = None
 CachedReaderResize = None
 
 
+def _dropCachedReader() -> None:
+    global CachedReader, CachedReaderMethod, CachedReaderResize
+    CachedReader = None
+    CachedReaderMethod = None
+    CachedReaderResize = None
+
+
 def _drainQueueUntilSentinel(queue) -> None:
     """Consume queued frames until the producer's None sentinel arrives.
 
@@ -318,11 +325,9 @@ class BuildBuffer:
         self._didDecoderResize = False
 
         # USED FOR DEBUGGING neLux
-        global neluxLog
         if neluxLog:
             try:
                 nelux.set_log_level(nelux.LogLevel.info)
-                neluxLog = True
                 logging.info("neLux logging enabled (level: info)")
             except Exception as e:
                 logging.warning(f"Failed to enable neLux logging: {e}")
@@ -331,6 +336,7 @@ class BuildBuffer:
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
         self.cudaEnabled = False
+        self.deviceType = "cpu"
         if checker.cudaAvailable and toTorch:
             try:
                 self.normStream = torch.cuda.Stream()
@@ -340,11 +346,6 @@ class BuildBuffer:
                 logging.warning(
                     f"CUDA stream init failed, falling back to CPU. Reason: {e}"
                 )
-                self.deviceType = "cpu"
-                self.cudaEnabled = False
-        else:
-            self.deviceType = "cpu"
-            self.cudaEnabled = False
 
         self.backend = "pytorch" if toTorch else "numpy"
         # Set per reader in _decodeWithnelux; see neluxUint16White.
@@ -359,8 +360,6 @@ class BuildBuffer:
         # decodeBuffer this run; used to forbid a fallback re-decode that would
         # duplicate frames after a mid-stream failure.
         self._emittedFrames = 0
-        global CachedReader
-        global CachedReaderMethod
 
         try:
             decodedFrames += self._decodeWithnelux(self.decodeMethod)
@@ -429,20 +428,12 @@ class BuildBuffer:
             else None
         )
 
-        if decodeMethod.lower() == "nvdec":
-            CachedReader = None
-            CachedReaderMethod = None
-            CachedReaderResize = None
-
-        if CachedReader is not None and CachedReaderMethod != decodeMethod:
-            CachedReader = None
-            CachedReaderMethod = None
-            CachedReaderResize = None
-
-        if CachedReader is not None and CachedReaderResize != resizeTarget:
-            CachedReader = None
-            CachedReaderMethod = None
-            CachedReaderResize = None
+        if CachedReader is not None and (
+            decodeMethod.lower() == "nvdec"
+            or CachedReaderMethod != decodeMethod
+            or CachedReaderResize != resizeTarget
+        ):
+            _dropCachedReader()
 
         if CachedReader is not None:
             try:
@@ -452,9 +443,7 @@ class BuildBuffer:
                 logging.warning(
                     f"Failed to reconfigure VideoReader: {e}. Creating new instance."
                 )
-                CachedReader = None
-                CachedReaderMethod = None
-                CachedReaderResize = None
+                _dropCachedReader()
 
         if CachedReader is None:
             logging.info(
@@ -697,10 +686,7 @@ class BuildBuffer:
             Whether the decoding buffer is empty.
         """
 
-        if self.decodeBuffer.empty() and self.isFinished:
-            return True
-        else:
-            return False
+        return self.decodeBuffer.empty() and self.isFinished
 
 
 class SingleImageWriteBuffer:

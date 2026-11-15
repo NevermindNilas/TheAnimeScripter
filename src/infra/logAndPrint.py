@@ -77,16 +77,12 @@ def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> N
         colorFunc (str): Color function name ('cyan', 'red', 'yellow', 'green')
         level (str): Log level ('INFO', 'WARNING', 'ERROR', 'SUCCESS', 'DEBUG')
     """
-    icon = _LOG_ICONS.get(level.upper(), "i")
-    formatted_message = f"{icon} {message}"
-    if colorFunc in _COLOR_FUNCS:
-        print(_COLOR_FUNCS[colorFunc](formatted_message))
-    else:
-        print(formatted_message)
+    level = level.upper()
+    coloredPrint(f"{_LOG_ICONS.get(level, 'i')} {message}", colorFunc)
 
-    if level.upper() == "ERROR":
+    if level == "ERROR":
         logging.error(message)
-    elif level.upper() == "WARNING":
+    elif level == "WARNING":
         logging.warning(message)
     else:
         logging.info(message)

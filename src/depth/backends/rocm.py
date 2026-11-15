@@ -30,6 +30,22 @@ def _ignoreCompileMode(compileMode: str, method: str) -> str:
     return compileMode
 
 
+def _streamingArgs(args, kwargs):
+    """The streaming classes' ``*args, **kwargs`` with the "-rocm" suffix off."""
+    method = kwargs.get("depth_method", "")
+    if method:
+        kwargs["depth_method"] = _stripRocm(method)
+        kwargs["compileMode"] = _ignoreCompileMode(
+            kwargs.get("compileMode", "default"), method
+        )
+    else:
+        args = tuple(
+            _stripRocm(a) if isinstance(a, str) and a.endswith("-rocm") else a
+            for a in args
+        )
+    return args, kwargs
+
+
 class DepthROCm(DepthCuda):
     """small_v2-rocm."""
 
@@ -118,17 +134,7 @@ class DA3StreamingROCm(DA3StreamingCuda):
     """video_small_v3-rocm / video_base_v3-rocm."""
 
     def __init__(self, *args, depth_window=32, **kwargs):
-        method = kwargs.get("depth_method", "")
-        if method:
-            kwargs["depth_method"] = _stripRocm(method)
-            kwargs["compileMode"] = _ignoreCompileMode(
-                kwargs.get("compileMode", "default"), method
-            )
-        else:
-            args = tuple(
-                _stripRocm(a) if isinstance(a, str) and a.endswith("-rocm") else a
-                for a in args
-            )
+        args, kwargs = _streamingArgs(args, kwargs)
         super().__init__(*args, depth_window=depth_window, **kwargs)
 
 
@@ -136,17 +142,7 @@ class LimboStreamingROCm(LimboStreamingCuda):
     """video_limbo-rocm / video_limbo_v2-rocm / video_limbo_v3-rocm."""
 
     def __init__(self, *args, depth_window=32, **kwargs):
-        method = kwargs.get("depth_method", "")
-        if method:
-            kwargs["depth_method"] = _stripRocm(method)
-            kwargs["compileMode"] = _ignoreCompileMode(
-                kwargs.get("compileMode", "default"), method
-            )
-        else:
-            args = tuple(
-                _stripRocm(a) if isinstance(a, str) and a.endswith("-rocm") else a
-                for a in args
-            )
+        args, kwargs = _streamingArgs(args, kwargs)
         super().__init__(*args, depth_window=depth_window, **kwargs)
 
 
