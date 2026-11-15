@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-15
+
 ### Added
 - `--dedup_method block` / `--smooth_dedup_method block`: full-resolution duplicate detection that compares 32 px block means of the luma against the last kept frame. On bit-exact labels from a lossless anime master and six re-encodes it drops 2.0–2.2% of real changes and misses at most 1.3% of duplicates, against 18–19% of real changes dropped by `ssim`.
 - `resample=N` on `--interpolate` (and `--interpolate_resample N`): SVFI-style resampling that re-times every frame to the flow midpoint of its neighbours, N passes, removing the judder of anime on twos (2 passes; 3 reduce threes) without duplicate detection; frame count, fps and audio are kept, and `--interpolate rife4.26 1x resample=2` resamples at the source rate. First interpolation only; not with `--smooth_dedup`, and not with `distildrba`, whose passes keep held drawings held (52% of animated frames vs 6% with `rife4.26`).
