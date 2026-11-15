@@ -111,6 +111,126 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Removed
 - Every `og_*` depth method. Use `small_v2`, `video_small_v2` (`--half false` for fp32) or `large_v3`; `og_large_v3`'s metric checkpoint has no replacement.
 
+## TAS Adobe Edition
+### New
+- **Add step** in the processing pipeline: add another Restore, Interpolate or Upscale to the chain, each with its own settings and its own place in the order, so a clip can be interpolated 2x and then 3x. Added steps are numbered ("Interpolate 2"), saved with presets and can be removed from their row. Smooth held frames and resampling apply only to the first interpolation: when an added Interpolate runs before the base one they are skipped, and the Interpolate step says so.
+- **Block** duplicate detector for Smooth held frames: it compares the full-resolution frame in small blocks, keeps mouth flaps and blinks the downscaled detectors miss, runs on any device and is free.
+- **Max pixel change** for Smooth held frames (default 40 of 255; slide to the top to turn it off): a frame the SSIM, MSE, VMAF or FlowNetS detector calls a duplicate is checked again at full resolution and kept when any pixel changed by more than this. Block does not need it.
+- **Resample held drawings** on Interpolate (off, or 1 to 6 passes; 2 for twos, 3 for threes): re-times every frame to the motion midpoint of its neighbours, keeping frame count, frame rate and audio; with the factor at 1x it resamples at the source frame rate. Not with Smooth held frames, DistilDRBA or Maxine; NCNN models take at most 2 passes. It switches off Remove dead frames, and the queue summary shows "Resample N".
+- Depth models: Limbo V3 (CUDA, ROCm, TensorRT, OpenVINO, MPS) and Video Limbo V3 (CUDA, ROCm, TensorRT), and MoGe-3 (CUDA, ROCm, TensorRT, MPS, OpenVINO and DirectML; the last two run its refiner on the CPU). All are sponsor features except MoGe-3 DirectML.
+- OmniShotCut auto-cut detection (CUDA and ROCm, sponsor tier), which also finds dissolves and fades and cuts at their middle. It decides every cut itself, so the sensitivity slider is disabled while it is selected.
+- ShuffleCugan and SPAN NCNN upscalers in a new NCNN section, for any Vulkan GPU.
+- **Low CPU usage (NVIDIA)** switch in Settings (`--low_cpu`): while a CUDA model runs, TAS sleeps through GPU waits instead of keeping a CPU core busy. No effect on other GPUs.
+
+### Changed
+- The panel layout is rebuilt on one Spectrum system: one page gutter and card header everywhere, buttons that stack instead of wrapping in narrow docks, a single-card queue with flat rows, reordered Settings with inline help, and a compact empty state in docked tabs.
+- The panel follows the host's colour: it picks Spectrum's darkest or dark theme from the host panel colour, paints the exact host colour when it is close, and on first run follows the host's light or dark setting.
+- Smooth held frames follows the backend's new defaults: the Block detector (was SSIM) and a max held-frame span of 4 (was 6). A hold longer than the span now keeps the previous drawing and moves only over its last frames instead of staying as copies. Saved settings and presets that never turned Smooth held frames on move from SSIM to Block and from a span of 6 to 4; ones that turned it on keep their detector and span.
+- After Effects renders (active comp, selected layers) and queue pre-renders now cover only the comp's work area even when the default render-settings template uses "Length of Comp". With nothing selected, rendering the active comp now renders your work area, not the whole comp.
+- On macOS, a non-sponsor's Upscale falls back to ShuffleCugan NCNN instead of being switched off.
+- Windows AMD sponsors get the experimental AMD ROCm runtime from TheAnimeScripter 3.1.0. The panel used to look for installer files no backend release shipped, so it always installed the lite (DirectML) runtime. When the backend has no Windows ROCm build for the GPU (no Polaris, Vega or older Ryzen graphics), a first install falls back to the lite runtime instead of failing, and the panel stops retrying ROCm in the background for that backend version and those GPUs (a backend update or a GPU swap tries again). A first install reports any other ROCm failure as it is; the background upgrade stays silent and leaves the current install untouched.
+
+### Fixed
+- On macOS, a non-sponsor can no longer run the sponsor-only MPS models. Restore and Depth have no free model there, so those steps are switched off at run time; a job left with nothing to run now fails straight away with a message saying so instead of reaching the backend empty.
+- Backspace on a queue row's Failed toggle no longer deletes the job.
+- ProRes and GIF outputs are written as `.mov` and `.gif` (including object-detection-only runs and Premiere Pro). They were named `.mp4`, so the backend processed every frame and then failed at the muxer.
+- Premiere Pro refuses PNG and JPEG sequence encodes before the run starts, with a message to pick a video encoder; it used to process every frame and then fail with "Output file not found".
+- The queue no longer stops for good when the progress connection drops. The backend's progress server is down during pre-renders, model loads and between items; the panel gave up after about 25 seconds of that, lost progress for the rest of the session and could leave the queue paused before the next item.
+- Cancelling a job while it is still being prepared stops it; it used to launch anyway and finish as done.
+- A run that read the layer's source file directly (no pre-render) is imported into the layer's comp, above that layer, at its in point, instead of into whatever comp was active at a start time left over from an earlier item.
+- A PNG or JPEG sequence run that wrote no frames no longer imports an earlier run's sequence folder, and Auto Cut no longer reviews a previous video's cuts when a run writes none.
+- Premiere Pro: a linked clip whose audio is listed first in the selection is placed on the correct video track, and a result imported into the bin selected in the Project panel (or with its path spelled differently) is found and placed.
+- "Open in default player" in the Media Browser no longer runs commands hidden in a file or folder name containing `&` or `|` (Windows).
+- The queue list no longer pulls focus and scroll back to the focused row on every progress update during a run.
+- Once a newer TheAnimeScripter release was published, the panel reopened the backend installer on every launch: it accepted only a backend of exactly its own version but installed the latest one. It now accepts a backend of its own major.minor that is at least its own version (3.1.0 or a later 3.1 patch for panel 3.1.0), installs the newest such release, and offers a newer 3.1 patch with a non-blocking Update notice. A backend from another minor, or older than the panel, still opens the installer. When no matching backend can be downloaded, the installer stops with a message instead of downloading an incompatible one.
+- A second Interpolate step silently inherited Ensemble or Dynamic Scale from an earlier one; later steps now send their own settings.
+- A Restore row left on with no models ran the backend's CUDA default (`anime1080fixer`), which fails on AMD, Intel and Mac; it now gets the free fallback model, or Restore is skipped on macOS.
+- Settings > Reinstall refuses to delete a backend folder that is a git checkout, as the installer already did.
+- The installer falls back to the newest compatible TheAnimeScripter release when the latest one has no archive for this platform yet.
+- Remove Dead Frames on a trimmed layer blended the first frame, played every kept frame one frame late and added the source's last frame.
+- Trim to Work Area with nothing selected turned layers outside the work area into 1-frame flashes (or failed with TRIM ERROR); they are now left alone.
+- A failed Remove Dead Frames step now fails the queue item instead of reporting it done.
+- Queue Cancel and Stop now stop a YouTube download and its re-encode, and a cancelled YouTube item is no longer imported or marked completed.
+- A failed first yt-dlp setup (for example offline) no longer breaks YouTube import until After Effects restarts.
+- Account linking: a denied, expired or timed-out Patreon link no longer waits forever, and cancelling then starting a new GitHub or Patreon link no longer lets the old one overwrite the new one with "Authorization timed out".
+- The account badge showed $10 and $12 sponsors as Bronze and $30 as Silver.
+- Auto Cut review: kept clips can be previewed after Apply, and Clear cache no longer leaves a clip showing Failed.
+- Media Browser: folders and files with `%` in their name can be chosen.
+- Graph editor: lock-angle and lock-length drags keep handles inside 0 to 1, so the exported `cubic-bezier()` matches the drawn curve.
+- Trace tab: quota, rate-limit and network errors show their real reason, reopening the Source section no longer re-runs the auto trace, and the source switch has a proper screen-reader label.
+
+### Removed
+- The `og_` depth builds (`og_small_v2`, `og_video_small_v2`, `og_large_v3` and their TensorRT, OpenVINO, ROCm and MPS twins), which the backend dropped. Persisted selections, presets and already-queued items move to the same checkpoint on the same accelerator (`og_small_v2` → `small_v2`, `og_large_v3-mps` → `large_v3-mps`, and so on; queue store v5).
+- The depth map **Normalize over time** toggle: the backend no longer has `--depth_norm`, and the panel no longer sends it.
+
+## TAS-Standalone
+### New
+- **macOS and Linux.** TheAnimeScripter now runs on Apple Silicon Macs (a `.dmg`) and on x86_64 Linux (an AppImage and a `.deb`), next to Windows. Each installs the TAS engine built for its own system, with its own dependency sets (Linux: CPU, NVIDIA CUDA or AMD ROCm; macOS: CPU or Apple Metal), and the Linux engine downloads like the Windows one. The macOS app is not notarized, so the first launch needs System Settings > Privacy & Security > Open Anyway, and it checks for updates but links to the release instead of installing them. On Linux, updates install into the AppImage or the installed `.deb`. Intel Macs and Arm Linux are not supported.
+- **AMD graphics on Windows.** With a sponsor account, a PC with an AMD GPU and no NVIDIA one now installs the AMD ROCm dependency set (experimental in TAS), which runs the `-rocm` models. If it cannot install (TAS has no Windows ROCm build for some AMD GPUs, such as Vega APUs and Polaris), the engine screen offers **Install the standard engine instead**, so a sponsor is never stuck there.
+- **Draw a protect mask.** The Protect mask on Motion blur, now also shown on the Interpolate card, can be drawn over the video instead of supplied as an image: rectangles, ellipses, polygons and brush strokes, subtracted areas, feathering, named regions, a one-click subtitle band and "protect everything except the marked areas", with undo, redo and zoom. A drawn mask can be reopened and edited. A folder of per-frame masks (`000123.png`) is accepted too, for an area that moves.
+- **Rotoscoping on the Segment pane.** Open rotoscope lets you click the objects to cut out and has SAM 2 follow them through the video (an anime or a general model), with AI click and AI brush, painted and Pen shapes that can follow the picture, Refine Edge, several views, a timeline and undo. Tracking stops at scene cuts, and Trim to tracked frames limits the render to what was tracked. While a rotoscope is set, the objects are cut out with transparency instead of running the segmentation model. No sponsor account is needed. Tracking runs on the GPU when the engine's PyTorch can use it (CUDA or Apple Metal) and on the CPU otherwise, which is always the case with the standard dependency set on Windows.
+- **New engine features from TAS 3.1.0:** Resample passes on the Interpolate step (smooths animation drawn on twos or threes without detecting duplicates; with Factor 1 it only re-times the source), the Block duplicate detector, Max pixel change for Smooth dedup, a Low CPU use option for NVIDIA GPUs, Limbo-V3 and MoGe-3 depth, and the OmniShotCut detector for Auto clip, which also finds dissolves and fades. Limbo-V3 needs a sponsor account, like the other Limbo models.
+- **The Chain reads as a thread.** A line runs through every step from a Source cap (the video's size and frame rate) to an Output cap (what the chain produces); each step's node lights up when the step will actually run and shows the size or frame rate after it. Drag a step by its node to reorder the chain (or focus the node and use the arrow keys), and remove any step, including a main card, from its overflow menu; Add step brings it back.
+- Warnings under the Chain when the result would be larger than 8K or faster than 240 fps.
+- Steps rule out settings their model cannot do (a 2x-only upscaler offers no 3x or 4x) and say why, and the Resize box explains a target TAS would refuse, understanding "Full HD", "UHD" and "1920 x 1080".
+- Model pickers show a one-line description under each model, and locked options say "Needs a sponsor account".
+- The queue keeps jobs waiting while no engine is found and starts them once one is set, and retries instead of failing a job while the engine is busy (a run, an install or the rotoscope window). Adding a job that repeats another, or writes the same output file, asks first.
+- A run or queued job that could not start is recorded with its reason, in the Logs pane and in History.
+- **Copy command** in the Logs pane copies the exact command Run would start.
+
+### Changed
+- **The engine is TAS 3.1.0.** On the next launch the engine screen asks to update an existing install (about 100 MB), and its dependencies are re-checked.
+- Deduplicate and Smooth dedup default to the new Block detector, which compares the full-resolution picture and keeps mouth flaps and small changes. Smooth dedup's Max duplicate span defaults to 4 (was 6), and a longer hold keeps the previous drawing and interpolates only its last frames instead of filling it with copies.
+- The feature tabs (Depth, Segment, Object detection, Motion blur, Auto clip) are modes: opening one selects it and the Run button names it ("Run depth"); returning to Chain switches them off again. They no longer have their own on/off switch.
+- New settings, the Suggested chain and the built-in presets start on models that use this computer's GPU without a sponsor account: DirectML on Windows, NCNN on Linux and macOS. Pickers hide builds that cannot run on this system, list the CPU-only DirectML and OpenVINO builds last off Windows, and explain a saved model that suits another system poorly.
+- History **Re-run** restores the run's settings and trim, not only its video, and goes through Run's own checks and overwrite question. Older entries restore only the video, with a note.
+- Applying a preset replaces the chain instead of merging into it. The Presets menu groups saved and built-in presets, marks a preset you changed after applying it, and warns when a preset from another system uses models that run poorly here. Reset to defaults asks first, and preset names keep their punctuation and non-English characters.
+- The Suggested chain sits at the top of an empty Chain while a video is loaded, with a Not now button.
+- Run is also blocked when the output would overwrite the input or the input is not a video, and the Run button lists every remaining blocker. The free-space check measures the drive the output is written to, not the input's.
+- Output naming follows TAS: an output path with no extension is a folder, a typed name gets the run's extension, and choosing a new video clears an output named after the previous one. The filename template's placeholder is `{INPUT}{CHAIN}`, the engine's own naming.
+- The queue shows a failed job's reason on its card, reorders only waiting jobs, and History marks runs that never started.
+- Show in folder on a moved or deleted file opens the nearest folder that still exists.
+- Settings: Choose folder refuses a folder that cannot run TAS and says why, and Detect again reports what it found. Window material appears only on Windows; elsewhere Match system follows the desktop's colour scheme. The engine setup screen shows its two steps with their sizes.
+- The Encoding pane's size estimate became Size and time, using the trimmed length.
+- A refused typed trim value explains why instead of being dropped or clamped.
+- Protect masks may be WebP, BMP or TIFF as well as PNG and JPEG on engines that read them, and a mask the engine cannot read now blocks the run (an older engine used to render with nothing protected).
+- Plainer labels and help throughout, and the titlebar shows the TheAnimeScripter logo.
+- Live progress bars, the log, theme switches and the mask and rotoscope editors do much less work while they update, and the log keeps following a fast run until you scroll up.
+
+### Fixed
+- Smooth dedup with the Interpolate card off ran TAS's default CUDA model without the sponsor check. It now uses the card's model and factor and checks them.
+- A second Run shortly after the first could replace the first output without asking.
+- Cancel did nothing for a job the queue had started by itself, and the first log lines of such a job could be lost.
+- A failure that merely mentioned a cancellation was reported as Cancelled and paused the queue. A Cancel that arrived just after TAS exited no longer retries the run, and the queue no longer stalls after a run that failed on its retry.
+- Switching to a different dependency set (for example back to the standard one after a GPU set) kept the previous set's several-GB PyTorch build. It is now replaced.
+- A failure's last log lines (missing dependencies, out of memory, no processing method) could be lost, so the failure was misclassified. A command TAS refuses outright is no longer retried.
+- A crash or power loss while saving could wipe the settings, the queue or the history. Settings, presets and other files saved with a byte order mark (Notepad, PowerShell) now load.
+- Reading a video's details could hang forever on a stuck network share or a broken driver.
+- An engine download whose connection dropped ended in a confusing extract error instead of saying so.
+- Window shortcuts and the mouse side buttons could act behind an open dialog.
+- Number boxes showed 2.5 as 3.
+- A non-video file could be chosen as the source.
+- A sponsor-gated restore model could run without a sponsor account: a Restore card left on with an empty model list sent a bare `--restore`, which TAS runs with its CUDA default. Run now asks for at least one model.
+- Presets that name a withdrawn model: a restore list or a repeated step with a model that no longer exists is left out and named in the preset warning (a stale step loads switched off) instead of silently running the CUDA default.
+- An engine install interrupted while unpacking or copying is no longer taken for a complete engine; the next launch finishes it.
+- A GPU check that fails or times out on Windows is asked again instead of remembered for the session, and a sponsor's GPU install stops with a message instead of silently installing the standard set.
+- Removing or clearing a queued job while it was starting launched a render with no job behind it (no progress, no Cancel, no History entry).
+- A successful render of a file whose name contains words like "no processing" or "out of memory" was reported as failed; failures are now classified from TAS's error text, not from file names.
+- The run status now shows TAS's Loading model, Downloading model and Building buffers steps instead of skipping them.
+- Video length used the container's duration, so a clip with longer audio read too long (wrong bitrate estimate and MKV frame count).
+- The preview stopped working (seek and scrub failed) after switching between more than 8 videos and back.
+- Custom background: an import that fails keeps the current background, and a new picture with the same file name shows at once.
+- Clearing a number box and clicking away saved 0; it now keeps the previous value.
+- Progress ETA showed "1m 60s" for half a second before each minute.
+- Check for updates no longer hides the macOS Download update link or a running download's progress.
+- Uninstall on Linux now also stops a leftover dependency install when the data folder path goes through a symlink.
+- Copy command quotes a video at a drive root (`E:\clip.mkv`) and, on macOS and Linux, any path with shell characters correctly.
+- Predicted output names keep the input extension's case, use `.mp4` when the input container cannot hold the chosen encoder (as TAS does), and a `www.` URL input no longer sends `--output www.youtube.com`.
+- Developer: `bun run fetch:base` works on Linux (bsdtar or unzip) and keeps the existing `base-tas` when it cannot extract.
+
+### Removed
+- The Keep audio, Keep subtitles and Keep metadata switches, the Tiling option and the Autopilot suggestion box. None of them reached the engine; presets that contain them still load.
+
 ## [3.0.0] - 2026-11-01
 
 ### Added
