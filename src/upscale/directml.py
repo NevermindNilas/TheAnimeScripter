@@ -195,6 +195,17 @@ class UniversalDirectML:
             lambda: onnxProbe(self.modelPath, self.half),
         )
 
+        if self.customModel:
+            from src.upscale._shared import customScaleRefusal, onnxOutputScale
+
+            problem = customScaleRefusal(
+                self.customModel,
+                onnxOutputScale(self.modelPath, self.half, self.requiredMultiple),
+                self.upscaleFactor,
+            )
+            if problem is not None:
+                raise ValueError(problem)
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]

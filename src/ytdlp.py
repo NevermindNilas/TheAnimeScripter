@@ -235,6 +235,11 @@ class VideoDownloader:
         options["progress_hooks"] = [hook]
         # `quiet` alone still draws yt-dlp's own [download] line under the bar.
         options["noprogress"] = True
+        # The download is named after the title, so a file already there is an
+        # earlier download: another quality, or another video with the same
+        # title. yt-dlp keeps an existing file by default ("has already been
+        # downloaded") and the run processed that stale video instead.
+        options["overwrites"] = True
 
         try:
             with YoutubeDL(options) as ydl:

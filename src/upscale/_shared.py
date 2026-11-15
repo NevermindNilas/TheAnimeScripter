@@ -67,6 +67,66 @@ def resolveRequiredMultiple(upscaleMethod, customModel, makeRunOK):
     return smallestValidMultiple(makeRunOK())
 
 
+def customScaleRefusal(customModel, modelScale, upscaleFactor):
+    """Why custom model ``customModel`` cannot run at ``upscaleFactor``x, or None.
+
+    Every later stage and the writer are sized at the stage's factor, so a 4x
+    model on a 2x stage (the default) squashed its output to 2x in the writer,
+    crashed the next stage on a size mismatch, or, on TensorRT, had the engine
+    write a 4x frame into the 2x output buffer. ``modelScale`` None (unknown)
+    passes. The PyTorch backends let a 1x model through themselves (its frame
+    was always resized by the writer); TensorRT and DirectML never ran one.
+    """
+    if modelScale is None or int(modelScale) == int(upscaleFactor):
+        return None
+    import os
+
+    name = os.path.basename(str(customModel))
+    message = (
+        f"Custom model {name} upscales {modelScale}x, but its --upscale stage "
+        f"is {upscaleFactor}x."
+    )
+    if int(modelScale) in (2, 3, 4):
+        return message + (
+            f" Give the stage {modelScale}x (--upscale <method> {modelScale}x "
+            f"--custom_model {name})."
+        )
+    if int(modelScale) == 1:
+        return message + (
+            " A 1x model only runs on a PyTorch upscale method (no -tensorrt, "
+            "-directml or -openvino suffix) from its .pth/.safetensors file."
+        )
+    return message + " Upscale stages take 2x, 3x or 4x models."
+
+
+def onnxOutputScale(modelPath, half, multiple=1):
+    """The upscale factor of the ONNX model at ``modelPath``, or None if unknown.
+
+    A model with static input/output widths is read from its declared shapes;
+    a dynamic one from one tiny CPU run. A run the model refuses (a static
+    shape the declaration did not expose, an input floor) gives None, so the
+    caller lets it through rather than refusing a model that ran before.
+    """
+    import numpy as np
+    import onnxruntime as ort
+
+    probe = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
+    inputWidth = probe.get_inputs()[0].shape[-1]
+    outputWidth = probe.get_outputs()[0].shape[-1]
+    if isinstance(inputWidth, int) and isinstance(outputWidth, int):
+        return outputWidth // inputWidth if inputWidth > 0 else None
+    side = multiple * -(-48 // multiple)
+    inputs = {
+        probe.get_inputs()[0].name: np.zeros(
+            (1, 3, side, side), np.float16 if half else np.float32
+        )
+    }
+    try:
+        return probe.run(None, inputs)[0].shape[-1] // side
+    except Exception:
+        return None
+
+
 def onnxProbe(modelPath, half):
     """``smallestValidMultiple``'s runOK over a throwaway CPU ORT session."""
     import numpy as np

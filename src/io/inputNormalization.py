@@ -74,7 +74,9 @@ def processUrlInput(args, outputPath, processingEnabled):
 
     if not processingEnabled:
         if tempOutput != args.output:
-            os.rename(tempOutput, args.output)
+            # os.replace: os.rename refuses an existing --output on Windows,
+            # and an explicit output is overwritten everywhere else.
+            os.replace(tempOutput, args.output)
             logging.info(f"Renamed output to: {args.output}")
         return False
 

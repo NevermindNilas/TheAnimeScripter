@@ -654,7 +654,13 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
             _resolveStaticStep(stage)
             _resolveDynamicScale(stage)
             _resolveFlipViews(stage)
-    if getattr(args, "dynamic_scale", False) and not args.interpolate:
+    # Motion blur's own RIFE reads the run-wide value too (main.py hands it to
+    # MotionBlurPipeline), as it does --ensemble and --static_step.
+    if (
+        getattr(args, "dynamic_scale", False)
+        and not args.interpolate
+        and not getattr(args, "moblur", False)
+    ):
         logging.warning("--dynamic_scale has no effect without --interpolate")
         args.dynamic_scale = False
 
@@ -913,6 +919,33 @@ def _adjustMethodsBasedOnCuda(
             syncStageGlobals(args, drafts)
 
 
+def _installFfmpegShared():
+    """Install ffmpeg_shared/ as part of ``--download_requirements``.
+
+    TAS itself only needs it for yt-dlp (installed on the first URL input), but
+    the After Effects panel's Auto Cut review and Media Browser previews run
+    ``ffmpeg_shared/ffprobe`` and ``ffmpeg``, and its installer runs this flag.
+    Idempotent (ensureFFMPEG skips a current install). A failure only warns:
+    the requirements are installed, and the URL path retries. Not on macOS,
+    where TAS installs no FFmpeg of its own (ensureFFMPEG would run
+    ``brew install ffmpeg`` and still leave ffmpeg_shared/ empty).
+    """
+    if cs.SYSTEM == "Darwin":
+        return
+    try:
+        from src.infra.getFFMPEG import ensureFFMPEG
+
+        ensureFFMPEG()
+    except Exception as e:
+        logging.exception("Failed to install FFmpeg into ffmpeg_shared")
+        logAndPrint(
+            f"Could not install FFmpeg into ffmpeg_shared ({e}). The panel's "
+            "Auto Cut review and previews need it; run --download_requirements "
+            "again to retry.",
+            "yellow",
+        )
+
+
 def prepareRuntimeArgs(args, outputPath, parser):
     from src.version import __version__
 
@@ -938,6 +971,8 @@ def prepareRuntimeArgs(args, outputPath, parser):
         checker = DependencyChecker()
         if not checker.installProfile(selectedProfile):
             sys.exit(1)
+
+        _installFfmpegShared()
 
         logAndPrint(
             "All required libraries have been downloaded, you can now run the script freely.",

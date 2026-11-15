@@ -37,6 +37,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Every model now downloads from the TAS model host; BiRefNet, TransNetV2, Depth Anything V2 small, Cyte and Limbo V2/V3 no longer depend on third-party locations.
 
 ### Fixed
+- A video that failed while loading its models (or in depth, segment, object detection or stabilize) printed only "Processing failed for video: <path>"; the line now ends with the error's first line, and the traceback stays in TAS-Log.log.
+- Fresh installs had no `ffmpeg_shared/` (since 3.0.0 it was only fetched for a URL input), so the After Effects panel's Auto Cut review failed with "ffprobe binary not found"; `--download_requirements` now installs it on Windows and Linux, warning instead of failing if that download does.
+- `--autoclip` (pyscenedetect) failed with "Framerate must be of type int/float." on Linux for every untrimmed constant-frame-rate video long enough to use the faster nelux decoder (1080p past ~14 s): its frame rate was a `Fraction`, which the pinned scenedetect 0.6.7 refuses.
+- `--segment_method anime-tensorrt` and `anime-directml` ran the segmentation model on the frame at its own size instead of the 1024 square the `anime` (CUDA) method uses, and wrote nearly empty mattes (alpha mean 0.03 vs 0.62 on a 720p anime frame); they now match `anime`. TensorRT builds a new engine on first use.
+- `--segment_method anime-directml`: falling back to the CPU after a DirectML error lost the frame it retried and reported the run as failed; a second error on the CPU was dropped without failing the run.
+- `--compile_mode` is ignored with a warning for `video_small_v3-rocm`, `video_base_v3-rocm` and `video_limbo*-rocm`, as for every other ROCm depth method; it used to compile them.
+- `--restore linethinner-lite`/`-medium`/`-heavy` (the CPU variants) wrote pure noise under the default `--half`: torch's CPU fp16 `grid_sample` returns NaN at the frame border. The CPU path now computes in fp32.
+- `--restore dpir` crashed on the first frame at any size not a multiple of 8 (854x480 included); eager restore now pads to the size multiple spandrel reports for the model, as it did for scunet.
+- `distildrba*` placed inserted frames late in each gap (the 2x midpoint at 75% of the motion, 4x at 62/75/88%), so motion juddered; they now land at their own time.
+- A custom upscale model whose own scale differs from its stage's factor (`--upscale span --custom_model my4x.pth`, stage 2x) is refused at startup naming the factor to use. TensorRT used to write the 4x frame past its 2x output buffer and encode garbage; CUDA squashed it to 2x or crashed the next stage; DirectML failed. A 1x model still runs on the PyTorch upscale methods as before; on `-tensorrt`/`-directml`/`-openvino`, where it never produced a correct frame, it is refused with a message naming the PyTorch method to use.
+- `--moblur --dynamic_scale` ran motion blur without dynamic scale (a log-only "no effect without --interpolate"); motion blur's RIFE now gets it, as it gets `--ensemble` and `--static_step`.
+- An argument error on a command line that also has `-h`/`--help`/`-v`/`--version` (`--upscale_factor 7 -h`) exited 0 after printing the error; it exits 2.
 - `--autoclip_method transnetv2` wrote every cut one frame early, on the last frame of the outgoing shot; cuts now land on the new shot's first frame, as with the other autoclip methods (23 of 24 cuts on a test clip moved by exactly one frame).
 - Videos at widths 2, 4 or 6 past a multiple of 16 (854, 1268, 1366, 642, ...) decoded on the CPU had those last 2-6 columns filled with leftovers from earlier frames (run-to-run noise or black edges); `nelux` 0.23.0 decodes every column, in every profile.
 - RIFE CUDA `--dynamic_scale`: pairs that picked scale 2.0 (with `--ensemble`, scale 1.0 too) replayed a CUDA graph reading stale encoder features, so ~80% of interpolated frames at 720p `rife4.26` differed from the eager forward (min 26 dB), and `--ensemble --dynamic_scale` crashed with an illegal memory access. Output now matches the eager forward exactly.
@@ -88,6 +100,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Portrait phone videos (stored landscape with a 90-degree rotation flag) were planned at the stored size while the decoder delivered upright frames: `--resize` wrote a squashed video, `--stabilize` a cropped one, `--autoclip transnetv2` crashed, and fixed-size models were built for the wrong shape.
 - The AE panel missed a video's "completed" or "failed" whenever another update followed it quickly (about 1 in 3 two-video `--ae` batches under load): the relay forwarded only the newest queued update. Terminal statuses are now always delivered, in order.
 - In an `--ae` run the panel never received the last video's "completed" or "failed" (the only status of a single-video run): the relay process was killed at exit before sending it. TAS now delivers it before exiting (waiting at most 1.5 s), and Ctrl-C no longer leaves the AE server running and holding its port.
+- When nelux could not decode an input and TAS fell back to OpenCV, a decoder `--resize` (and the object detect, stabilize and video depth decode size) was ignored and frames arrived at the source size, failing on a shape mismatch.
+- A model or FFmpeg download whose connection stalled hung the run forever; reads now time out after 60 s, and a model download is retried (a timed-out FFmpeg download fails or warns instead of hanging).
+- Without an output file name, the output copied the input's container even when `--encode_method` cannot be written into it (`.mov` with `av1`/`vp9`, `.avi` or `.m4v` with `x265`), failing at the first frame after the models loaded; such outputs are now `.mp4`.
+- `--ae` runs told the panel "Downloading model ..." on every model load, even with the weights already on disk.
+- A URL run processed an earlier download with the same title (another quality, or another video) instead of downloading again.
+- A download-only URL run to an `--output` that already existed failed on Windows after the whole download.
+- A TensorRT engine built from a `--custom_model` (or RIFE weights) that was later replaced under the same file name kept running the old weights; an engine older than its model is now rebuilt.
 
 ### Removed
 - Every `og_*` depth method. Use `small_v2`, `video_small_v2` (`--half false` for fp32) or `large_v3`; `og_large_v3`'s metric checkpoint has no replacement.

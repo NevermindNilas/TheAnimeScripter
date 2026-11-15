@@ -26,6 +26,42 @@ if ADOBE:
 
 checker = CudaChecker()
 
+# ISNet's input side: the CUDA/ROCm path letterboxes every frame into it, as
+# upstream's inference does.
+_ISNET_SIZE = 1024
+
+
+def _isnetBox(height: int, width: int):
+    """``(boxHeight, boxWidth, pad)``: a height x width frame scaled into the
+    ISNet square, aspect kept, and the F.pad that centres it there. The same
+    geometry as AnimeSegment._loadIsnet."""
+    s = _ISNET_SIZE
+    boxHeight, boxWidth = (
+        (s, int(s * width / height)) if height > width else (int(s * height / width), s)
+    )
+    ph, pw = s - boxHeight, s - boxWidth
+    return boxHeight, boxWidth, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
+
+
+def _toIsnetInput(rgb, box):
+    """[B, 3, H, W] RGB in 0..1 -> the letterboxed [B, 3, 1024, 1024] model input."""
+    boxHeight, boxWidth, pad = box
+    return F.pad(
+        F.interpolate(
+            rgb, size=(boxHeight, boxWidth), mode="bilinear", align_corners=False
+        ),
+        pad,
+    )
+
+
+def _fromIsnetOutput(pred, box, height, width):
+    """The [B, 1, 1024, 1024] model output's box, back at height x width."""
+    boxHeight, boxWidth, pad = box
+    pred = pred[:, :, pad[2] : pad[2] + boxHeight, pad[0] : pad[0] + boxWidth]
+    return F.interpolate(
+        pred, size=(height, width), mode="bilinear", align_corners=False
+    )
+
 
 def _readBatch(readBuffer, batchSize: int) -> list:
     """Pull up to batchSize frames off the decode buffer.
@@ -426,12 +462,13 @@ class AnimeSegmentTensorRT:
             folderName, filename, downloadModel="segment-tensorrt"
         )
 
-        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
-        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+        # The 1024 square the CUDA path runs ISNet at. Fed the frame at its own
+        # size (padded to a multiple of 64) the model returned a near-empty
+        # matte: alpha mean 0.03 vs 0.62 on a 720p anime frame.
+        self.box = _isnetBox(self.height, self.width)
 
         B = self.segmentBatch
-        paddedHeight = self.height + self.padHeight
-        paddedWidth = self.width + self.padWidth
+        paddedHeight = paddedWidth = _ISNET_SIZE
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -490,15 +527,12 @@ class AnimeSegmentTensorRT:
     @torch.inference_mode()
     def normFrame(self, frames):
         """frames: list of segmentBatch decoded tensors [1, 3, H, W]. Builds the
-        [B, 3, paddedH, paddedW] engine input and returns the padded batch."""
+        [B, 3, 1024, 1024] engine input and returns the batch at frame size."""
         waitForCaller(self.normStream)
         with torch.cuda.stream(self.normStream):
             batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
-            batch = F.pad(
-                batch.float(),
-                (0, self.padWidth, 0, self.padHeight),
-            )
-            self.dummyInput.copy_(batch, non_blocking=True)
+            batch = batch.float()
+            self.dummyInput.copy_(_toIsnetInput(batch, self.box), non_blocking=True)
             self.normStream.synchronize()
             return batch
 
@@ -506,15 +540,10 @@ class AnimeSegmentTensorRT:
     def outputNorm(self, batch, i):
         waitForCaller(self.outputStream)
         with torch.cuda.stream(self.outputStream):
-            frameWithMask = torch.cat(
-                (batch[i : i + 1], self.dummyOutput[i : i + 1]), dim=1
+            alpha = _fromIsnetOutput(
+                self.dummyOutput[i : i + 1], self.box, *batch.shape[-2:]
             )
-            frameWithMask = frameWithMask[
-                :,
-                :,
-                : frameWithMask.shape[2] - self.padHeight,
-                : frameWithMask.shape[3] - self.padWidth,
-            ]
+            frameWithMask = torch.cat((batch[i : i + 1], alpha), dim=1)
             self.outputStream.synchronize()
             return frameWithMask
 
@@ -643,8 +672,8 @@ class AnimeSegmentDirectML:
             folderName, self.filename, downloadModel="segment-directml"
         )
 
-        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
-        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+        # The CUDA path's 1024 square (see AnimeSegmentTensorRT.handleModel).
+        self.box = _isnetBox(self.height, self.width)
 
         providers = self.ort.get_available_providers()
         if "DmlExecutionProvider" in providers:
@@ -664,13 +693,13 @@ class AnimeSegmentDirectML:
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
+            (1, 3, _ISNET_SIZE, _ISNET_SIZE),
             device=self.device,
             dtype=torch.float32,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
+            (1, 1, _ISNET_SIZE, _ISNET_SIZE),
             device=self.device,
             dtype=torch.float32,
         ).contiguous()
@@ -712,9 +741,11 @@ class AnimeSegmentDirectML:
 
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
-            frame = frame.to(self.device).float()
-            frame = F.pad(frame, (0, self.padWidth, 0, self.padHeight))
-            self.dummyInput.copy_(frame)
+            # `frame` is never rebound: the UnicodeDecodeError branch below
+            # retries with it, and a model input built from the model input no
+            # longer fits dummyInput, so the retried frame was lost.
+            rgb = frame.to(self.device).float()
+            self.dummyInput.copy_(_toIsnetInput(rgb, self.box))
 
             self.IoBinding.bind_input(
                 name="input",
@@ -727,14 +758,8 @@ class AnimeSegmentDirectML:
 
             self.model.run_with_iobinding(self.IoBinding)
 
-            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
-            frameWithMask = frameWithMask[
-                :,
-                :,
-                : frameWithMask.shape[2] - self.padHeight,
-                : frameWithMask.shape[3] - self.padWidth,
-            ]
-            self.writeBuffer.write(frameWithMask)
+            alpha = _fromIsnetOutput(self.dummyOutput, self.box, *rgb.shape[-2:])
+            self.writeBuffer.write(torch.cat((rgb, alpha), dim=1))
 
         except UnicodeDecodeError as e:
             if not self.usingCpuFallback:
@@ -742,6 +767,9 @@ class AnimeSegmentDirectML:
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
+                # Recorded: the frame is dropped, as in the branch below.
+                if self.processingError is None:
+                    self.processingError = e
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
                 )

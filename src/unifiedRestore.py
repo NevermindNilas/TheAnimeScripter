@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 
 import torch
@@ -21,6 +22,18 @@ checker = CudaChecker()
 # arch's check_image_size is a no-op (keeps the graph ONNX-exportable), so the
 # eager paths pad around the model instead.
 _PAD_MULTIPLES = {"scunet": 64}
+
+
+def _padMultipleFor(method: str, loaded) -> int:
+    """The multiple both frame dims are padded to for ``method``.
+
+    The table's own entry, combined with the size requirement spandrel reports
+    for the loaded arch (DRUNet/dpir: 8; it downsamples three times and adds
+    the skips back unpadded, so 854x480 crashed). ``loaded`` is the spandrel
+    descriptor, or a custom-loaded module that has none.
+    """
+    multiple = getattr(getattr(loaded, "size_requirements", None), "multiple_of", 1)
+    return math.lcm(_PAD_MULTIPLES.get(method, 1), int(multiple or 1))
 
 
 def _padRightBottom(frame: torch.Tensor, multiple: int) -> torch.Tensor:
@@ -77,7 +90,7 @@ class UnifiedRestoreCuda:
         if ADOBE:
             progressState.update({"status": f"Loading restore model: {self.model}..."})
 
-        self.padMultiple = _PAD_MULTIPLES.get(self.model, 1)
+        method = self.model
 
         from src.spandrelCompat import loadSpandrelModel
 
@@ -121,6 +134,8 @@ class UnifiedRestoreCuda:
                 wrapper.net.load_state_dict(stateDict)
                 self.model = wrapper
                 del stateDict
+
+        self.padMultiple = _padMultipleFor(method, self.model)
 
         try:
             # Weird spandrel hack to bypass ModelDecriptor
@@ -408,7 +423,6 @@ class UnifiedRestoreMPS:
         self.half = half
         self.CHANNELSLAST = True
         self.device = torch.device("mps")
-        self.padMultiple = _PAD_MULTIPLES.get(self.model, 1)
         self.handleModel()
 
     def handleModel(self):
@@ -419,6 +433,7 @@ class UnifiedRestoreMPS:
 
         from src.spandrelCompat import loadSpandrelModel
 
+        method = self.model
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
 
@@ -440,6 +455,8 @@ class UnifiedRestoreMPS:
                 stateDict = load_file(modelPath)
                 self.model.load_state_dict(stateDict)
                 del stateDict
+
+        self.padMultiple = _padMultipleFor(method, self.model)
 
         try:
             # Weird spandrel hack to bypass ModelDescriptor

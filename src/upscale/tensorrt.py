@@ -212,6 +212,18 @@ class UniversalTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        if self.customModel:
+            # The engine writes its own output size into dummyOutput: a custom
+            # model of another scale would overrun it (or leave it part-filled).
+            from src.upscale._shared import customScaleRefusal
+
+            outputName = self.engine.get_tensor_name(1)
+            outputWidth = self.context.get_tensor_shape(outputName)[-1]
+            problem = customScaleRefusal(
+                self.customModel, outputWidth // self.paddedWidth, self.upscaleFactor
+            )
+            if problem is not None:
+                raise ValueError(problem)
         # Sized for the shape just set, not the profile's max.
         self.contextMemory = self.bindContextMemory(self.context)
 

@@ -160,7 +160,8 @@ def _handleDependencies(args):
             logging.warning(f"Failed to remove legacy FFmpeg folder: {e}")
 
     # Where yt-dlp's FFmpeg lives. Only named here: it is installed on the first
-    # URL input (getFFMPEG.ensureFFMPEG), since nothing else in TAS runs it.
+    # URL input and, on Windows/Linux, after --download_requirements (for the
+    # Adobe panel's ffprobe/ffmpeg calls); TAS's own encode path never runs it.
     ffmpegSharedDir = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg_shared")
     cs.FFMPEGPATH = os.path.join(
         ffmpegSharedDir,

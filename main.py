@@ -201,6 +201,41 @@ def _videoFailed(
     return not outputWasWritten(outputPath)
 
 
+# Exceptions whose message is written for a user; any other type is named too,
+# since str(KeyError("x")) alone is just "'x'".
+_PLAIN_MESSAGE_ERRORS = (RuntimeError, ValueError, OSError)
+
+
+def _failureReason(processor) -> str | None:
+    """One console line for why ``processor`` failed, or None when start()
+    already printed it ("Processing FAILED after ...").
+
+    start() and the standalone capabilities record the error and send its
+    traceback to TAS-Log.log only, so without this the console said nothing
+    but "Processing failed for video". The first line of the message only:
+    the full text and traceback stay in the log.
+    """
+    if getattr(processor, "failureShown", False):
+        return None
+    error = getattr(processor, "processingError", None)
+    if error is None:
+        return "the output file was not written (missing or 0 bytes)"
+    try:
+        lines = str(error).strip().splitlines()
+    except Exception:
+        # A __str__ that raises (http.client.IncompleteRead built with two
+        # ints does) must not turn one failed video into a second failure.
+        return type(error).__name__
+    text = lines[0].strip() if lines else ""
+    if len(text) > 300:
+        text = text[:297] + "..."
+    if not text:
+        return type(error).__name__
+    if isinstance(error, _PLAIN_MESSAGE_ERRORS):
+        return text
+    return f"{type(error).__name__}: {text}"
+
+
 class VideoProcessor:
     """
     Main video processing class that handles AI-powered video enhancement operations.
@@ -223,6 +258,9 @@ class VideoProcessor:
         # Set by process() if the frame loop raises. start() reads this to
         # decide whether success stats are meaningful.
         self.processingError: Exception | None = None
+        # Set once start() has printed the failure itself, so main() does not
+        # repeat it.
+        self.failureShown: bool = False
         # --autoclip writes its cut list to self.output, but a clean run with
         # zero detected cuts is legitimately a 0-byte file, so the "non-empty
         # file at outputPath" success check does not apply.
@@ -823,6 +861,7 @@ class VideoProcessor:
                     colorFunc="red",
                     level="ERROR",
                 )
+                self.failureShown = True
             else:
                 totalFPS: float = (
                     self.totalFrames
@@ -1047,7 +1086,11 @@ def main():
 
             try:
                 createParser(outputPath=os.getcwd())
-            except SystemExit:
+            except SystemExit as e:
+                # Help/version printed (0); an argument error typed before the
+                # -h keeps its exit 2.
+                if e.code not in (0, None):
+                    raise
                 return
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
@@ -1163,7 +1206,11 @@ def main():
                 # failed frame loop or a missing output surfaces only here.
                 if processor.didFail():
                     failedVideos += 1
-                    logError(f"Processing failed for video: {entry['videoPath']}")
+                    reason = _failureReason(processor)
+                    logError(
+                        f"Processing failed for video: {entry['videoPath']}"
+                        + (f" - {reason}" if reason else "")
+                    )
                 else:
                     succeededVideos += 1
 

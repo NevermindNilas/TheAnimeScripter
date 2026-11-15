@@ -292,6 +292,9 @@ class FastLineDarkenTRT(FastLineDarken):
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, height, width],
+            # The ONNX is exported fresh whenever it is missing and deleted
+            # below, so its mtime is always newer than the engine.
+            checkStale=False,
         )
 
         self.engine, self.context = tensorRTEngineLoader(enginePath)

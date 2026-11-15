@@ -847,7 +847,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `windows-rocm`, `linux-cuda`, `linux-lite`, `linux-rocm`, `macos-mps`, or `macos-lite`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `windows-rocm`/`linux-rocm` once a ROCm torch is installed; pass it by name). |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `windows-rocm`, `linux-cuda`, `linux-lite`, `linux-rocm`, `macos-mps`, or `macos-lite`. With no value, prompts for CUDA, ROCm/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. With no terminal to prompt in, installs the hardware-detected profile instead (it can only detect `windows-rocm`/`linux-rocm` once a ROCm torch is installed; pass it by name). On Windows and Linux it then installs FFmpeg into `ffmpeg_shared/` (used by yt-dlp and the After Effects panel's Auto Cut review and previews); a failed FFmpeg download only warns. |
 | `--list_methods` | optional str | None | **List available methods** for one capability (e.g. `--list_methods upscale`) or, with no value, for every capability |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 

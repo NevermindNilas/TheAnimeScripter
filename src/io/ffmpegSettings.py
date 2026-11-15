@@ -509,6 +509,13 @@ class BuildBuffer:
         if not cap.isOpened():
             raise RuntimeError(f"Failed to open video with OpenCV: {self.videoInput}")
 
+        # A nelux reader that opened with resize= and then failed left this
+        # True, and OpenCV never resizes: the frames came out at source size.
+        self._didDecoderResize = False
+        # The torch path resizes in processFrameToTorch; the numpy path
+        # (object detect, stabilize, video depth) has nothing after this.
+        resizeHere = self.resize and not self.toTorch
+
         totalFramesDecoded = 0
         useFrameIndex = isFramePoint(self.inpoint) or isFramePoint(self.outpoint)
 
@@ -534,6 +541,12 @@ class BuildBuffer:
                         break
 
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    if resizeHere:
+                        frame = cv2.resize(
+                            frame,
+                            (self.width, self.height),
+                            interpolation=cv2.INTER_CUBIC,
+                        )
                     frame = torch.from_numpy(frame)
 
                     if self.toTorch:
@@ -577,6 +590,12 @@ class BuildBuffer:
                     break
 
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                if resizeHere:
+                    frame = cv2.resize(
+                        frame,
+                        (self.width, self.height),
+                        interpolation=cv2.INTER_CUBIC,
+                    )
                 frame = torch.from_numpy(frame)
 
                 if self.toTorch:

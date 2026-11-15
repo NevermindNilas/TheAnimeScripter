@@ -11,6 +11,12 @@ from .registry import (
     weightsDir,
 )
 
+# Seconds a connect or a single read may block. urlopen has no timeout by
+# default, so a connection that stalled mid-download (Wi-Fi drop, NAT expiry)
+# hung the run forever instead of reaching the retry below. Per blocking call,
+# not a total, so a slow but moving download is never cut off.
+DOWNLOAD_TIMEOUT = 60
+
 
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
@@ -37,12 +43,6 @@ def downloadAndLog(
     tempFilePath = os.path.join(tempFolder, f"{filename}.{os.getpid()}.part")
     downloadedBytes = 0
     totalSizeInBytes = 0
-    if ADOBE:
-        progressState.update(
-            {
-                "status": f"Downloading model {os.path.basename(filename)}.",
-            }
-        )
 
     for attempt in range(retries):
         try:
@@ -53,6 +53,15 @@ def downloadAndLog(
 
             toLog = f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})"
             logging.info(toLog)
+            if ADOBE:
+                # Only once the file is known to be missing: sent before the
+                # check above, every run with the weights already on disk told
+                # the panel it was downloading them.
+                progressState.update(
+                    {
+                        "status": f"Downloading model {os.path.basename(filename)}.",
+                    }
+                )
 
             try:
                 if os.path.exists(tempFilePath):
@@ -60,7 +69,7 @@ def downloadAndLog(
             except Exception:
                 pass
 
-            response = urlopen(download_url)
+            response = urlopen(download_url, timeout=DOWNLOAD_TIMEOUT)
 
             if response.getcode() != 200:
                 raise HTTPError(download_url, response.getcode(), None, None, None)

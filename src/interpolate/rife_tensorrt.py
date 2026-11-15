@@ -440,6 +440,17 @@ class RifeTensorRT:
         """
         dev, dt = checker.device, self.dtype
         pairPath = enginePath.replace(".engine", "_pair.engine")
+        # The name handler drops a step engine older than the weights; its pair
+        # engine was built from the same weights, so it goes too, or replaced
+        # weights ran a new step engine behind an old pair engine.
+        from src.model.trtHandler import dropEngineOlderThanModel
+
+        if not os.path.exists(enginePath) and os.path.exists(pairPath):
+            try:
+                os.remove(pairPath)
+            except OSError as error:
+                logging.warning(f"Could not remove pair engine {pairPath}: {error}")
+        dropEngineOlderThanModel(pairPath, self.modelPath, announce=False)
         self.pairEngine, self.pairContext = self.tensorRTEngineLoader(pairPath)
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
 

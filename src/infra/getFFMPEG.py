@@ -8,14 +8,19 @@ from urllib.request import urlopen
 
 import src.constants as cs
 
+# Seconds a connect or one read of a download may block (not a total).
+DOWNLOAD_TIMEOUT = 60
+
 # --------------------------------------------------------------------------- #
 # The pinned FFmpeg build
 #
 # Only yt-dlp needs FFmpeg now (to merge a URL download's video and audio, and
-# for the Adobe mp4 conversion); TAS itself decodes, probes and encodes through
-# nelux, whose wheels carry their own FFmpeg libraries. So this is installed on
-# the first URL input (ensureFFMPEG), not at startup, and ffmpeg_shared/ is
-# never put on the DLL search path: its executables run as yt-dlp's
+# for the Adobe mp4 conversion), plus the After Effects panel's Auto Cut review
+# and previews, which run ffmpeg_shared/ffprobe and ffmpeg themselves; TAS
+# itself decodes, probes and encodes through nelux, whose wheels carry their
+# own FFmpeg libraries. So this is installed (ensureFFMPEG) on the first URL
+# input and after --download_requirements on Windows/Linux, not at startup, and
+# ffmpeg_shared/ is never put on the DLL search path: its executables run as
 # subprocesses and its libraries are never loaded into TAS's process.
 #
 # TAS downloads FFmpeg from NevermindNilas/TAS-FFMPEG: one build of FFmpeg
@@ -230,7 +235,9 @@ def _downloadFile(
 
     digest = hashlib.sha256()
 
-    with urlopen(url) as response:
+    # Without a timeout a stalled connection blocked here forever; see
+    # src/model/download.py:DOWNLOAD_TIMEOUT (per blocking call, not a total).
+    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
         # Check for HTTP errors manually (like raise_for_status)
         if response.getcode() != 200:
             raise HTTPError(url, response.getcode(), None, None, None)

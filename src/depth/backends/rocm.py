@@ -39,10 +39,16 @@ def _streamingArgs(args, kwargs):
             kwargs.get("compileMode", "default"), method
         )
     else:
+        # The factory's call: the method is positional, compileMode a keyword.
+        method = next(
+            (a for a in args if isinstance(a, str) and a.endswith("-rocm")), ""
+        )
         args = tuple(
             _stripRocm(a) if isinstance(a, str) and a.endswith("-rocm") else a
             for a in args
         )
+        if "compileMode" in kwargs:
+            kwargs["compileMode"] = _ignoreCompileMode(kwargs["compileMode"], method)
     return args, kwargs
 
 

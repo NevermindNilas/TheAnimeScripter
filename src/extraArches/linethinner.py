@@ -369,8 +369,11 @@ class LineThin:
         self.half = half
 
         self.precision = torch.float16 if half else torch.float32
+        # torch's CPU fp16 grid_sample returns NaN where the grid touches the
+        # border, so the CPU path computes in fp32 and hands back self.precision.
+        self.computePrecision = torch.float32 if device == "cpu" else self.precision
         self.model = LineThinner(variant=variant).to(
-            device=device, dtype=self.precision
+            device=device, dtype=self.computePrecision
         )
 
         self.normStream = None
@@ -393,7 +396,7 @@ class LineThin:
                 output = self.model(image.to(device=self.device, dtype=self.precision))
             self.normStream.synchronize()
         else:
-            image = image.to(device=self.device, dtype=self.precision)
-            output = self.model(image)
+            image = image.to(device=self.device, dtype=self.computePrecision)
+            output = self.model(image).to(dtype=self.precision)
 
         return output

@@ -237,8 +237,54 @@ def _resolveExtension(args, videoInput):
         # .wmv/.flv output and die at header write, which is how widening the
         # batch scan turns a silent skip into a late crash after models load.
         extension = os.path.splitext(videoInput)[1]
-        return extension if extension.lower() in EXTENSIONS else ".mp4"
+        if extension.lower() not in EXTENSIONS:
+            return ".mp4"
+        if not _containerTakes(extension, encodeMethod):
+            # e.g. an .avi source with x265, a .mov one with av1/vp9: the
+            # muxer refused the codec at the first frame, after every model
+            # had loaded. .mp4 takes every codec that reaches here.
+            return ".mp4"
+        return extension
     return ".mp4"
+
+
+# Codec families each output container can mux, as nelux's muxer reports them
+# (its "cannot be written into a '<fmt>' container" check). .webm is absent on
+# purpose: validateEncoder turns a non-WebM method into vp9 for a .webm output.
+_CONTAINER_CODECS = {
+    ".mp4": {"h264", "hevc", "av1", "vp9"},
+    ".m4v": {"h264"},
+    ".mov": {"h264", "hevc", "prores", "gif"},
+    ".mkv": {"h264", "hevc", "av1", "vp9", "prores"},
+    ".avi": {"h264", "av1", "vp9"},
+}
+
+
+def _codecFamily(encodeMethod):
+    """The codec an --encode_method writes (libx265 / hevc_nvenc -> "hevc")."""
+    from src.io.encodingSettings import matchNeluxEncoder
+
+    mapping = matchNeluxEncoder(encodeMethod) if encodeMethod else None
+    codec = str((mapping or {}).get("codec", ""))
+    for family, markers in (
+        ("h264", ("x264", "h264")),
+        ("hevc", ("x265", "hevc")),
+        ("av1", ("av1",)),
+        ("vp9", ("vp9",)),
+        ("prores", ("prores",)),
+        ("gif", ("gif",)),
+    ):
+        if any(marker in codec for marker in markers):
+            return family
+    return None
+
+
+def _containerTakes(extension, encodeMethod):
+    """Whether a copied input extension can hold this method's codec; True
+    when either side is unknown, so nothing new is refused."""
+    accepted = _CONTAINER_CODECS.get(extension.lower())
+    family = _codecFamily(encodeMethod)
+    return accepted is None or family is None or family in accepted
 
 
 def _number(value):

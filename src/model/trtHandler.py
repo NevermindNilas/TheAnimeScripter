@@ -822,6 +822,7 @@ def tensorRTEngineNameHandler(
     ensemble: bool = False,
     isRife: bool = False,
     archTag: str = "",
+    checkStale: bool = True,
 ) -> str:
     """
     Create a name for the TensorRT engine file with validation.
@@ -835,6 +836,9 @@ def tensorRTEngineNameHandler(
         archTag (str): Revision of the exported graph. Changing it renames the
             cache, so an engine built from an older graph is rebuilt instead of
             silently reused. Empty keeps the historical name.
+        checkStale (bool): Delete a cached engine older than ``modelPath``
+            (see dropEngineOlderThanModel). False for a model the caller
+            regenerates each run, whose mtime says nothing about its contents.
 
     Returns:
         str: The generated engine file path.
@@ -876,4 +880,33 @@ def tensorRTEngineNameHandler(
         nameParts.append(f"_{archTag}")
 
     engineName = "".join(nameParts) + ".engine"
-    return str(modelPath.with_suffix("")) + engineName
+    enginePath = str(modelPath.with_suffix("")) + engineName
+    if checkStale:
+        dropEngineOlderThanModel(enginePath, modelPath)
+    return enginePath
+
+
+def dropEngineOlderThanModel(enginePath: str, modelPath, announce=True) -> None:
+    """Delete a cached engine that predates the model file it was built from.
+
+    The name carries the model's path, precision and shape but nothing of its
+    contents, so a --custom_model re-exported under the same file name loaded
+    the engine of the OLD weights and silently ran the wrong model. An engine
+    is always written after its model, so an older one is stale; the caller
+    then finds no engine and builds a fresh one.
+    """
+    try:
+        if os.path.getmtime(enginePath) >= os.path.getmtime(modelPath):
+            return
+    except OSError:
+        return
+    if announce:
+        logAndPrint(
+            f"{os.path.basename(str(modelPath))} changed since its TensorRT engine "
+            "was built; rebuilding the engine.",
+            "yellow",
+        )
+    try:
+        os.remove(enginePath)
+    except OSError as error:
+        logging.warning(f"Could not remove stale engine {enginePath}: {error}")

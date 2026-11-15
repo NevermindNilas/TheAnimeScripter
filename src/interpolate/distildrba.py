@@ -12,6 +12,21 @@ from src.model.registry import modelsMap
 
 checker = CudaChecker()
 
+
+def _drbaStep(t):
+    """``(centre, timestep)`` for a step at ``t`` in (0, 1) between I0 and I1.
+
+    DRBA's timeline puts img0, img1, img2 at 0, 1, 2 and only synthesizes
+    within half a frame of its centre img1 (timestep in [0.5, 1.5]). A step at
+    ``t >= 0.5`` is centred on I1 (img0..img2 = I0, I1, I2) at timestep ``t``;
+    an earlier one on I0 (Iprev, I0, I1) at ``1 + t``. Mapping every ``t`` onto
+    I1's half as ``0.5 + t / 2`` put a 2x midpoint at 0.75 of the gap.
+    """
+    if t >= 0.5:
+        return 1, t
+    return 0, 1.0 + t
+
+
 torch.set_float32_matmul_precision("medium")
 
 
@@ -65,6 +80,9 @@ class DistilDRBACuda:
         self.f0 = None
         self.f1 = None
         self.f2 = None
+        # Frame before I0 and its features: the img0 of steps centred on I0.
+        self.fPrev = None
+        self.Iprev = None
 
         self.I0 = None
 
@@ -125,6 +143,8 @@ class DistilDRBACuda:
         Update the frame cache without producing output.
         Used when a frame needs to be cached but not interpolated (e.g., after dedup).
         """
+        self.Iprev = self.I0
+        self.fPrev = self.f0
         if self.normStream:
             waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
@@ -132,6 +152,8 @@ class DistilDRBACuda:
             self.normStream.synchronize()
         else:
             self.I0 = self.prepareFrame(frame)
+        if self.Iprev is None:
+            self.Iprev = self.I0
 
         self.f0 = self.f1
         self.f1 = self.f2
@@ -149,7 +171,9 @@ class DistilDRBACuda:
         self.f0 = None
         self.f1 = None
         self.f2 = None
+        self.fPrev = None
         self.I0 = self.prepareFrame(frame)
+        self.Iprev = self.I0
         self.firstRun = False
 
     @torch.inference_mode()
@@ -212,6 +236,7 @@ class DistilDRBACuda:
 
         if self.firstRun:
             self.I0 = I1
+            self.Iprev = I1
             self.firstRun = False
             return
 
@@ -219,6 +244,8 @@ class DistilDRBACuda:
             self.I0 = F.interpolate(
                 self.I0, size=I1.shape[-2:], mode="bilinear", align_corners=False
             )
+            self.Iprev = self.I0
+            self.fPrev = None
             self.f0 = None
             self.f1 = None
             self.f2 = None
@@ -226,38 +253,32 @@ class DistilDRBACuda:
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 
-            tDrba = 0.5 + t * 0.5 - 0.0001  # Small epsilon to avoid exactly 1.0
+            centre, tDrba = _drbaStep(t)
+            if centre:
+                frames = (self.I0, I1, I2, self.f0, self.f1, self.f2)
+            else:
+                frames = (self.Iprev, self.I0, I1, self.fPrev, self.f0, self.f1)
 
             if self.stream:
                 waitForCaller(self.stream)
                 with torch.cuda.stream(self.stream):
-                    output, self.f0, self.f1, self.f2 = self.model(
-                        self.I0,
-                        I1,
-                        I2,
-                        self.f0,
-                        self.f1,
-                        self.f2,
-                        tDrba,
-                    )
+                    output, *feats = self.model(*frames, tDrba)
                 self.stream.synchronize()
             else:
-                output, self.f0, self.f1, self.f2 = self.model(
-                    self.I0,
-                    I1,
-                    I2,
-                    self.f0,
-                    self.f1,
-                    self.f2,
-                    tDrba,
-                )
+                output, *feats = self.model(*frames, tDrba)
+            if centre:
+                self.f0, self.f1, self.f2 = feats
+            else:
+                self.fPrev, self.f0, self.f1 = feats
 
             output = output[:, :, : self.height, : self.width]
             interpQueue.put(output)
 
+        self.fPrev = self.f0
         self.f0 = self.f1
         self.f1 = self.f2
         self.f2 = None
+        self.Iprev = self.I0
         self.I0 = I1
 
 
@@ -489,6 +510,7 @@ class DistilDRBATensorRT:
                 self.context.set_input_shape(tensorName, self.tensors[i].shape)
 
         self.I0 = None
+        self.Iprev = None
         self.firstRun = True
 
     def initCudaGraph(self):
@@ -524,8 +546,9 @@ class DistilDRBATensorRT:
     @torch.inference_mode()
     def cacheFrame(self, frame: torch.Tensor):
         """Update frame cache without producing output."""
+        previous = self.I0
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
-        self.tImg0.copy_(self.tImg1, non_blocking=True)
+        self.Iprev = self.I0 if previous is None else previous
         torch.cuda.synchronize()
 
     @torch.inference_mode()
@@ -534,8 +557,14 @@ class DistilDRBATensorRT:
         firstRun stays False so the next __call__ interpolates this frame <->
         the next frame instead of swallowing it (see DistilDRBACuda)."""
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
-        self.processFrame(frame, "img0")
+        self.Iprev = self.I0
         self.firstRun = False
+
+    def _loadTriple(self, img0, img1, img2):
+        """Stage the three frames the engine reads (see ``_drbaStep``)."""
+        self.processFrame(img0, "img0")
+        self.processFrame(img1, "img1")
+        self.processFrame(img2, "img2")
 
     @torch.inference_mode()
     def __call__(
@@ -567,7 +596,7 @@ class DistilDRBATensorRT:
 
         if self.firstRun:
             self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
-            self.processFrame(frame, "img0")
+            self.Iprev = self.I0
             self.firstRun = False
             return
 
@@ -575,17 +604,27 @@ class DistilDRBATensorRT:
             self.I0 = F.interpolate(
                 self.I0, size=frame.shape[-2:], mode="bilinear", align_corners=False
             )
-            self.processFrame(self.I0, "img0")
-
-        self.processFrame(frame, "img1")
+            self.Iprev = self.I0
 
         I2 = nextFrame if nextFrame is not None else frame
-        self.processFrame(I2, "img2")
+        loaded = None
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
 
-            tDrba = 0.5 + t * 0.5 - 0.0001
+            centre, tDrba = _drbaStep(t)
+            if not centre:
+                # The engine has only the backward branch ([0.5, 1.0)). A step
+                # centred on I0 is that branch on the reversed triple (I1, I0,
+                # Iprev) at 2 - tDrba; it matches the eager forward branch to
+                # >70 dB.
+                tDrba = 2.0 - tDrba
+            if centre != loaded:
+                if centre:
+                    self._loadTriple(self.I0, frame, I2)
+                else:
+                    self._loadTriple(frame, self.I0, self.Iprev)
+                loaded = centre
 
             waitForCaller(self.stream)
             with torch.cuda.stream(self.stream):
@@ -608,8 +647,8 @@ class DistilDRBATensorRT:
             self.outputStream.synchronize()
             interpQueue.put(output)
 
+        self.Iprev = self.I0
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
-        self.tImg0.copy_(self.tImg1, non_blocking=True)
         torch.cuda.synchronize()
 
 

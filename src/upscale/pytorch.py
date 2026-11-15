@@ -64,6 +64,17 @@ def _loadUpscaleArch(method, upscaleFactor, modelPath, customModel):
                 raise TypeError(
                     f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
                 )
+            from src.upscale._shared import customScaleRefusal
+
+            # A 1x model passes, as it always has: its frame is resized to the
+            # stage's size downstream (the writer's fallback when it is last).
+            problem = (
+                None
+                if model.scale == 1
+                else customScaleRefusal(modelPath, model.scale, upscaleFactor)
+            )
+            if problem is not None:
+                raise ValueError(problem)
         else:
             model = torch.load(modelPath, map_location="cpu", weights_only=False)
             if isinstance(model, dict):

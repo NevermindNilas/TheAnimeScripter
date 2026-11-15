@@ -11,6 +11,7 @@ Callers should treat construction failures as non-fatal and fall back to
 ``scenedetect.open_video``.
 """
 
+import functools
 import logging
 from fractions import Fraction
 
@@ -18,6 +19,21 @@ import cv2
 import numpy as np
 from scenedetect import FrameTimecode
 from scenedetect.video_stream import VideoStream
+
+
+@functools.cache
+def _timecodeTakesFraction() -> bool:
+    """Whether the installed scenedetect takes a ``Fraction`` frame rate.
+
+    0.7 types ``VideoStream.frame_rate`` as a ``Fraction``; 0.6 (the version
+    the Linux requirements pin) raises "Framerate must be of type int/float."
+    for one, and every frame time it builds reads ``frame_rate``.
+    """
+    try:
+        FrameTimecode(timecode=0, fps=Fraction(24))
+    except TypeError:
+        return False
+    return True
 
 
 class NeluxVideoStream(VideoStream):
@@ -120,8 +136,9 @@ class NeluxVideoStream(VideoStream):
 
     # -- stream properties -------------------------------------------------
     @property
-    def frame_rate(self) -> Fraction:
-        return Fraction(self._frameRate).limit_denominator(10000)
+    def frame_rate(self) -> Fraction | float:
+        rate = Fraction(self._frameRate).limit_denominator(10000)
+        return rate if _timecodeTakesFraction() else float(rate)
 
     @property
     def duration(self) -> FrameTimecode:
