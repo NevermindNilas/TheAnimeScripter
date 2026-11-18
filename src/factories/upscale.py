@@ -43,7 +43,6 @@ def buildUpscaleProcess(self, width=None, height=None):
         case (
             "shufflecugan"
             | "cyte"
-            | "adore"
             | "span"
             | "open-proteus"
             | "aniscale2"
@@ -105,7 +104,6 @@ def buildUpscaleProcess(self, width=None, height=None):
         case (
             "shufflecugan-mps"
             | "cyte-mps"
-            | "adore-mps"
             | "span-mps"
             | "open-proteus-mps"
             | "aniscale2-mps"
@@ -132,7 +130,6 @@ def buildUpscaleProcess(self, width=None, height=None):
         case (
             "shufflecugan-rocm"
             | "cyte-rocm"
-            | "adore-rocm"
             | "span-rocm"
             | "open-proteus-rocm"
             | "aniscale2-rocm"

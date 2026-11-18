@@ -15,7 +15,6 @@ _BASE_STATELESS_UPSCALE_METHODS = frozenset(
     {
         "shufflecugan",
         "cyte",
-        "adore",
         "span",
         "open-proteus",
         "aniscale2",
@@ -28,9 +27,13 @@ _BASE_STATELESS_UPSCALE_METHODS = frozenset(
         "smosr",
     }
 )
+# figsr ships only a .pth; adore ships only ONNX (its .pth was retired).
+_ONNX_STATELESS_UPSCALE_BASES = (_BASE_STATELESS_UPSCALE_METHODS - {"figsr"}) | {
+    "adore"
+}
 _ORT_STATELESS_UPSCALE_METHODS = frozenset(
     method
-    for base in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
+    for base in _ONNX_STATELESS_UPSCALE_BASES
     for method in (f"{base}-directml", f"{base}-openvino")
 )
 STATELESS_UPSCALE_ALLOWLIST = {
@@ -44,7 +47,7 @@ STATELESS_UPSCALE_ALLOWLIST = {
     "UniversalDirectML": _ORT_STATELESS_UPSCALE_METHODS,
     "UniversalNCNN": frozenset({"shufflecugan-ncnn", "span-ncnn"}),
     "UniversalTensorRT": frozenset(
-        f"{method}-tensorrt" for method in _BASE_STATELESS_UPSCALE_METHODS - {"figsr"}
+        f"{method}-tensorrt" for method in _ONNX_STATELESS_UPSCALE_BASES
     ),
 }
 

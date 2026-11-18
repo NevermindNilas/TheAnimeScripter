@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Removed
+- `--upscale_method adore`, `adore-rocm` and `adore-mps`: the `adore.pth` weight is retired. Adore stays available as `adore-tensorrt`, `adore-directml` and `adore-openvino`.
+
 ## [3.1.0] - 2026-11-15
 
 ### Added

@@ -74,7 +74,6 @@ def modelsList() -> list[str]:
         "cyte-mps",
         "span",
         "shufflecugan",
-        "adore",
         "adore-tensorrt",
         "adore-directml",
         "adore-openvino",
@@ -153,7 +152,6 @@ def modelsList() -> list[str]:
         "shufflecugan-directml",
         "shufflecugan-openvino",
         "shufflecugan-mps",
-        "adore-mps",
         "span-mps",
         "open-proteus-mps",
         "aniscale2-mps",
@@ -199,7 +197,6 @@ def modelsList() -> list[str]:
         # is needed. TensorRT/Maxine/NVENC have no ROCm counterpart (NVIDIA-only).
         "shufflecugan-rocm",
         "cyte-rocm",
-        "adore-rocm",
         "span-rocm",
         "open-proteus-rocm",
         "aniscale2-rocm",
@@ -565,16 +562,12 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
 
-        case "adore" | "adore-tensorrt" | "adore-directml" | "adore-openvino":
-            if modelType == "pth":
-                return "adore.pth"
-            elif modelType == "onnx":
+        case "adore-tensorrt" | "adore-directml" | "adore-openvino":
+            if modelType == "onnx":
                 if half:
                     return "2x_Adore_renarchi_fp16.onnx"
                 else:
                     return "2x_Adore_renarchi_fp32.onnx"
-            elif modelType == "ncnn":
-                return "2x_adore-ncnn.zip"
 
         case (
             "fallin_soft"

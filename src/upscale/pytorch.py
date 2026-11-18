@@ -200,7 +200,7 @@ class UniversalPytorch:
         # unknown archs the fallback probe runs 1-3 tiny forwards, and doing
         # that after model.compile() would trigger a needless (and at
         # max-autotune, very slow) compilation per probe shape.
-        # RealCUGAN-family archs (adore, fallin_*, shufflecugan) need both
+        # RealCUGAN-family archs (fallin_*, shufflecugan) need both
         # input dims divisible by 4; feeding an odd dim raises a skip-Add size
         # mismatch, so the input is reflect-padded to the multiple and the
         # surplus cropped off the output. Fully-convolutional archs resolve to

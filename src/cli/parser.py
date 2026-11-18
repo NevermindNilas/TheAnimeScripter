@@ -763,7 +763,6 @@ def _addUpscalingOptions(argParser):
 
     upscaleMethods = [
         "shufflecugan",
-        "adore",
         "adore-tensorrt",
         "adore-directml",
         "adore-openvino",
@@ -843,7 +842,6 @@ def _addUpscalingOptions(argParser):
         "artcnn_r16f96-directml",
         "artcnn_r16f96-openvino",
         "shufflecugan-mps",
-        "adore-mps",
         "span-mps",
         "open-proteus-mps",
         "aniscale2-mps",
@@ -856,7 +854,6 @@ def _addUpscalingOptions(argParser):
         "smosr-mps",
         "shufflecugan-rocm",
         "cyte-rocm",
-        "adore-rocm",
         "span-rocm",
         "open-proteus-rocm",
         "aniscale2-rocm",
