@@ -233,8 +233,9 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 ```
 Video (written and read): .mp4, .mkv, .mov, .avi, .webm, .gif, .m4v
 Video (read only):        .m2ts, .mts, .mpg, .mpeg, .m2v, .flv, .wmv, .ogv
-Batch: .txt (one file path per line)
-URLs: YouTube, direct video links
+Images: a single .png, a folder of numbered frames, or a pattern like frames_%05d.png (any start number)
+Batch: .txt (one file path per line; a relative path is looked up next to the list, then in the working directory)
+URLs: YouTube (youtube.com and its subdomains, youtu.be)
 ```
 
 A read-only container is decoded normally, but the output is written as `.mp4`
@@ -325,7 +326,7 @@ C:\Videos\episode3.mp4
 | `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 2x`; repeatable (`--upscale span --upscale` is 4x); see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)**. Every bundled model is 2x; 3x and 4x need a `maxine-*` method or a `--custom_model` of that scale, any other method refuses them before loading |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods. The `animesr*` methods load only their own weights and refuse one |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
@@ -1204,7 +1205,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 - `"interpolate_resample"` configures the first interpolation, the smooth-dedup one included, where it is an error. A front end must send `0` (or leave the key out) while `--smooth_dedup` is selected; with no interpolation at all a non-zero value only warns.
 - Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"` and `"resize_factor"` were removed and stop with a message.
 
-> A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.
+> A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off. A `null` value keeps that option's default; on a switch (`"upscale"`, `"moblur"`, ...) it means off.
 
 ---
 

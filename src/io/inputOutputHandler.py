@@ -72,7 +72,10 @@ _TITLE_SEPARATORS = re.compile(r"\s*[|/\\]+\s*")
 _TITLE_DROPPED = re.compile(r'[<>:"?*%;\x00-\x1f]')
 _TITLE_MAX = 100
 
-_SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
+# The prefix may be empty: with `.+?` a digit-only name (`0001.png`, Blender's
+# default) gave up its first digit as the prefix, so `0%03d.png` silently
+# dropped every frame from `1000.png` on.
+_SEQUENCE_PATTERN = re.compile(r"^(.*?)(\d+)(\.[^.]+)$")
 
 # Image-sequence encoders and the per-frame extension each one writes. The
 # single source for every sequence special case: extension resolution and
@@ -155,8 +158,10 @@ def detectImageSequence(folderPath):
         return None
 
     prefix, number, extension = match.groups()
-    padding = len(number)
-    expectedPattern = f"{prefix}%0{padding}d{extension}"
+    # The narrowest number is the padding: the first name sorted is not it for
+    # unpadded frames (`u_10.png` sorts before `u_7.png`).
+    firstPadding = padding = len(number)
+    matched = set()
 
     frameNumbers = set()
     for imgFile in imageFiles:
@@ -165,8 +170,15 @@ def detectImageSequence(folderPath):
         if m and m.group(1) == prefix and m.group(3).lower() == extension.lower():
             try:
                 frameNumbers.add(int(m.group(2)))
+                padding = min(padding, len(m.group(2)))
+                matched.add(m.group(2))
             except ValueError:
                 continue
+    if any(f"{value:0{padding}d}" not in matched for value in frameNumbers):
+        # Mixed padded and unpadded names: no one pattern names them all, so
+        # keep the first name's, which reads the frames that share its width.
+        padding = firstPadding
+    expectedPattern = f"{prefix}%0{padding}d{extension}"
 
     if len(frameNumbers) < 2:
         return None
@@ -187,6 +199,123 @@ def detectImageSequence(folderPath):
 
     sequencePath = os.path.join(folderPath, expectedPattern)
     return (sequencePath, frameNumbers[0], frameNumbers[-1], len(frameNumbers))
+
+
+# FFmpeg's image2 reader looks for a sequence's first frame at indices 0-4
+# only (its start_number_range), and nelux exposes no start_number option.
+_SEQUENCE_START_RANGE = 5
+_PRINTF_FIELD = re.compile(r"%(?:0(\d+))?d")
+
+
+# Staged pattern -> the pattern the user's frames live under. Output naming
+# and the output-is-an-input guard read the original: the staged frames are
+# links to it, so writing over the source would corrupt what is being decoded.
+_STAGED_SOURCES = {}
+
+
+def _patternStart(sequencePath):
+    """The lowest frame number on disk for a printf pattern, or None."""
+    folder, name = os.path.split(sequencePath)
+    fields = list(_PRINTF_FIELD.finditer(name))
+    if len(fields) != 1 or not os.path.isdir(folder or "."):
+        return None
+    field = fields[0]
+    # `%d` prints no leading zero, so it never names a padded file.
+    digits = rf"\d{{{int(field.group(1))},}}" if field.group(1) else r"0|[1-9]\d*"
+    matcher = re.compile(
+        re.escape(name[: field.start()])
+        + f"({digits})"
+        + re.escape(name[field.end() :])
+        + "$"
+    )
+    numbers = [
+        int(m.group(1)) for f in os.listdir(folder or ".") if (m := matcher.match(f))
+    ]
+    return min(numbers, default=None)
+
+
+def _stageSequenceFromZero(sequencePath, firstFrame):
+    """A 0-based linked copy of a sequence the decoder cannot find the start of.
+
+    A sequence numbered from 5 or later (a VFX `shot_1001.png`, an export from
+    frame 100) was detected and then failed to open with "No such file or
+    directory". The frames are linked into a temporary folder removed at exit:
+    the system one, or one beside the source folder where that is the only
+    place a link works (Windows hard links stay on one drive and symlinks
+    need a privilege). They are copied only when neither takes a link. The
+    source folder itself is never written to.
+    """
+    import atexit
+    import shutil
+    import tempfile
+
+    # Absolute: a symlink keeps the path it is given, and a relative one
+    # would be read from the staging folder.
+    folder, name = os.path.split(os.path.abspath(sequencePath))
+    first = os.path.join(folder, name % firstFrame)
+    if not os.path.exists(first):
+        # Nothing matched after all; the original path gives the plain error.
+        return sequencePath
+
+    def link(source, target):
+        for make in (os.link, os.symlink):
+            try:
+                make(source, target)
+                return True
+            except OSError:
+                continue
+        return False
+
+    def newFolder(parent):
+        made = tempfile.mkdtemp(prefix="tas-sequence-", dir=parent)
+        atexit.register(shutil.rmtree, made, ignore_errors=True)
+        return made
+
+    stageFolder = None
+    for parent in (None, os.path.dirname(os.path.abspath(folder))):
+        try:
+            candidate = newFolder(parent)
+        except OSError:
+            continue
+        probe = os.path.join(candidate, name % 0)
+        if link(first, probe):
+            os.remove(probe)
+            stageFolder = candidate
+            break
+        shutil.rmtree(candidate, ignore_errors=True)
+    copied = stageFolder is None
+    if copied:
+        stageFolder = newFolder(None)
+
+    index = firstFrame
+    while os.path.exists(source := os.path.join(folder, name % index)):
+        target = os.path.join(stageFolder, name % (index - firstFrame))
+        if copied or not link(source, target):
+            shutil.copy2(source, target)
+            copied = True
+        index += 1
+
+    staged = os.path.join(stageFolder, name)
+    _STAGED_SOURCES[staged] = sequencePath
+    logging.info(
+        f"Image sequence {sequencePath} starts at frame {firstFrame}; "
+        f"reading it through {stageFolder}"
+        + (" (frames copied: links are not available there)" if copied else "")
+    )
+    return staged
+
+
+def _readableSequence(sequencePath, firstFrame=None):
+    """``sequencePath``, or a 0-based staged twin when it starts too late."""
+    try:
+        if firstFrame is None:
+            firstFrame = _patternStart(sequencePath)
+        if firstFrame is None or firstFrame < _SEQUENCE_START_RANGE:
+            return sequencePath
+        return _stageSequenceFromZero(sequencePath, firstFrame)
+    except (OSError, TypeError, ValueError) as e:
+        logging.warning(f"Could not stage image sequence {sequencePath}: {e}")
+        return sequencePath
 
 
 def titleFileName(title):
@@ -529,6 +658,17 @@ def validateEncoder(video, encodeMethod):
     """Validates and potentially adjusts the encoder method based on file type."""
     # Case-blind like every other extension test here: `clip.WEBM` kept
     # libx264, which the WebM muxer refuses after the whole run has processed.
+    if str(video).lower().endswith(".gif") and encodeMethod != "gif":
+        # The GIF muxer takes only the gif encoder: `--output clip.gif` kept
+        # libx264 and failed at the first frame, after every model had loaded.
+        from src.infra.logAndPrint import logAndPrint
+
+        logAndPrint(
+            f"Output {video} is a GIF, so it is encoded with 'gif' instead of "
+            f"'{encodeMethod}'.",
+            colorFunc="yellow",
+        )
+        return "gif"
     isWebm = str(video).lower().endswith(".webm")
     if isWebm and encodeMethod not in WEBM_COMPATIBLE_ENCODERS:
         from src.infra.logAndPrint import logAndPrint
@@ -592,6 +732,29 @@ def _readListFile(path):
         return data.decode(locale.getpreferredencoding(False))
 
 
+def _resolveListEntry(entry, listFolder):
+    """One line of a ``.txt`` batch list as an absolute path.
+
+    A relative line is looked up next to the list first: `dir /b > list.txt`
+    writes bare names, which only resolved when TAS was started from the video
+    folder. A list written relative to the working directory still works.
+    """
+    if isUrlInput(entry):
+        return entry
+    if os.path.isabs(entry):
+        return os.path.abspath(entry)
+    besideList = os.path.abspath(os.path.join(listFolder, entry))
+    fromCwd = os.path.abspath(entry)
+
+    def found(path):
+        # A `%05d` pattern names no file; its folder is the best test there is.
+        return os.path.exists(os.path.dirname(path) if "%" in path else path)
+
+    if found(fromCwd) and not found(besideList):
+        return fromCwd
+    return besideList
+
+
 def getVideoFiles(videosInput):
     """Extract list of video files from input specification."""
     # Handle semicolon separated paths
@@ -608,7 +771,7 @@ def getVideoFiles(videosInput):
 
     # Handle image sequence pattern (e.g., frames_%05d.png)
     if "%" in str(videosInput):
-        return [videosInput]
+        return [_readableSequence(str(videosInput))]
 
     # Handle directory or file
     absPath = os.path.abspath(videosInput)
@@ -621,7 +784,7 @@ def getVideoFiles(videosInput):
                 f"Detected image sequence: {sequencePath} "
                 f"(frames {firstFrame}-{lastFrame}, {frameCount} total)"
             )
-            return [sequencePath]
+            return [_readableSequence(sequencePath, firstFrame)]
 
         # Otherwise, look for video files in the directory (sorted for a stable,
         # reproducible batch order regardless of filesystem listing order).
@@ -659,10 +822,14 @@ def getVideoFiles(videosInput):
             # Split on \r\n, \r and \n only, as reading the file in text mode
             # did: str.splitlines() also cuts at U+2028, U+0085, \f, ..., which
             # file names may contain.
-            return [
-                os.path.abspath(line.strip().strip('"'))
+            listFolder = os.path.dirname(absPath)
+            entries = [
+                _resolveListEntry(line.strip().strip('"'), listFolder)
                 for line in StringIO(_readListFile(absPath), newline=None)
                 if line.strip()
+            ]
+            return [
+                _readableSequence(entry) if "%" in entry else entry for entry in entries
             ]
         return [absPath]
 
@@ -706,8 +873,11 @@ def processInputOutputPaths(args, defaultOutputPath):
 
     usedPaths = set()
     results = []
-    localInputs = [video for video in videoFiles if not isUrlInput(video)]
-    for video in videoFiles:
+    # A staged sequence is decoded from its 0-based twin and named, and
+    # guarded against being overwritten, as the sequence the user gave.
+    sources = [_STAGED_SOURCES.get(video, video) for video in videoFiles]
+    localInputs = [video for video in sources if not isUrlInput(video)]
+    for decodePath, video in zip(videoFiles, sources, strict=True):
         if not isUrlInput(video):
             # Skip existence check for image sequence patterns (they contain %)
             if "%" not in str(video) and not os.path.exists(video):
@@ -720,7 +890,7 @@ def processInputOutputPaths(args, defaultOutputPath):
             validateSegmentOutput(video, outputPath)
         results.append(
             {
-                "videoPath": video,
+                "videoPath": decodePath,
                 "outputPath": outputPath,
                 # Keyed on the OUTPUT, which is what the muxer sees. Passing the
                 # input only worked because the output usually copies the input's

@@ -248,10 +248,21 @@ class VideoStabilize:
         ORB finds too little."""
         prevGray, resizeScale, kp1, des1 = prevFeatures
         currGray, _, kp2, des2 = currFeatures
-        orbResult = self._orbTransform(kp1, des1, kp2, des2, resizeScale)
-        if orbResult is not None:
-            return orbResult
-        return self._flowTransform(prevGray, currGray)
+        result = self._orbTransform(kp1, des1, kp2, des2, resizeScale)
+        if result is None:
+            result = self._flowTransform(prevGray, currGray)
+        dx, dy, da, matchScore = result
+        # estimateAffinePartial2D rotates about the image origin, while the
+        # correction is rendered as a rotation about the frame centre
+        # (_buildAffineFromCorrection). Left origin-based, a camera roll read
+        # as a large translation (c - Rc) that the render then added on top:
+        # roll shake came out as translation shake, ~19 px per degree at 1080p.
+        height, width = prevGray.shape[:2]
+        centerX, centerY = width / 2.0, height / 2.0
+        cosA, sinA = float(np.cos(da)), float(np.sin(da))
+        dx -= (1.0 - cosA) * centerX + sinA * centerY
+        dy -= (1.0 - cosA) * centerY - sinA * centerX
+        return dx, dy, da, matchScore
 
     def _flowTransform(self, prevGray, currGray):
         prevPts = cv2.goodFeaturesToTrack(

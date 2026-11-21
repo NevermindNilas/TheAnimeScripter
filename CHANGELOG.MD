@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Fixed
+- A folder or `%0Nd` pattern of frames numbered from 5 or later (`shot_1001.png`, ...) failed to open with "No such file or directory"; it is now read through a temporary 0-based link folder.
+- A folder of digit-only frame names (`0001.png`, Blender's default) silently dropped every frame from `1000.png` on; unpadded digit-only names (`1.png`) were not detected as a sequence, and unpadded names like `u_7.png` ... `u_12.png` got the wrong padding and failed to open.
+- `--output clip.gif` kept the x264 default and failed at the first frame; a `.gif` output is now encoded with `gif`. A `.gif` input with `--output clip.mp4` no longer forces the gif encoder into the mp4.
+- YouTube links typed without `https://` (`www.youtube.com/...`) and `m.youtube.com` / `music.youtube.com` links were refused as "not a YouTube URL".
+- A URL input with a bare `--output clip.mp4` crashed with `FileNotFoundError` before downloading.
+- Relative paths in a `.txt` batch list are looked up next to the list first (a `dir /b > list.txt` list only worked when TAS was started from the video folder).
+- `--upscale animesr* ... --custom_model` is refused: the model was silently ignored, and at 3x/4x the output was 2x while the rest of the chain was sized for the custom scale.
+- `--json`: a `null` value crashed startup (`segment_batch`, `depth_batch`), turned motion blur on (`moblur_factor`) or meant fp32 (`half`); it now keeps the default. `"restore_method": "anime1080fixer"` as a string no longer adds a restore stage, and `"half": 0/1` is accepted.
+- Without CUDA, `--interpolate rife4.26 dynamic_scale` fell back to DirectML/NCNN with `dynamic_scale` still set and shown in the Order line; it is now dropped with the usual warning.
+- `--upscale animesr-directml` / `animesr-openvino` with `--half False` loaded the FP16 model once it was cached and failed on the first frame.
+- `--preview`: closing a video's preview server left every open `/stream` connection and its thread running until the process exited.
+- A failed FFmpeg install (stalled download, or files in use) left its `ffmpeg-download-*` archive in `ffmpeg_shared/` for good.
+- `--stabilize` (classic) turned camera roll into translation shake, about 19 px per degree at 1080p: a ±2° roll moved a 640x360 picture by 22 px, now 1 px.
+- `--dynamic_scale` treated a strongly anti-correlated frame pair (an inverted flash frame) as a similar one and picked a finer flow scale.
+- `--moblur`: some factor and shutter angle pairs (240° at `--moblur_factor` 9, 15, 18, 21, ...; 330° at 24) dropped one shutter sample on one side, leaving the blur off-centre.
+
 ### Removed
 - `--upscale_method adore`, `adore-rocm` and `adore-mps`: the `adore.pth` weight is retired. Adore stays available as `adore-tensorrt`, `adore-directml` and `adore-openvino`.
 

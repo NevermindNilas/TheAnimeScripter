@@ -73,6 +73,9 @@ def dynamicScale(
 
     ssimValue = ssim(_forAnalysis(img1), _forAnalysis(img2), data_range=1.0).item()
 
+    # SSIM runs down to -1; squared, an anti-correlated pair (an inverted
+    # "negative flash" frame) read as a similar one and got a finer scale.
+    ssimValue = max(0.0, ssimValue)
     scale = minScale + (maxScale - minScale) * (ssimValue**2)
     scale = max(minScale, min(maxScale, scale))
     # Snap in log2, not linearly: the picks are octaves apart, so 1.46 sits

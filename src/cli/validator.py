@@ -641,6 +641,14 @@ def _resolveFlipViews(stage):
             settings[key] = False
 
 
+def _resolveInterpolateFlags(stages):
+    for stage in stages:
+        if stage.kind == "interpolate":
+            _resolveStaticStep(stage)
+            _resolveDynamicScale(stage)
+            _resolveFlipViews(stage)
+
+
 def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
     if args.slowmo:
         cs.AUDIO = False
@@ -649,11 +657,7 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
     drafts = stageDrafts(args)
     stages = drafts if drafts is not None else _legacyStages(args)
 
-    for stage in stages:
-        if stage.kind == "interpolate":
-            _resolveStaticStep(stage)
-            _resolveDynamicScale(stage)
-            _resolveFlipViews(stage)
+    _resolveInterpolateFlags(stages)
     # Motion blur's own RIFE reads the run-wide value too (main.py hands it to
     # MotionBlurPipeline), as it does --ensemble and --static_step.
     if (
@@ -1107,6 +1111,13 @@ def prepareRuntimeArgs(args, outputPath, parser):
     _configureProcessingSettings(args, cudaAvailable=cudaAvailable)
 
     _adjustMethodsBasedOnCuda(args, parser=parser, cudaChecker=cudaChecker)
+
+    # Again, on the backend the fallback settled: `--interpolate rife4.26
+    # dynamic_scale` without CUDA became rife4.26-directml with the flag still
+    # set (a silent no-op the Order line advertised), where the same method
+    # typed outright drops it with a warning.
+    drafts = stageDrafts(args)
+    _resolveInterpolateFlags(drafts if drafts is not None else _legacyStages(args))
 
     # After the CUDA fallback, so the quality/batch clamps see the backend that
     # will actually run rather than the one the user typed. Before this move, a

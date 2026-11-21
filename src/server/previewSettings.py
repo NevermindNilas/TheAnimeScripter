@@ -255,6 +255,8 @@ _INDEX_HTML = b"""<!DOCTYPE html>
 
 class PreviewHTTPHandler(BaseHTTPRequestHandler):
     sink: PreviewSink = None
+    # Set by Preview.close(); each Preview gives its handler class its own.
+    closed = threading.Event()
 
     def _noCache(self) -> None:
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -321,7 +323,10 @@ class PreviewHTTPHandler(BaseHTTPRequestHandler):
         self.sink.viewerJoined()
         lastSeq = 0
         try:
-            while True:
+            # Until the server closes: shutdown() only stops the accept loop,
+            # so without this the handler (and the browser's connection) of a
+            # finished video lived until the process exited.
+            while not self.closed.is_set():
                 jpeg, seq = self.sink.waitNext(lastSeq, timeout=1.0)
                 # waitNext returns the current frame on timeout too, so only
                 # emit when the sequence actually advanced -- otherwise an idle
@@ -404,7 +409,9 @@ class Preview:
         # /stream handler at this fresh sink, where its lastSeq is ahead of
         # seq 0 and waitNext never parks -- one core spinning for the batch.
         self._handler = type(
-            "PreviewHTTPHandler", (PreviewHTTPHandler,), {"sink": previewSink}
+            "PreviewHTTPHandler",
+            (PreviewHTTPHandler,),
+            {"sink": previewSink, "closed": threading.Event()},
         )
 
     def _bind(self, port: int):
@@ -472,6 +479,8 @@ class Preview:
             # A start() that never bound must not report a clean shutdown.
             return
 
+        # Ends every open /stream response within its one-second wait.
+        self._handler.closed.set()
         try:
             self.server.shutdown()
             self.server.server_close()

@@ -379,7 +379,10 @@ class AnimeSRDirectML:
         if "openvino" in self.upscaleMethod:
             method = method.replace("openvino", "directml")
 
-        filename = modelsMap(method, modelType="onnx")
+        # half=self.half, not the modelsMap default: with --half False this
+        # named the FP16 file, and once that was cached the fp32 buffers below
+        # failed the first frame ("expected: (tensor(float16))").
+        filename = modelsMap(method, modelType="onnx", half=self.half)
         if "-directml" in self.upscaleMethod:
             folderName = self.upscaleMethod.replace("-directml", "-onnx")
         elif "-openvino" in self.upscaleMethod:

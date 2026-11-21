@@ -26,6 +26,9 @@ def _supportsColorStdout():
 def str2bool(arg):
     if isinstance(arg, bool):
         return arg
+    # A JSON config's 0/1, which the switches (--ensemble, ...) already take.
+    if isinstance(arg, int) and arg in (0, 1):
+        return bool(arg)
     if arg.lower() in ("yes", "true", "t", "y", "1"):
         return True
     elif arg.lower() in ("no", "false", "f", "n", "0"):

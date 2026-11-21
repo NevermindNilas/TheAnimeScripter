@@ -570,20 +570,30 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     ffmpegArchivePath = os.path.join(ffmpegDir, archiveFileName)
 
     try:
-        _downloadFile(url, ffmpegArchivePath, "Downloading FFmpeg", sha256)
-    except (URLError, HTTPError) as e:
-        logging.error(f"Failed to download FFMPEG: {e}")
-        raise
+        try:
+            _downloadFile(url, ffmpegArchivePath, "Downloading FFmpeg", sha256)
+        except (URLError, HTTPError) as e:
+            logging.error(f"Failed to download FFMPEG: {e}")
+            raise
 
-    # Only now that a verified replacement is on disk: whatever is there is
-    # either a different build or a half-finished one, and either way it goes
-    # before anything is unpacked over it. Doing this first would leave a user
-    # whose download failed with no FFmpeg at all, where before they at least
-    # kept a working one.
-    _clearStaleFfmpeg(ffmpegDir, keep=archiveFileName)
+        # Only now that a verified replacement is on disk: whatever is there is
+        # either a different build or a half-finished one, and either way it
+        # goes before anything is unpacked over it. Doing this first would
+        # leave a user whose download failed with no FFmpeg at all, where
+        # before they at least kept a working one.
+        _clearStaleFfmpeg(ffmpegDir, keep=archiveFileName)
 
-    extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
-    extractFunc(ffmpegArchivePath, ffmpegDir, extractedRootName)
+        extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
+        extractFunc(ffmpegArchivePath, ffmpegDir, extractedRootName)
+    finally:
+        # A download that stalled part-way, or a clear-out refused because a
+        # file is in use, left this archive behind; the next install spares
+        # every ffmpeg-download-* name (another instance's), so it stayed.
+        try:
+            if os.path.exists(ffmpegArchivePath):
+                os.remove(ffmpegArchivePath)
+        except OSError as e:
+            logging.warning(f"Could not remove {ffmpegArchivePath}: {e}")
 
     _verifyInstalledBuild(str(ffmpegPath))
     _writeStamp(ffmpegDir, buildKey, url, sha256)

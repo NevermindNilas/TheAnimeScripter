@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import src.constants as cs
 from src.io.inputOutputHandler import (
+    OUTPUT_FILE_EXTENSIONS,
     SEQUENCE_EXTENSIONS,
     isSingleImageInput,
     isUrlInput,
@@ -19,9 +20,15 @@ def processUrlInput(args, outputPath, processingEnabled):
     from src.infra.logAndPrint import logAndPrint
     from src.io.inputOutputHandler import generateOutputName, titleFileName
 
-    result = urlparse(args.input)
+    # isUrlInput also takes a scheme-less `www.` link, whose host urlparse
+    # reads as a path: every one was refused as "not a YouTube URL".
+    url = args.input.strip()
+    if "://" not in url:
+        url = f"https://{url}"
+    host = (urlparse(url).hostname or "").lower()
 
-    if result.netloc.lower() not in ["www.youtube.com", "youtube.com", "youtu.be"]:
+    # m.youtube.com is what phones share, music.youtube.com a YouTube Music link.
+    if host not in ("youtube.com", "youtu.be") and not host.endswith(".youtube.com"):
         raise InputNormalizationError(
             "URL is invalid or not a YouTube URL, please check the URL and try again"
         )
@@ -52,6 +59,9 @@ def processUrlInput(args, outputPath, processingEnabled):
                 outputFolder, generateOutputName(args, args.input, title)
             )
     else:
+        # A bare `--output clip.mp4` has no folder part, and os.makedirs("")
+        # raises before anything is downloaded.
+        args.output = os.path.abspath(args.output)
         outputFolder = os.path.dirname(args.output)
         os.makedirs(outputFolder, exist_ok=True)
 
@@ -123,7 +133,14 @@ def normalizeInputArgs(args, outputPath, processingEnabled):
         return True
 
     if args.input.lower().endswith(".gif"):
-        if args.encode_method != "gif":
+        # An --output naming another container keeps the method asked for:
+        # gif forced into `--output clip.mp4` processed every frame and then
+        # failed at the muxer.
+        output = str(getattr(args, "output", None) or "").lower()
+        namesOtherContainer = output.endswith(
+            OUTPUT_FILE_EXTENSIONS
+        ) and not output.endswith(".gif")
+        if args.encode_method != "gif" and not namesOtherContainer:
             logging.error(
                 "GIF input detected but encoding method is not set to GIF, defaulting to GIF encoding"
             )

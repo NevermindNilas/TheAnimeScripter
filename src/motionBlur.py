@@ -471,13 +471,19 @@ class MotionBlurPipeline:
         framesToInsert = factor - 1
         halfWindow = self.shutterAngle / 720.0
 
+        # Samples per side that fall inside the half window, rounded before
+        # the floor/ceil so both sides agree: 15 * (1 - 240/720) is
+        # 10.000000000000002 in floats, whose ceil dropped the trailing edge
+        # sample and left the window lopsided (240 degrees at factor 9, 15, ...).
+        edge = round(factor * halfWindow, 9)
+
         # prev segment: keep samples with k ≥ ceil(factor*(1-halfWindow))
-        kStart = max(1, math.ceil(factor * (1.0 - halfWindow)))
+        kStart = max(1, math.ceil(factor - edge))
         prevSegStart = min(framesToInsert, kStart - 1)
         leftCount = framesToInsert - prevSegStart
 
         # next segment: keep samples with k ≤ floor(factor*halfWindow)
-        nextSegCount = min(framesToInsert, math.floor(factor * halfWindow))
+        nextSegCount = min(framesToInsert, math.floor(edge))
 
         totalSamples = leftCount + 1 + nextSegCount
         noBlur = leftCount == 0 and nextSegCount == 0

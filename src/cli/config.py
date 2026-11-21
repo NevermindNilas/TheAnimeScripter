@@ -196,6 +196,13 @@ def coerceValueForKey(parser, key, value, sourceLabel):
         if action.nargs == "+" and not value:
             fail(value, "at least one value")
 
+    # A single value for a several-values option is the one-item list the
+    # command line gives: left a bare string, "restore_method":
+    # "anime1080fixer" never equalled the list default and added a restore
+    # stage to a config that asked for none.
+    if action.nargs in ("+", "*") and not isinstance(value, list):
+        value = [value]
+
     converter = action.type
     if converter is None:
         return value
@@ -440,6 +447,16 @@ class CliConfig:
             # Coerce first: `"upscale_factor": "2"` is a valid choice once it
             # is an int, and reporting it as an invalid choice against
             # `2, 3, 4` reads like nonsense.
+            if value is None and hasattr(self.args, key):
+                # null keeps the default: assigned, it crashed startup
+                # (int(None) for segment_batch/depth_batch), turned motion
+                # blur on (moblur_factor) or meant fp32 (half). The key still
+                # counts as present, so `"moblur": null` stays an explicit off
+                # that a sibling key cannot turn back on.
+                presentKeys.add(key)
+                logging.info(f"JSON config: '{key}' is null, keeping its default")
+                continue
+
             value = coerceValueForKey(self.parser, key, value, "JSON config")
             value = self.validateJsonChoice(key, value)
 
