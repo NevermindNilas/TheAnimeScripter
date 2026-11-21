@@ -81,7 +81,7 @@ python -m src.depth.export_limbo_streaming --checkpoint model.safetensors --outp
 ```
 
 The separate exporter also accepts height 378 and `--fp32`. Runtime
-`--half False` selects FP32. FP16 graphs retain attention products, normalization,
+`--precision fp32` selects FP32. FP16 graphs retain attention products, normalization,
 softmax, resize and exponential operations in FP32 for numerical stability.
 FP16 conversion needs ONNX Runtime, included in full Windows/Linux requirements.
 Export caches include checkpoint content, spatial size, precision and exporter

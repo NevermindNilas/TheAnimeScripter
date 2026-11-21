@@ -126,7 +126,7 @@ class MoGe3MPS(DepthMPS):
         _announceLoad(self.depth_method)
         self.model = loadMoGe3(_checkpointPath(self.depth_method, False), self.device)
         _setSizes(self)
-        # fp32 whatever --half says, like the other DINOv2 MPS paths.
+        # fp32 whatever --precision says, like the other DINOv2 MPS paths.
         self.dtype = torch.float32
         self.half = False
         ignoreMpsCompileMode(self)

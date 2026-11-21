@@ -538,7 +538,7 @@ class UnifiedRestoreTensorRT:
         self.forceStatic = forceStatic
 
         # Same downgrade as UnifiedRestoreDirectML: SCUNet ships no fp16 ONNX,
-        # so modelsMap raises for half=True and --half defaults to True. Drop
+        # so modelsMap raises for half=True and --precision defaults to fp16. Drop
         # precision for this restore pass rather than aborting the run.
         if self.half and "scunet" in self.restoreMethod:
             logAndPrint(
@@ -741,11 +741,11 @@ class UnifiedRestoreDirectML:
         self.width = width
         self.height = height
 
-        # SCUNet ships no fp16 ONNX (modelsMap raises for half=True), and --half
-        # defaults to True, so `--restore_method scunet-directml` used to abort
-        # the whole run. Drop precision for this one backend instead of forcing
-        # the global --half off, which would also derate upscale/interpolate in
-        # the same run.
+        # SCUNet ships no fp16 ONNX (modelsMap raises for half=True), and
+        # --precision defaults to fp16, so `--restore_method scunet-directml` used
+        # to abort the whole run. Drop precision for this one backend instead of
+        # forcing the global --precision to fp32, which would also derate
+        # upscale/interpolate in the same run.
         if self.half and "scunet" in self.restoreMethod:
             logAndPrint(
                 f"{self.restoreMethod} has no half precision ONNX model; "
@@ -771,7 +771,7 @@ class UnifiedRestoreDirectML:
 
         # half=self.half, not the modelsMap default of True: every model here
         # ships a real paired fp16/fp32 ONNX, so omitting it loaded the fp16
-        # file under --half False while resolveWeightPath below downloaded per
+        # file under --precision fp32 while resolveWeightPath below downloaded per
         # the real flag -- and it made scunet (fp32 only) raise unconditionally.
         self.filename = modelsMap(method, modelType="onnx", half=self.half)
         if "-directml" in self.restoreMethod:

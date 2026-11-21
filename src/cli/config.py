@@ -21,8 +21,9 @@ from src.cli.stageOrder import (
 )
 from src.infra.logAndPrint import logAndPrint
 
-# --json keys that were removed with the old --resize/--output_scale pair.
-REMOVED_JSON_KEYS = ("output_scale", "resize_factor")
+# --json keys whose flags were removed: the old --resize/--output_scale pair,
+# and --half (now --precision).
+REMOVED_JSON_KEYS = ("output_scale", "resize_factor", "half")
 
 
 def _actionsByDest(parser):
@@ -218,9 +219,9 @@ def coerceValueForKey(parser, key, value, sourceLabel):
         ):
             fail(item, _expectedLabel(converter))
         # `isinstance(item, converter)` is only meaningful when the converter
-        # is a real class. `--half` declares `type=str2bool`, a plain function,
-        # and isinstance() against it raises TypeError. `type(x) is C` also
-        # sidesteps bool-is-an-int.
+        # is a real class. `--obj_detect_disable_annotations` declares
+        # `type=str2bool`, a plain function, and isinstance() against it raises
+        # TypeError. `type(x) is C` also sidesteps bool-is-an-int.
         if isinstance(converter, type) and type(item) is converter:
             converted.append(item)
             continue
@@ -388,14 +389,9 @@ class CliConfig:
 
         for key in REMOVED_JSON_KEYS:
             if key in jsonConfig:
-                value = jsonConfig[key]
-                shown = (
-                    value
-                    if isinstance(value, (str, int, float))
-                    and not isinstance(value, bool)
-                    else None
+                self.failChain(
+                    removedFlagMessage(key, jsonConfig[key]) + f' (JSON key "{key}")'
                 )
-                self.failChain(removedFlagMessage(key, shown) + f' (JSON key "{key}")')
 
         if "chain" in jsonConfig:
             # The chain describes every stage; a per-stage key next to it would
@@ -450,7 +446,7 @@ class CliConfig:
             if value is None and hasattr(self.args, key):
                 # null keeps the default: assigned, it crashed startup
                 # (int(None) for segment_batch/depth_batch), turned motion
-                # blur on (moblur_factor) or meant fp32 (half). The key still
+                # blur on (moblur_factor) or meant fp32 (the old half). The key still
                 # counts as present, so `"moblur": null` stays an explicit off
                 # that a sibling key cannot turn back on.
                 presentKeys.add(key)

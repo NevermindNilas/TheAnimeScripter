@@ -49,7 +49,7 @@ Deviations from upstream:
 - Only the point and mask heads run. The normal and metric-scale heads stay in the
   checkpoint but are not built, because TAS writes relative depth.
 - One frame per forward. Voxel binning and refinement are per image anyway.
-- Under `--half` the DINOv2 encoder runs in fp16 (its Linear/Conv weights are stored
+- Under `--precision fp16` the DINOv2 encoder runs in fp16 (its Linear/Conv weights are stored
   fp16; LayerNorm, LayerScale and the position/class tokens stay fp32, so the output
   equals upstream's autocast), and the FlexGEMM refiner runs its two coarsest levels
   (256/512 channels) in fp16. The neck, heads, the refiner's first and last

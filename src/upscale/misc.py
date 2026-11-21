@@ -67,7 +67,7 @@ class NvidiaVSR:
 
         if self.half:
             logAndPrint(
-                "NVIDIA VSR API requires float32 input; forcing half=False.",
+                "NVIDIA VSR API requires float32 input; running it in fp32.",
                 "yellow",
             )
             self.half = False

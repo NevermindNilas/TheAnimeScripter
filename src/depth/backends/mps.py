@@ -287,7 +287,7 @@ class LimboMPS(DepthMPS):
             self.width, self.height, self.depthQuality
         )
 
-        # fp32 whatever --half says, matching DepthV3MPS: DA3's forward only
+        # fp32 whatever --precision says, matching DepthV3MPS: DA3's forward only
         # autocasts on CUDA, so a halved model would run the whole DINOv2 stack
         # in pure fp16 on MPS. The other v3 methods do not take that risk.
         self.model = self.model.float().eval().to(self.device)

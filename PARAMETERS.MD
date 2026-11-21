@@ -671,13 +671,13 @@ A front end's preview runs the same code, through the SAM 2 session's `composite
 
 > **🎨 limbo v1 / v2 / v3:** anime-specialised DA3-small finetunes (v1: 34.3M params). At `--depth_quality low` (the default) they run at the size they were trained at, picking the aspect closest to the source — `504x280` for widescreen, `504x378` for 4:3 and squarer (portrait is stretched to `504x378`). `medium` and `high` keep the source aspect with the longest side at 700 px or at the source's own, like the other `*_v3` methods; the TensorRT and OpenVINO backends then export their own ONNX at that size from the checkpoint on first use into `weights/limbo*/streaming/` — a one-time cost per size, up to about 3 minutes with the TensorRT engine build at 1080p `high` on an RTX 3090. `--depth_batch` is forced to `1` on `limbo-tensorrt`/`limbo_v2-tensorrt`/`limbo_v3-tensorrt` because the ONNX bakes in batch 1 (the CUDA and MPS paths run the torch model and batch normally). v1 methods are `limbo`, `limbo-mps`, `limbo-tensorrt`, `limbo-openvino`; v2 and v3 mirror them as `limbo_v2`, `limbo_v2-mps`, `limbo_v2-tensorrt`, `limbo_v2-openvino` and `limbo_v3`, `limbo_v3-mps`, `limbo_v3-tensorrt`, `limbo_v3-openvino` (every one also has a `-rocm` CUDA-path twin). Output is relative depth, inverted to disparity and percentile-stretched exactly like the other `*_v3` methods.
 
-> **moge3:** Methods are `moge3`, `moge3-mps`, `moge3-rocm`, `moge3-tensorrt`, `moge3-directml`, `moge3-openvino`. `--depth_quality` sets the ViT token count (`low` 1200, `medium` 2400, `high` 3600; about 736x416 / 1040x592 / 1280x720 voxels at 16:9) on every backend, including TensorRT, DirectML and OpenVINO. Those three export their ONNX from the checkpoint into `weights/moge3/onnx/` on first use for each size and precision. `--depth_batch` is forced to `1`: refinement is per frame. TensorRT runs the voxel refiner in torch on the same GPU. DirectML and OpenVINO build the voxel tables on the CPU each step, so expect them to be much slower than CUDA. Under `--half` the DINOv2 encoder runs in fp16 (its weights are stored in fp16 on NVIDIA CUDA), and the FlexGEMM refiner (`moge3`, `moge3-tensorrt`) runs its two coarsest levels in fp16; every other refiner route (ROCm, DirectML, OpenVINO, the plain fallback) is fp32, and MPS is fp32 throughout. `moge3` and `moge3-tensorrt` refine through vendored FlexGEMM (Triton) when its kernels compile here (NVIDIA CUDA, a C compiler, Python headers); the first run compiles them and tunes for about 15 s, later runs start in under a second. Anywhere else, including the Windows portable build for now, the plain torch refiner runs instead (about 4x slower refiner, same weights); `-mps`, `-rocm`, `-directml` and `-openvino` always use it. RTX 3090, 720p source: about 10.2 fps CUDA and 11.6 fps TensorRT at `low`, 4.4 at `high`; peak VRAM about 1.1 GB at `low` and 1.8 GB at `high` (TensorRT adds its engine). MIT licensed; provenance in `src/depth/moge/NOTICE.md`.
+> **moge3:** Methods are `moge3`, `moge3-mps`, `moge3-rocm`, `moge3-tensorrt`, `moge3-directml`, `moge3-openvino`. `--depth_quality` sets the ViT token count (`low` 1200, `medium` 2400, `high` 3600; about 736x416 / 1040x592 / 1280x720 voxels at 16:9) on every backend, including TensorRT, DirectML and OpenVINO. Those three export their ONNX from the checkpoint into `weights/moge3/onnx/` on first use for each size and precision. `--depth_batch` is forced to `1`: refinement is per frame. TensorRT runs the voxel refiner in torch on the same GPU. DirectML and OpenVINO build the voxel tables on the CPU each step, so expect them to be much slower than CUDA. Under `--precision fp16` the DINOv2 encoder runs in fp16 (its weights are stored in fp16 on NVIDIA CUDA), and the FlexGEMM refiner (`moge3`, `moge3-tensorrt`) runs its two coarsest levels in fp16; every other refiner route (ROCm, DirectML, OpenVINO, the plain fallback) is fp32, and MPS is fp32 throughout. `moge3` and `moge3-tensorrt` refine through vendored FlexGEMM (Triton) when its kernels compile here (NVIDIA CUDA, a C compiler, Python headers); the first run compiles them and tunes for about 15 s, later runs start in under a second. Anywhere else, including the Windows portable build for now, the plain torch refiner runs instead (about 4x slower refiner, same weights); `-mps`, `-rocm`, `-directml` and `-openvino` always use it. RTX 3090, 720p source: about 10.2 fps CUDA and 11.6 fps TensorRT at `low`, 4.4 at `high`; peak VRAM about 1.1 GB at `low` and 1.8 GB at `high` (TensorRT adds its engine). MIT licensed; provenance in `src/depth/moge/NOTICE.md`.
 
 **DA3 streaming:** `video_small_v3` and `video_base_v3` use Apache-2.0 Small/Base weights with attention across overlapping chunks. CUDA only; memory depends on resolution and window size. This depth-video adaptation excludes camera reconstruction and loop closure. `large_v3` (DA3Mono-Large) remains an independent-frame model. See [implementation and licenses](docs/DA3_STREAMING.md).
 
 **Limbo streaming:** `video_limbo` (V1), `video_limbo_v2` (V2) and `video_limbo_v3` (V3) use the same chunk scheduler and reuse the respective `limbo` / `limbo_v2` / `limbo_v3` checkpoint caches. Add `-tensorrt` for TensorRT streaming. `--depth_quality` sets the input size as for `limbo`, and `--depth_batch` is forced to `1`. Every view of a chunk attends to every other, so `high` is very heavy: at 1080p `video_limbo_v2` peaked at 19 GB with `--depth_window 8` and filled a 24 GB card at the default 32. Use `--depth_window` to select 4/8/16/32-frame chunks. Existing Limbo checkpoint licenses and grants apply.
 
-TensorRT streaming exports a separate multi-view ONNX locally from the cached safetensors, then builds an engine on first use. The existing single-image ONNX files cannot provide temporal attention. Exports are cached by checkpoint content, resolution and precision; engines additionally depend on `--depth_window`. First-use export/build can take several minutes. FP16 conversion requires `onnxruntime` (included in full installations); `--half False` exports FP32. Partial final windows use their actual frame count, without duplicate padding.
+TensorRT streaming exports a separate multi-view ONNX locally from the cached safetensors, then builds an engine on first use. The existing single-image ONNX files cannot provide temporal attention. Exports are cached by checkpoint content, resolution and precision; engines additionally depend on `--depth_window`. First-use export/build can take several minutes. FP16 conversion requires `onnxruntime` (included in full installations); `--precision fp32` exports FP32. Partial final windows use their actual frame count, without duplicate padding.
 
 Example: `python main.py --input input/Raw.mp4 --depth --depth_method video_limbo_v2-tensorrt --depth_window 8`. For raw checkpoint export, run `python -m src.depth.export_limbo_streaming --help` to see the separate exporter options.
 
@@ -786,7 +786,7 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
-| `--half` | str | True | True/False | **Use half precision for inference (default: True)** |
+| `--precision` | str | fp16 | fp16/fp32 | **Inference precision**: `fp16` (half) or `fp32` (full). Replaces `--half`, which now stops with the `--precision` value to use (`--half False` → `--precision fp32`). Some models ignore it and say so: SCUNet ONNX and NVIDIA VSR always run fp32, and a custom ONNX model runs in its own precision. |
 | `--static` | flag | False | - | **Force Static Mode engine generation for TensorRT** |
 | `--compile_mode` | str | "default" | default/max/max-graphs | **PyTorch compilation** (CUDA, ROCm only) |
 
@@ -879,7 +879,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 # Fastest processing
 --upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
---half True
+--precision fp16
 ```
 
 </td>
@@ -890,7 +890,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 # Good speed + quality
 --upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-tensorrt
---half True
+--precision fp16
 ```
 
 </td>
@@ -902,7 +902,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 --upscale_method span-openvino
 --interpolate_method rife4.6-openvino
 --restore_method scunet-openvino
---half True
+--precision fp16
 ```
 
 </td>
@@ -914,7 +914,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 --upscale_method shufflecugan-mps
 --interpolate_method rife4.25-mps
 --restore_method anime1080fixer-mps
---half True
+--precision fp16
 ```
 
 </td>
@@ -1144,7 +1144,7 @@ A `-` means that form is an error for that stage.
 | `--output_scale 2560x1440` | `--resize 2560x1440` typed last. It resizes in the chain (bicubic) instead of in the encoder (bilinear). Standalone capabilities take one `--resize` at decode instead; they no longer scale in the encoder. |
 | `--resize` with no value | `--resize <target>` |
 
-Using a removed flag stops with a message naming its replacement. The JSON keys `output_scale`, `resize_factor` and `"resize": true/false` do the same.
+Using a removed flag stops with a message naming its replacement. The JSON keys `output_scale`, `resize_factor`, `half` and `"resize": true/false` do the same.
 
 ### Examples
 
@@ -1200,10 +1200,10 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 }
 ```
 
-- `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `dedup*`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`half`, `slowmo`, `scenechange`, encode options, ...) are fine.
+- `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `dedup*`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`precision`, `slowmo`, `scenechange`, encode options, ...) are fine.
 - An empty list means no frame-loop stages. A non-string or empty entry, or an unknown stage name, is an error naming the entry's index (`"chain"[2]`).
 - `"interpolate_resample"` configures the first interpolation, the smooth-dedup one included, where it is an error. A front end must send `0` (or leave the key out) while `--smooth_dedup` is selected; with no interpolation at all a non-zero value only warns.
-- Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"` and `"resize_factor"` were removed and stop with a message.
+- Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"`, `"resize_factor"` and `"half"` (now `"precision": "fp16"` or `"fp32"`) were removed and stop with a message.
 
 > A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off. A `null` value keeps that option's default; on a switch (`"upscale"`, `"moblur"`, ...) it means off.
 
@@ -1220,7 +1220,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 
 **Solutions:**
 1. **Reduce resolution:** Put `--resize 0.5` before `--upscale`
-2. **Enable FP16:** Use `--half True` (default)
+2. **Use FP16:** `--precision fp16` (default)
 3. **Switch models:** Try "lite" variants (e.g., `rife4.22-lite`)
 4. **Process shorter clips:** Use `--inpoint` and `--outpoint`
 
@@ -1245,7 +1245,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 **Performance Optimization:**
 ```bash
 # Maximum speed configuration
---half True --static
+--precision fp16 --static
 --upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
 ```
@@ -1281,7 +1281,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 --interpolate_method rife4.25 --ensemble
 --restore --restore_method nafnet
 --encode_method slow_x265
---half False
+--precision fp32
 ```
 </details>
 
@@ -1294,7 +1294,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 - Use "lite" model variants for low-end hardware
 
 **🎨 Quality Optimization:**
-- Disable `--half` for maximum precision
+- Use `--precision fp32` for maximum precision
 - Use `--ensemble` for interpolation
 - Add `--restore` for old or compressed content
 - Use 10-bit encoding for better gradients
@@ -1447,7 +1447,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 ```bash
 --upscale_method rtmosr-tensorrt \  # Lightweight model
 --interpolate_method rife4.22-lite-tensorrt \  # Lite variant
---half True  # FP16 precision
+--precision fp16  # the default
 ```
 
 **Maximum Quality (Slow):**

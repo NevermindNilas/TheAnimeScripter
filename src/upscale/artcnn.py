@@ -348,8 +348,8 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
         self.device = torch.device(self.deviceType)
         # Bind by the model's own tensor names and, for a custom model, its own
         # precision: the bundled exports are named input/output and come in the
-        # --half precision, but a user's export (often fp32) failed on the
-        # first frame under the default --half, or on any other tensor name.
+        # --precision asked for, but a user's export (often fp32) failed on the
+        # first frame under the default fp16, or on any other tensor name.
         modelInput = self.model.get_inputs()[0]
         self.inputName = modelInput.name
         self.outputName = self.model.get_outputs()[0].name
@@ -358,7 +358,8 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
             if customHalf != self.half:
                 logging.info(
                     f"Custom model takes {modelInput.type}; running it "
-                    f"{'fp16' if customHalf else 'fp32'} instead of --half {self.half}"
+                    f"{'fp16' if customHalf else 'fp32'} instead of --precision "
+                    f"{'fp16' if self.half else 'fp32'}"
                 )
             self.half = customHalf
         self.numpyDType = self.np.float16 if self.half else self.np.float32

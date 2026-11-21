@@ -346,7 +346,7 @@ class LimboCuda(DepthCuda):
 
     @torch.inference_mode()
     def normFrame(self, frame):
-        # fp32 regardless of --half: the model's own autocast picks the compute
+        # fp32 regardless of --precision: the model's own autocast picks the compute
         # dtype, and ImageNet normalization in fp16 costs range for nothing.
         return (frame.float() - MEANTENSOR) / STDTENSOR
 

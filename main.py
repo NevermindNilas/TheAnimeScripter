@@ -304,7 +304,9 @@ class VideoProcessor:
         self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
         # Quality and performance settings
-        self.half: bool = args.half
+        self.precision: str = args.precision
+        # Every driver takes a half flag; --precision is the one source of it.
+        self.half: bool = self.precision == "fp16"
         # Motion blur's own RIFE takes these run-wide; the interpolate stages
         # read theirs from the chain.
         self.ensemble: bool = getattr(args, "ensemble", False)

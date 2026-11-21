@@ -20,7 +20,7 @@ from .model import refineStep, voxelBins
 from .sparse import Sparse3DUNet
 
 _WIDE_CHANNELS = 128
-# Under --half, fp16 convs only from this level on (256 and 512 channels): they carry
+# Under --precision fp16, fp16 convs only from this level on (256 and 512 channels): they carry
 # most of the FLOPs. Levels 0-2 in fp16 moved one test frame (input_720p frame 90,
 # low) 2.7x past the fp16 floor while the baseline's own spread there is 1.0x.
 _FP16_FROM_LEVEL = 3
@@ -47,7 +47,7 @@ class FlexGemmRefiner(nn.Module):
         self.upsample = SparseUpsample3d(scale_factor=2, mode="nearest")
         self._submanifoldConv = submanifold_conv
         self.plainOnly = False
-        # Under --half the wide levels run fp16, like upstream's use_fp16; voxel
+        # Under --precision fp16 the wide levels run fp16, like upstream's use_fp16; voxel
         # binning and the first and last projections stay fp32.
         self.half = half
 

@@ -107,7 +107,7 @@ class SceneChangeScorer6ch:
 
         if self.half:
             logging.warning(
-                "scene-change 6ch tensorrt ignores --half: model softmax "
+                "scene-change 6ch tensorrt ignores --precision fp16: model softmax "
                 "overflows in fp16. Building/using fp32 engine."
             )
         useFp16 = False

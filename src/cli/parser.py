@@ -491,13 +491,13 @@ def _buildParser(outputPath):
         help="Decoding backend to use, default is cpu. 'nvdec' requires an NVIDIA GPU with NVDEC support.",
     )
     performanceGroup.add_argument(
-        "--half",
-        type=str2bool,
-        nargs="?",
-        const=True,
-        default=True,
-        help="Use half precision for inference (default: True)",
+        "--precision",
+        type=str,
+        choices=["fp16", "fp32"],
+        default="fp16",
+        help="Inference precision: fp16 (half) or fp32 (full) (default: fp16)",
     )
+    performanceGroup.add_argument("--half", **removedFlag())
     performanceGroup.add_argument(
         "--static",
         action="store_true",

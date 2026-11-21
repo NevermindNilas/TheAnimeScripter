@@ -147,8 +147,8 @@ class UniversalDirectML:
 
         # Bind by the model's own tensor names and, for a custom model, its own
         # precision: the bundled exports are named input/output and come in the
-        # --half precision, but a user's export (usually fp32) failed on the
-        # first frame under the default --half, or on any other tensor name.
+        # --precision asked for, but a user's export (usually fp32) failed on the
+        # first frame under the default fp16, or on any other tensor name.
         modelInput = self.model.get_inputs()[0]
         self.inputName = modelInput.name
         self.outputName = self.model.get_outputs()[0].name
@@ -157,7 +157,8 @@ class UniversalDirectML:
             if customHalf != self.half:
                 logging.info(
                     f"Custom model takes {modelInput.type}; running it "
-                    f"{'fp16' if customHalf else 'fp32'} instead of --half {self.half}"
+                    f"{'fp16' if customHalf else 'fp32'} instead of --precision "
+                    f"{'fp16' if self.half else 'fp32'}"
                 )
             self.half = customHalf
 
@@ -379,7 +380,7 @@ class AnimeSRDirectML:
         if "openvino" in self.upscaleMethod:
             method = method.replace("openvino", "directml")
 
-        # half=self.half, not the modelsMap default: with --half False this
+        # half=self.half, not the modelsMap default: with --precision fp32 this
         # named the FP16 file, and once that was cached the fp32 buffers below
         # failed the first frame ("expected: (tensor(float16))").
         filename = modelsMap(method, modelType="onnx", half=self.half)

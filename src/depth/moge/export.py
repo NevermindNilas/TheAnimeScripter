@@ -32,7 +32,7 @@ EXPORT_VERSION = 1
 OPSET = 17
 BASE_INPUTS = ["image"]
 BASE_OUTPUTS = ["tokens", "coords", "mask"]
-# fp32 past the encoder under --half, matching the torch path.
+# fp32 past the encoder under --precision fp16, matching the torch path.
 _FP32_NODE_PREFIXES = ("/neck/", "/points_head/", "/mask_head/")
 
 

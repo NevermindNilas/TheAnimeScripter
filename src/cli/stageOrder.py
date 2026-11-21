@@ -140,8 +140,30 @@ PER_STAGE_JSON_KEYS = frozenset(STAGE_FLAGS) | frozenset(CHILD_FLAGS)
 REMOVED_FLAG_MESSAGES = {
     "output_scale": "--output_scale was removed: put `--resize {value}` last in the chain",
     "resize_factor": "--resize_factor was removed: use `--resize {value}`",
+    "half": "--half was removed: use `--precision {value}` (fp16 is the default)",
 }
-_REMOVED_FLAG_EXAMPLES = {"output_scale": "WxH", "resize_factor": "0.5"}
+_REMOVED_FLAG_EXAMPLES = {
+    "output_scale": "WxH",
+    "resize_factor": "0.5",
+    "half": "fp16|fp32",
+}
+
+
+def _halfAsPrecision(value):
+    """The ``--precision`` an old ``--half`` value meant, or None if unclear."""
+    from src.cli.parser import str2bool
+
+    if value is None:
+        # A bare `--half` meant on.
+        return "fp16"
+    try:
+        return "fp16" if str2bool(value) else "fp32"
+    except Exception:
+        return None
+
+
+# Removed flags whose old value translates into the replacement's value.
+_REMOVED_FLAG_VALUES = {"half": _halfAsPrecision}
 
 BARE_RESIZE_MESSAGE = (
     "--resize needs a target, e.g. --resize 1440p, --resize 1920x1080 or "
@@ -250,7 +272,16 @@ class RemovedFlagAction(argparse.Action):
 
 
 def removedFlagMessage(dest, value=None):
-    shown = value if value not in (None, "", True, False) else None
+    translate = _REMOVED_FLAG_VALUES.get(dest)
+    if translate is not None:
+        value = translate(value)
+    # 0 and 1 compare equal to False and True, so a JSON 0/1 shows the example
+    # too: `--resize 0` would be no target at all.
+    shown = (
+        value
+        if isinstance(value, (str, int, float)) and value not in (None, "", True, False)
+        else None
+    )
     return REMOVED_FLAG_MESSAGES[dest].format(
         value=shown if shown is not None else _REMOVED_FLAG_EXAMPLES[dest]
     )
