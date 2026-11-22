@@ -151,6 +151,12 @@ def _adjustedMethods(
     attr, currentMethod, availableModels, preferMps, choices, capability, preferRocm
 ):
     """``currentMethod`` (a method, or the restore list) after the fallback."""
+    if capability in CPU_CAPABLE_CAPABILITIES:
+        # Nothing to fall back from: every dedup method has a CPU path, and the
+        # CUDA-only picks were already swapped for their CPU twin by
+        # validator._downgradeCudaDetector. A "-rocm" rewrite here (ROCm torch,
+        # HIP unusable) turned the CPU "vmaf" into a VMAF().cuda() crash.
+        return currentMethod
     if isinstance(currentMethod, (list, tuple)):
         adjusted = []
         for method in currentMethod:

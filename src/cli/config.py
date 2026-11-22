@@ -252,6 +252,7 @@ PARENT_FLAG_DEFAULTS = {
     "stabilize_method": ("stabilize", "classic"),
     "depth_method": ("depth", "small_v2"),
     "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
+    "autoclip_method": ("autoclip", "pyscenedetect"),
     "moblur_method": ("moblur", "rife4.25"),
     "moblur_factor": ("moblur", 8),
     "moblur_strength": ("moblur", "gaussian_sym"),
@@ -279,7 +280,7 @@ class CliConfig:
             args=args,
             parser=parser,
             argv=argv,
-            providedOptions=cls.collectProvidedOptions(argv),
+            providedOptions=cls.collectProvidedOptions(argv, parser),
             jsonKeys=set(),
             jsonPresentKeys=set(),
         )
@@ -287,12 +288,35 @@ class CliConfig:
         return config
 
     @staticmethod
-    def collectProvidedOptions(argv):
-        """Return normalized long-option names provided on the command line."""
+    def collectProvidedOptions(argv, parser=None):
+        """Return normalized long-option names provided on the command line.
+
+        With ``parser``, an abbreviation argparse accepted (``--jso``,
+        ``--depth_meth``) is counted under the option it resolved to, not
+        under the prefix as typed: ``--jso cfg.json`` was refused as "--json
+        with other command line arguments".
+        """
+        longOptions = {}
+        if parser is not None and getattr(parser, "allow_abbrev", False):
+            longOptions = {
+                option[2:]: action.dest
+                for action in parser._actions
+                for option in action.option_strings
+                if option.startswith("--")
+            }
         provided = set()
         for arg in argv:
             if arg.startswith("--"):
-                provided.add(arg[2:].split("=", 1)[0].replace("-", "_"))
+                name = arg[2:].split("=", 1)[0]
+                if name and name not in longOptions:
+                    dests = {
+                        dest
+                        for option, dest in longOptions.items()
+                        if option.startswith(name)
+                    }
+                    if len(dests) == 1:
+                        name = dests.pop()
+                provided.add(name.replace("-", "_"))
         return provided
 
     def optionWasProvided(self, optionName):

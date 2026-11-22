@@ -29,6 +29,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--stabilize` (classic) turned camera roll into translation shake, about 19 px per degree at 1080p: a ±2° roll moved a 640x360 picture by 22 px, now 1 px.
 - `--dynamic_scale` treated a strongly anti-correlated frame pair (an inverted flash frame) as a similar one and picked a finer flow scale.
 - `--moblur`: some factor and shutter angle pairs (240° at `--moblur_factor` 9, 15, 18, 21, ...; 330° at 24) dropped one shutter sample on one side, leaving the blur off-centre.
+- `--depth_method small_v2-directml` / `-openvino` (also the CUDA-less fallback for the default `small_v2`) fed the model un-normalized frames: 26.7 dB against the PyTorch `small_v2`, now 74.9 dB.
+- `--restore fastlinedarken` died on the first frame on a machine without CUDA, and turned a solid black frame into NaN on every backend.
+- On a ROCm build of PyTorch with an unusable GPU, `--dedup` rewrote its CPU method (`vmaf`, `ssim`, `mse`) to the `-rocm` one and died with "No CUDA GPUs are available".
+- An abbreviated long option counts as the option argparse resolved: `--jso cfg.json` was refused as "--json with other command line arguments", and `--depth_meth small_v2` did not enable `--depth`.
+- `--autoclip_method` alone now enables `--autoclip`, as documented; it stopped with "No processing methods specified".
+- A failed FFmpeg upgrade that had already replaced the old install (a bad unpack, or a new binary that does not run) no longer continues as if the old FFmpeg were still there.
+- `--autoclip` on a single image named its cut list `<name>-Autoclip.png`; it is a `.txt`.
 
 ### Removed
 - `--upscale_method adore`, `adore-rocm` and `adore-mps`: the `adore.pth` weight is retired. Adore stays available as `adore-tensorrt`, `adore-directml` and `adore-openvino`.

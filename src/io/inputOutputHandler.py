@@ -344,12 +344,14 @@ def _baseName(videoInput, title=None):
 def _resolveExtension(args, videoInput):
     """Pick the output file extension consistently for every input kind."""
     encodeMethod = getattr(args, "encode_method", "") or ""
+    if getattr(args, "autoclip", False):
+        # autoclip writes a cut list, not a video, whatever the input or
+        # --encode_method: a PNG input named it <name>-Autoclip.png.
+        return ".txt"
     if getattr(args, "single_image_input", False):
         # A single-image run keeps a sequence-format --encode_method for its
         # one-frame output (png or jpeg); every other method writes PNG.
         return SEQUENCE_EXTENSIONS.get(encodeMethod, ".png")
-    if getattr(args, "autoclip", False):
-        return ".txt"  # autoclip writes a cut list, not a video
     if getattr(args, "segment", False) or encodeMethod == "prores":
         return ".mov"
     if encodeMethod in SEQUENCE_EXTENSIONS:

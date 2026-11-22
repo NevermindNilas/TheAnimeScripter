@@ -180,6 +180,9 @@ class DepthDirectMLV2(DepthRunOutcome):
         # Bind on CPU memory; ORT will handle copies for DML provider
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
+        # ORT binds host memory, so the module-level CUDA copies are no use here.
+        self.meanTensor = MEANTENSOR.to(self.device)
+        self.stdTensor = STDTENSOR.to(self.device)
 
         # Calculate padded model resolution (height, width)
         self.newHeight, self.newWidth = calculateAspectRatio(
@@ -262,18 +265,22 @@ class DepthDirectMLV2(DepthRunOutcome):
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame.to(self.device)
-
-            frame = F.interpolate(
-                frame,
+            # `frame` is never rebound: the UnicodeDecodeError branch below
+            # retries with it, and a retry on the normalized copy would subtract
+            # the ImageNet mean a second time.
+            prepared = F.interpolate(
+                frame.to(self.device).float(),
                 size=(self.newHeight, self.newWidth),
                 mode="bilinear",
                 align_corners=True,
             )
+            # The depth_anything_v2 ONNX starts at the patch-embed conv with the
+            # .pth's own weights, so it wants the same ImageNet-normalized input
+            # small_v2 (CUDA) and small_v2-tensorrt feed it.
+            prepared = (prepared - self.meanTensor) / self.stdTensor
+            prepared = prepared.to(dtype=self.torchInDType)
 
-            frame = frame.to(dtype=self.torchInDType)
-
-            self.dummyInput.copy_(frame)
+            self.dummyInput.copy_(prepared)
             self.IoBinding.bind_input(
                 name=self.inputName,
                 device_type=self.deviceType,
@@ -336,11 +343,9 @@ class LimboOpenVino(DepthDirectMLV2):
     (``depth_conf``) that gets bound too -- ORT would otherwise allocate it
     itself on every single frame.
 
-    It also normalizes the input itself. The depth_anything_v2 ONNX bakes the
-    ImageNet transform into the graph, which is why DepthDirectMLV2 feeds it raw
-    [0, 1] frames; Limbo's export does not, and feeding it unnormalized frames
-    costs ~19 dB against the reference while still producing a plausible-looking
-    depth map.
+    It normalizes the input itself, like DepthDirectMLV2: Limbo's export has no
+    normalization node, and feeding it unnormalized frames costs ~19 dB against
+    the reference while still producing a plausible-looking depth map.
     """
 
     def handleModels(self):

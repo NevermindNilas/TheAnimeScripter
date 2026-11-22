@@ -11,6 +11,14 @@ from src.model.registry import weightsDir
 checker = CudaChecker()
 
 
+def _normalizeEdges(edges: torch.Tensor) -> torch.Tensor:
+    # A frame with no edges at all (a solid black one) has max == min, and
+    # dividing by that zero turned the whole frame into NaN. Such a map stays
+    # at zero; any other map divides by its own range exactly as before.
+    low = edges.min()
+    return (edges - low) / (edges.max() - low).clamp_min(torch.finfo(edges.dtype).tiny)
+
+
 # TRT throws a fit with internal Streams so I duplicated the class
 class FastLineDarkenWithStreams(nn.Module):
     def __init__(
@@ -85,7 +93,7 @@ class FastLineDarkenWithStreams(nn.Module):
             edgesX = self.applyFilter(grayscale, self.sobelXLocal)
             edgesY = self.applyFilter(grayscale, self.sobelYLocal)
             edges = torch.sqrt(edgesX**2 + edgesY**2)
-            edges = (edges - edges.min()) / (edges.max() - edges.min())
+            edges = _normalizeEdges(edges)
             if self.thinEdges:
                 edges = edges.unsqueeze(0).unsqueeze(0)
                 thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
@@ -104,15 +112,18 @@ class FastLineDarkenWithStreams(nn.Module):
 
     def _cpuWorkflow(self, image):
         image = image.half() if self.half else image.float()
-        image = image.permute(2, 0, 1)
+        # Frames arrive as [1, 3, H, W], like on the CUDA path. The filter
+        # weights are only cast to half there, so match them to the frame.
+        image = image.squeeze(0)
+        weights = self.weightsLocal.to(image.dtype)
 
-        grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
+        grayscale = torch.tensordot(image, weights, dims=([0], [0]))
 
-        edgesX = self.applyFilter(grayscale, self.sobelXLocal)
-        edgesY = self.applyFilter(grayscale, self.sobelYLocal)
+        edgesX = self.applyFilter(grayscale, self.sobelXLocal.to(image.dtype))
+        edgesY = self.applyFilter(grayscale, self.sobelYLocal.to(image.dtype))
         edges = torch.sqrt(edgesX**2 + edgesY**2)
 
-        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        edges = _normalizeEdges(edges)
 
         if self.thinEdges:
             edges = edges.unsqueeze(0).unsqueeze(0)
@@ -199,7 +210,7 @@ class FastLineDarken(nn.Module):
         edgesX = self.applyFilter(grayscale, self.sobelXLocal)
         edgesY = self.applyFilter(grayscale, self.sobelYLocal)
         edges = torch.sqrt(edgesX**2 + edgesY**2)
-        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        edges = _normalizeEdges(edges)
         if self.thinEdges:
             edges = edges.unsqueeze(0).unsqueeze(0)
             thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
@@ -217,15 +228,18 @@ class FastLineDarken(nn.Module):
 
     def _cpuWorkflow(self, image):
         image = image.half() if self.half else image.float()
-        image = image.permute(2, 0, 1)
+        # Frames arrive as [1, 3, H, W], like on the CUDA path. The filter
+        # weights are only cast to half there, so match them to the frame.
+        image = image.squeeze(0)
+        weights = self.weightsLocal.to(image.dtype)
 
-        grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
+        grayscale = torch.tensordot(image, weights, dims=([0], [0]))
 
-        edgesX = self.applyFilter(grayscale, self.sobelXLocal)
-        edgesY = self.applyFilter(grayscale, self.sobelYLocal)
+        edgesX = self.applyFilter(grayscale, self.sobelXLocal.to(image.dtype))
+        edgesY = self.applyFilter(grayscale, self.sobelYLocal.to(image.dtype))
         edges = torch.sqrt(edgesX**2 + edgesY**2)
 
-        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        edges = _normalizeEdges(edges)
 
         if self.thinEdges:
             edges = edges.unsqueeze(0).unsqueeze(0)
@@ -409,7 +423,7 @@ class FastLineDarkenROCm(FastLineDarkenWithStreams):
         edgesX = self.applyFilter(grayscale, self.sobelXLocal)
         edgesY = self.applyFilter(grayscale, self.sobelYLocal)
         edges = torch.sqrt(edgesX**2 + edgesY**2)
-        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        edges = _normalizeEdges(edges)
         if self.thinEdges:
             edges = edges.unsqueeze(0).unsqueeze(0)
             thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)

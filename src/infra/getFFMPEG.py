@@ -110,7 +110,8 @@ def ensureFFMPEG() -> None:
     if not ffmpegNeedsInstall(cs.FFMPEGPATH, cs.FFPROBEPATH):
         return
 
-    haveWorkingFfmpeg = os.path.exists(cs.FFMPEGPATH) and os.path.exists(cs.FFPROBEPATH)
+    previous = (_fileIdentity(cs.FFMPEGPATH), _fileIdentity(cs.FFPROBEPATH))
+    haveWorkingFfmpeg = None not in previous
     try:
         getFFMPEG()
     except Exception as e:
@@ -118,9 +119,12 @@ def ensureFFMPEG() -> None:
         # here already have a working (if unpinned) FFmpeg from an older TAS,
         # so an offline machine, a pruned release or a checksum mismatch must
         # not turn a download that used to work into a failure. Nothing is
-        # deleted until the replacement is downloaded and verified, so the old
-        # install is still intact here. Loud, because it is not the pinned build.
-        if not haveWorkingFfmpeg:
+        # deleted until the replacement is downloaded and its checksum
+        # verified, but a failure after that (the unpack, or the new binary
+        # not running) has already replaced the old install: then there is
+        # nothing to continue with. Loud, because it is not the pinned build.
+        current = (_fileIdentity(cs.FFMPEGPATH), _fileIdentity(cs.FFPROBEPATH))
+        if not haveWorkingFfmpeg or current != previous:
             raise
         from src.infra.logAndPrint import logAndPrint
 
@@ -131,6 +135,15 @@ def ensureFFMPEG() -> None:
             f"TAS is tested against.",
             "yellow",
         )
+
+
+def _fileIdentity(path: str):
+    """Which file `path` is right now, or None when there is none."""
+    try:
+        info = os.stat(path)
+    except OSError, TypeError, ValueError:
+        return None
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
 
 
 def _normalizeArch(machine: str) -> str:
