@@ -44,6 +44,18 @@ STATELESS_UPSCALE_ALLOWLIST = {
     "UniversalPytorchROCm": frozenset(
         f"{method}-rocm" for method in _BASE_STATELESS_UPSCALE_METHODS
     ),
+    "UniversalKernel": frozenset(
+        f"{method}-kernel"
+        for method in (
+            "shufflecugan",
+            "cyte",
+            "span",
+            "open-proteus",
+            "aniscale2",
+            "fallin_soft",
+            "fallin_strong",
+        )
+    ),
     "UniversalDirectML": _ORT_STATELESS_UPSCALE_METHODS,
     "UniversalNCNN": frozenset({"shufflecugan-ncnn", "span-ncnn"}),
     "UniversalTensorRT": frozenset(

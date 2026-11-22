@@ -104,6 +104,35 @@ def buildRestoreProcess(self, width=None, height=None):
                 )
 
             case (
+                "real-plksr-kernel"
+                | "anime1080fixer-kernel"
+                | "deh264_real-kernel"
+                | "deh264_span-kernel"
+                | "hurrdeblur-kernel"
+                | "dehalo-kernel"
+            ):
+                from src.upscale.kernel import KERNEL_SUFFIX, kernelUnavailableReason
+
+                reason = kernelUnavailableReason()
+                if reason is not None:
+                    # The same weights run on the CUDA method, so use that instead.
+                    from src.infra.logAndPrint import logWarning
+                    from src.unifiedRestore import UnifiedRestoreCuda
+
+                    baseMethod = method.removesuffix(KERNEL_SUFFIX)
+                    logWarning(
+                        f"{method} cannot run here: {reason}. "
+                        f"Using {baseMethod} instead."
+                    )
+                    restoreProcesses.append(UnifiedRestoreCuda(baseMethod, self.half))
+                else:
+                    from src.unifiedRestore import UnifiedRestoreKernel
+
+                    restoreProcesses.append(
+                        UnifiedRestoreKernel(method, self.half, width, height)
+                    )
+
+            case (
                 "anime1080fixer-tensorrt"
                 | "scunet-tensorrt"
                 | "deh264_real-tensorrt"

@@ -196,6 +196,22 @@ def modelsList() -> list[str]:
         "deh264_span-mps",
         "hurrdeblur-mps",
         "dehalo-mps",
+        # The -kernel methods (tas-kernels' CUDA kernels) read the CUDA .pth
+        # weights; the backend strips the suffix before modelsMap, so they need
+        # no modelsMap arm either.
+        "shufflecugan-kernel",
+        "cyte-kernel",
+        "span-kernel",
+        "open-proteus-kernel",
+        "aniscale2-kernel",
+        "fallin_soft-kernel",
+        "fallin_strong-kernel",
+        "real-plksr-kernel",
+        "anime1080fixer-kernel",
+        "deh264_real-kernel",
+        "deh264_span-kernel",
+        "hurrdeblur-kernel",
+        "dehalo-kernel",
         # ROCm (-rocm) mirrors the CUDA .pth weights; the runtime strips the
         # suffix before modelsMap like it does for -mps, so no modelsMap arm
         # is needed. TensorRT/Maxine/NVENC have no ROCm counterpart (NVIDIA-only).

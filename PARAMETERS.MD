@@ -157,12 +157,15 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
 | **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2, omnishotcut), stabilize (dut) — eager, no CUDA graphs |
+| **Kernel** | `-kernel` | NVIDIA RTX 30 series or newer (Windows, Linux) | Upscale (`shufflecugan`, `cyte`, `span`, `open-proteus`, `aniscale2`, `fallin_soft`, `fallin_strong`), restore (`real-plksr`, `anime1080fixer`, `deh264_real`, `deh264_span`, `hurrdeblur`, `dehalo`) |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU (Windows; runs on the CPU on Linux, where no Python 3.14 `onnxruntime-openvino` wheel exists) | Upscale, interpolate, restore, depth, object detection |
 | **NCNN** | `-ncnn` | Vulkan / low-power (AMD, Intel, NVIDIA) | Interpolate (RIFE), upscale (`shufflecugan`, `span`). Runs on the best GPU in the machine and tiles frames that do not fit its memory |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
+> **⚙️ Kernel note:** a `-kernel` method runs the same `.pth`/`.safetensors` weights as its CUDA method on the hand-written CUDA kernels of the `tas-kernels` package (installed by the `windows-cuda` and `linux-cuda` profiles). There is no engine build and nothing extra to download. Output matches the CUDA method to within its own fp16/TF32 rounding. On a GPU older than the RTX 30 series, or without the package, the stage warns and runs the CUDA method instead. `--custom_model` works with a `-kernel` upscale method when the file is a Compact (24 or 64 features), SPAN, Real-CUGAN 2x / ShuffleCUGAN or RealPLKSR (non-DySample) model, 1x to 4x; any other architecture is refused with a message.
+>
 > **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
 >
 > **🍎 macOS note:** `-mps` has no path yet for segmentation, object detection, autoclip, deduplication (the default `block` detector runs wherever the frame is), stabilization, or scene-cut detection. Those run on their CPU variants (`ssim`, `mse`, `pyscenedetect`) or are unavailable.
@@ -326,7 +329,7 @@ C:\Videos\episode3.mp4
 | `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 2x`; repeatable (`--upscale span --upscale` is 4x); see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)**. Every bundled model is 2x; 3x and 4x need a `maxine-*` method or a `--custom_model` of that scale, any other method refuses them before loading |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods. The `animesr*` and `smovsr*` methods load only their own weights and refuse one |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm and `-kernel` methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods. The `animesr*` and `smovsr*` methods load only their own weights and refuse one |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
@@ -336,13 +339,13 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
 | **adore** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime (shufflecugan-arch, 2x) | TRT, DML, OpenVINO |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
 | **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **saryn** | ⚡⚡ | ⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **gauss** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | DIS-based, quality focus | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
@@ -595,15 +598,15 @@ after pass 2:    0     0.25  0.75  1.25  1.75  2      midpoint of each frame and
 | **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **nafnet** | ⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA, ROCm, MPS |
 | **dpir** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA, ROCm, MPS |
-| **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA, ROCm, MPS |
-| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement (default) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA, Kernel, ROCm, MPS |
+| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement (default) | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
 | **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, ROCm, TRT |
 | **autocas** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐⭐ | Adaptive sharpening (auto-tuned FidelityFX CAS, no weights) | CUDA, ROCm, CPU |
 | **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML, OpenVINO, MPS |
-| **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **hurrdeblur** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Deblurring | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **dehalo** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Halo/ringing removal around lines | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
+| **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **hurrdeblur** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Deblurring | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **dehalo** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Halo/ringing removal around lines | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
 | **deepdeband-f** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Debanding on flat gradients | CUDA, ROCm |
 | **linethinner-lite / -medium / -heavy** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐ | Line thinning, three strengths (no weights) | CPU, CUDA, ROCm (`-cuda`) |
 | **maxine-denoise_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | NVIDIA Maxine denoise (RTX only, SDK-provided) | CUDA |

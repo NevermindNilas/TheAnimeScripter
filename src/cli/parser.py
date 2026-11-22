@@ -232,7 +232,15 @@ class TASHelpFormatter(argparse.HelpFormatter):
     """Compact, colored help formatter that groups long choice lists by backend."""
 
     _INLINE_THRESHOLD = 6
-    _KNOWN_BACKENDS = ("tensorrt", "directml", "ncnn", "openvino", "rocm", "mps")
+    _KNOWN_BACKENDS = (
+        "tensorrt",
+        "directml",
+        "ncnn",
+        "openvino",
+        "rocm",
+        "mps",
+        "kernel",
+    )
 
     def __init__(self, prog, indent_increment=2, max_help_position=36, width=None):
         if width is None:
@@ -874,6 +882,13 @@ def _addUpscalingOptions(argParser):
         "smosr-rocm",
         "smovsr-rocm",
         "animesr-rocm",
+        "shufflecugan-kernel",
+        "cyte-kernel",
+        "span-kernel",
+        "open-proteus-kernel",
+        "aniscale2-kernel",
+        "fallin_soft-kernel",
+        "fallin_strong-kernel",
         "maxine-bicubic",
         "maxine-low",
         "maxine-medium",
@@ -1064,6 +1079,12 @@ def _addVideoProcessingOptions(argParser):
         "dehalo-directml",
         "dehalo-openvino",
         "dehalo-rocm",
+        "real-plksr-kernel",
+        "anime1080fixer-kernel",
+        "deh264_real-kernel",
+        "deh264_span-kernel",
+        "hurrdeblur-kernel",
+        "dehalo-kernel",
         "scunet-mps",
         "nafnet-mps",
         "dpir-mps",

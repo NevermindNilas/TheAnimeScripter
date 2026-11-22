@@ -174,6 +174,50 @@ def buildUpscaleProcess(self, width=None, height=None):
                 height,
             )
 
+        case (
+            "shufflecugan-kernel"
+            | "cyte-kernel"
+            | "span-kernel"
+            | "open-proteus-kernel"
+            | "aniscale2-kernel"
+            | "fallin_soft-kernel"
+            | "fallin_strong-kernel"
+        ):
+            from src.upscale.kernel import (
+                KERNEL_SUFFIX,
+                UniversalKernel,
+                kernelUnavailableReason,
+            )
+
+            reason = kernelUnavailableReason()
+            if reason is not None:
+                # The same weights run on the CUDA method, so use that instead.
+                from src.infra.logAndPrint import logWarning
+
+                baseMethod = self.upscaleMethod.removesuffix(KERNEL_SUFFIX)
+                logWarning(
+                    f"{self.upscaleMethod} cannot run here: {reason}. "
+                    f"Using {baseMethod} instead."
+                )
+                return UniversalPytorch(
+                    baseMethod,
+                    self.upscaleFactor,
+                    self.half,
+                    width,
+                    height,
+                    self.customModel,
+                    self.compileMode,
+                )
+
+            return UniversalKernel(
+                self.upscaleMethod,
+                self.upscaleFactor,
+                self.half,
+                width,
+                height,
+                self.customModel,
+            )
+
         case "shufflecugan-ncnn" | "span-ncnn":
             from src.upscale.ncnn import UniversalNCNN
 

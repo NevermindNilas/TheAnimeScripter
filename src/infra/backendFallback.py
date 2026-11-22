@@ -3,7 +3,15 @@ import sys
 
 from src.infra.logAndPrint import logAndPrint
 
-BACKEND_SUFFIXES = ("-directml", "-ncnn", "-tensorrt", "-mps", "-openvino", "-rocm")
+BACKEND_SUFFIXES = (
+    "-directml",
+    "-ncnn",
+    "-tensorrt",
+    "-mps",
+    "-openvino",
+    "-rocm",
+    "-kernel",
+)
 
 # Preference order when downgrading a CUDA method, fastest first.
 FALLBACK_SUFFIXES = ("-directml", "-ncnn")

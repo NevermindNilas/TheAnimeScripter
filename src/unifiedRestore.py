@@ -930,3 +930,85 @@ class UnifiedRestoreDirectML:
                     f"Something went wrong while processing the frame, {e}"
                 )
                 raise
+
+
+class UnifiedRestoreKernel:
+    """Restore on the tas-kernels CUDA kernels (`-kernel` methods).
+
+    Same weights as the CUDA method, run by the hand-written kernels for its
+    architecture (Compact, SPAN or RealPLKSR). The kernels are built for one
+    frame size, so unlike `UnifiedRestoreCuda` this takes the stage's size.
+    """
+
+    def __init__(
+        self,
+        model: str = "anime1080fixer-kernel",
+        half: bool = True,
+        width: int = 1920,
+        height: int = 1080,
+    ):
+        self.method = model
+        self.half = half
+        self.width = width
+        self.height = height
+        self.handleModel()
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update({"status": f"Loading restore model: {self.method}..."})
+
+        from src.upscale.kernel import (
+            KERNEL_SUFFIX,
+            loadKernelModel,
+            readStateDict,
+            requiredMultiple,
+        )
+
+        baseMethod = self.method.removesuffix(KERNEL_SUFFIX)
+        self.filename = modelsMap(baseMethod)
+        modelPath = resolveWeightPath(baseMethod, self.filename)
+        stateDict = readStateDict(modelPath, trusted=True)
+
+        self.padMultiple = requiredMultiple(stateDict)
+        self.paddedHeight = self.height + (-self.height % self.padMultiple)
+        self.paddedWidth = self.width + (-self.width % self.padMultiple)
+        self.model = loadKernelModel(
+            stateDict, self.paddedHeight, self.paddedWidth, self.half
+        )
+        del stateDict
+
+        self.dType = torch.float16 if self.half else torch.float32
+        self.inputBuffer = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device="cuda",
+            dtype=self.dType,
+        )
+        self.stream = torch.cuda.Stream()
+        waitForCaller(self.stream)
+        with torch.cuda.stream(self.stream):
+            warmup = self.model(self.inputBuffer)
+        self.stream.synchronize()
+        if tuple(warmup.shape[-2:]) != (self.paddedHeight, self.paddedWidth):
+            raise ValueError(
+                f"{self.method} changes the frame size, so it cannot run as a restore"
+            )
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
+        height, width = frame.shape[-2:]
+        if (height, width) != (self.height, self.width):
+            raise ValueError(
+                f"{self.method} was built for {self.width}x{self.height} frames "
+                f"and got {width}x{height}"
+            )
+        waitForCaller(self.stream)
+        with torch.cuda.stream(self.stream):
+            frame = _padRightBottom(frame, self.padMultiple)
+            self.inputBuffer.copy_(frame, non_blocking=True)
+            # The model returns its own output buffer, rewritten by the next call.
+            frame = self.model(self.inputBuffer).clone()
+            # Crop before the sync: the writer never waits on this stream.
+            if self.padMultiple > 1:
+                frame = _cropTo(frame, height, width, False)
+        self.stream.synchronize()
+        return frame

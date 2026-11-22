@@ -37,7 +37,15 @@ KNOWN_INPUT_MULTIPLES = {
     "smosr": 1,
 }
 
-_BACKEND_SUFFIXES = ("-tensorrt", "-directml", "-openvino", "-ncnn", "-mps", "-rocm")
+_BACKEND_SUFFIXES = (
+    "-tensorrt",
+    "-directml",
+    "-openvino",
+    "-ncnn",
+    "-mps",
+    "-rocm",
+    "-kernel",
+)
 
 
 def lookupRequiredMultiple(upscaleMethod: str | None) -> int | None:

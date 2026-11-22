@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- `-kernel` upscale and restore methods (NVIDIA RTX 30 series or newer, Windows and Linux): `shufflecugan-kernel`, `cyte-kernel`, `span-kernel`, `open-proteus-kernel`, `aniscale2-kernel`, `fallin_soft-kernel`, `fallin_strong-kernel` and `real-plksr-kernel`, `anime1080fixer-kernel`, `deh264_real-kernel`, `deh264_span-kernel`, `hurrdeblur-kernel`, `dehalo-kernel`. They run the CUDA method's weights on the hand-written CUDA kernels of the new `tas-kernels` dependency (in the `windows-cuda` and `linux-cuda` profiles), with no engine build. `--custom_model` works with a `-kernel` upscale method for Compact, SPAN, Real-CUGAN 2x and RealPLKSR files. On an unsupported GPU the stage warns and runs the CUDA method.
 - `--upscale smovsr` (`-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): umzi's 2x_umzi_anime_smovsr, a 2x anime video upscaler for compression removal that reads frames before and after each one. It streams in 12-frame windows, 8 written per window, with the forward state carried across windows. Compared with running the model over each whole shot: mean difference 0.13/255, no visible seam between windows. Scene cuts from `--scenechange` restart it.
 
 ### Changed
