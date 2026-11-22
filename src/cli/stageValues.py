@@ -1,6 +1,6 @@
 """The value grammar of the stage flags and of the JSON ``"chain"`` entries.
 
-A stage flag (``--dedup``, ``--restore``, ``--upscale``, ``--interpolate``,
+A stage flag (``--restore``, ``--upscale``, ``--interpolate``,
 ``--smooth_dedup``, ``--resize``) takes zero or more values. Each value is
 classified on its own, so their order is free. The order of the checks is:
 
@@ -27,7 +27,7 @@ import re
 from src.cli.validation import CliValidationError
 
 # The grammar kinds: the stage flags, by their flag name.
-GRAMMAR_KINDS = ("dedup", "restore", "upscale", "interpolate", "smooth_dedup", "resize")
+GRAMMAR_KINDS = ("restore", "upscale", "interpolate", "smooth_dedup", "resize")
 
 # Extensions --custom_model accepts (validation.validateCustomModelPath).
 MODEL_EXTENSIONS = (".pt", ".pth", ".ckpt", ".safetensors", ".onnx")
@@ -51,7 +51,6 @@ _INTERPOLATE_KEYS = {
 
 # key typed by the user -> settings key on the StageSpec.
 KEYS = {
-    "dedup": {"method": "method", "sens": "sens"},
     "restore": {"method": "methods"},
     "upscale": {"method": "method", "factor": "factor", "model": "customModel"},
     "interpolate": dict(_INTERPOLATE_KEYS),
@@ -85,7 +84,6 @@ SETTING_NAMES = {
 # What an unkeyed size / factor / percent / bare number means for each kind.
 # A form missing from a kind's table is an error for that kind.
 FORM_MEANING = {
-    "dedup": {"percent": "sens", "number": "sens"},
     "restore": {},
     "upscale": {"factor": "factor", "number": "factor"},
     "interpolate": {"factor": "factor", "number": "factor"},
@@ -102,7 +100,6 @@ FORM_MEANING = {
 
 # What each kind accepts, for error messages.
 ACCEPTS = {
-    "dedup": "a dedup method, a sensitivity 0-100 (40 or 40%), method=, sens=",
     "restore": "one or more restore methods (run in the order given), method=",
     "upscale": (
         "an upscale method, a factor (2x, 3x, 4x or 2, 3, 4), a custom model "
@@ -221,10 +218,7 @@ class ValueContext:
 
         caps = capabilityMethods(parser)
         return cls(
-            {
-                kind: caps.get(kind, ())
-                for kind in ("dedup", "restore", "upscale", "interpolate")
-            }
+            {kind: caps.get(kind, ()) for kind in ("restore", "upscale", "interpolate")}
             | {"smooth_dedup": caps.get("smooth_dedup", ())}
         )
 
@@ -249,7 +243,7 @@ class ValueContext:
             words += list(self.methods["interpolate"])
         if kind == "smooth_dedup":
             words += list(self.methods["smooth_dedup"])
-        elif kind in ("dedup", "restore", "upscale"):
+        elif kind in ("restore", "upscale"):
             words += list(self.methods[kind])
         return words
 

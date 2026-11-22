@@ -8,8 +8,10 @@ buildDedupProcess(self, method=None, sens=None, width=None, height=None) -> call
 def buildDedupProcess(self, method=None, sens=None, width=None, height=None):
     """Build a duplicate detector.
 
-    ``method``/``sens`` default to the --dedup knobs. `--smooth_dedup` drives the same
-    backends off its own --smooth_dedup_method/--smooth_dedup_sens, so it passes them in.
+    ``method``/``sens`` default to the --dedup knobs, which is how the standalone
+    --dedup run (``src/factories/standalone.py:dedup``) calls it. `--smooth_dedup`
+    drives the same backends off its own --smooth_dedup_method/--smooth_dedup_sens,
+    so it passes them in.
     ``width``/``height`` are the frame size the detector sees (FlowNetS is built for
     it); they default to the source size.
     """

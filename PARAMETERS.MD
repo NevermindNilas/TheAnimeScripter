@@ -104,7 +104,7 @@ Or give the method as a value on the stage flag itself:
 The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
 - `--upscale_method` → auto-enables `--upscale`
 - `--interpolate_method` → auto-enables `--interpolate`
-- `--dedup_method` → auto-enables `--dedup`
+- `--dedup_method` → auto-enables `--dedup` (a run of its own, see [Deduplication](#-deduplication))
 - `--smooth_dedup_method` → auto-enables `--smooth_dedup` (which in turn enables `--interpolate` and disables `--dedup`)
 - `--restore_method` → auto-enables `--restore`
 - `--segment_method` → auto-enables `--segment`
@@ -374,7 +374,7 @@ SMoVSR (`smovsr`, `smovsr-tensorrt`, `smovsr-directml`, `smovsr-openvino`, `smov
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
 | `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, ROCm, MPS); ignored by `rife_elexor` and `distildrba` |
-| `--interpolate_resample` | int | 0 | 0-6 | **Resample held drawings** (inline: `resample=N`; bare `resample` or the flag alone = 2) — re-times every frame to the flow midpoint of its neighbours, N passes, removing the judder of anime on twos (2 passes; 3 reduce threes) without duplicate detection. First interpolation only; not with `--smooth_dedup` or a `--dedup` before it; never adds a stage. See [Resampling](#-resampling-re-timing-held-drawings) |
+| `--interpolate_resample` | int | 0 | 0-6 | **Resample held drawings** (inline: `resample=N`; bare `resample` or the flag alone = 2) — re-times every frame to the flow midpoint of its neighbours, N passes, removing the judder of anime on twos (2 passes; 3 reduce threes) without duplicate detection. First interpolation only; not with `--smooth_dedup`; never adds a stage. See [Resampling](#-resampling-re-timing-held-drawings) |
 
 > **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
@@ -433,7 +433,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--dedup` | values | - | method, sensitivity | **Duplicate removal stage** — `--dedup mse 40`; repeatable. Also enabled by `--dedup_method` alone |
+| `--dedup` | flag | False | - | **Remove duplicate frames** — a run of its own, like `--depth`. Also enabled by `--dedup_method` alone |
 | `--dedup_method` | str | "block" | [see table](#deduplication-methods) | **Detection algorithm** — specifying a non-default method auto-enables deduplication |
 | `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
@@ -461,7 +461,7 @@ there. With `--smooth_dedup`, `--smooth_dedup_max_diff` does not apply to `block
 
 > **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
 >
-> **Order:** `--dedup` runs where it is typed and may be typed more than once (see [Stages and values](#-stages-and-values)). Typed after `--interpolate`, it still runs, with a warning.
+> **On its own:** `--dedup` is not a stage of the chain. It decodes, drops the duplicates and encodes, and cannot be combined with `--upscale`, `--interpolate` or `--restore` (an error names them); one `--resize` is allowed and is applied at decode. To drop duplicates and then process the result, run `--dedup` first and feed its output to a second run. `--smooth_dedup` turns `--dedup` off, with a warning. `--dedup` no longer takes values: `--dedup mse 40` is now `--dedup --dedup_method mse --dedup_sens 40`.
 
 ### 🎞️ Smooth Deduplication
 
@@ -567,13 +567,14 @@ after pass 2:    0     0.25  0.75  1.25  1.75  2      midpoint of each frame and
 - Use `--scenechange`: without it every pass morphs across hard cuts, so each cut becomes a short
   cross-fade (TAS warns).
 - Only the first interpolation may resample, and only once per run: it cannot be combined with
-  `--smooth_dedup` (pick one) or with a `--dedup` before it. `maxine-*` is refused (each pass needs
+  `--smooth_dedup` (pick one). `maxine-*` is refused (each pass needs
   its own instance, which is unverified for Maxine), and so is `distildrba*`: DRBA keeps the
   source's timing by design, so its passes leave held drawings held (2 passes on a 3s clip: 52%
   of animated frames still held vs 6% with `rife4.26`). Use RIFE to resample, DistilDRBA to keep
   the original pacing. `--mask` protects resampled frames too;
   `--slowmo`, `--upscale`, `--restore` and `--resize` work as usual. Ignored by the standalone
-  operations (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`).
+  operations (`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`,
+  `--dedup`).
 - The startup order line shows the passes: `interpolate rife4.26 2x resample 2`. The output name
   gains `-Resample2`.
 - Based on SVFI's spatiotemporal resampling (MultiPassDedup, MIT).
@@ -1053,7 +1054,6 @@ A stage flag takes zero or more values, up to the next option. The `=` form (`--
 
 | Stage | Method name | Factor `2x` | Percent `40%` | Bare number `40` | Size | `key=value` | Words |
 |-------|-------------|-------------|---------------|------------------|------|-------------|-------|
-| `--dedup` | a dedup method | - | sensitivity | sensitivity | - | `method=`, `sens=` | - |
 | `--restore` | one or more restore methods, run in the order given (one stage) | - | - | - | - | `method=` (repeatable) | - |
 | `--upscale` | an upscale method, or a custom model file path | factor (2, 3, 4) | - | factor | - | `method=`, `factor=`, `model=` | - |
 | `--interpolate` | an interpolation method | factor | - | factor | - | `method=`, `factor=`, `ensemble=`, `dynamic_scale=`, `static_step=`, `resample=` | `ensemble`, `dynamic_scale`, `static_step`, `resample` (= `resample=2`) |
@@ -1064,7 +1064,7 @@ A `-` means that form is an error for that stage.
 
 - **Method names** match exactly and are always one value. `--interpolate rife 4.26` is an error ("did you mean 'rife4.26'"), never "rife" plus a factor of 4.26. `--smooth_dedup` tells an interpolation method from a detection method by name; the two lists never overlap.
 - **Factors** are written `2x`, `x2`, `2.5x` (the `x` is case-insensitive). Numbers are plain decimals: `1e3`, `inf`, `nan`, `1_000` and signed values such as `-2x` are refused.
-- **Ranges** are checked per stage: sensitivity 0-100 (a value on the stage flag; `--dedup_sens` and `--smooth_dedup_sens` accept what they always did), upscale factor 2, 3 or 4, interpolation factor at least 1 (1 only does something on `--smooth_dedup` or with `resample=`), `resample=` 0-6 passes. A bare number right after the word `resample` (`resample 3`) is an error: write `resample=3` for passes or `3x` for the factor.
+- **Ranges** are checked per stage: sensitivity 0-100 (a value on the stage flag; `--smooth_dedup_sens` accepts what it always did), upscale factor 2, 3 or 4, interpolation factor at least 1 (1 only does something on `--smooth_dedup` or with `resample=`), `resample=` 0-6 passes. A bare number right after the word `resample` (`resample 3`) is an error: write `resample=3` for passes or `3x` for the factor.
 - **Bool settings** are a bare word (`ensemble`) or `ensemble=true` / `ensemble=false` (also `yes`/`no`, `1`/`0`).
 - **One setting per flag:** `--interpolate 2x 4x` or `--upscale span method=cyte` is an error. The same value twice is fine. To run a second stage, type the flag again.
 - **Custom models:** a value containing `/` or `\`, or ending in `.pt`, `.pth`, `.ckpt`, `.safetensors` or `.onnx`, is a custom model path for `--upscale` and must exist (`model=PATH` does the same). Quote paths with spaces.
@@ -1100,7 +1100,7 @@ A `-` means that form is an error for that stage.
 
 ### Long flags
 
-`--dedup_method`, `--dedup_sens`, `--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step`, `--interpolate_resample` and `--smooth_dedup_method`/`_sens`/`_max_span`/`_max_diff` keep working:
+`--restore_method`, `--upscale_method`, `--upscale_factor`, `--custom_model`, `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale`, `--static_step`, `--interpolate_resample` and `--smooth_dedup_method`/`_sens`/`_max_span`/`_max_diff` keep working:
 
 - A long flag applies to the **last stage of its kind typed before it**. `--interpolate_method`, `--interpolate_factor`, `--ensemble`, `--dynamic_scale` and `--static_step` apply to the last `--interpolate` or `--smooth_dedup`; `--smooth_dedup_method`, `--smooth_dedup_sens`, `--smooth_dedup_max_span` and `--smooth_dedup_max_diff` apply only to `--smooth_dedup`; `--custom_model` applies to `--upscale`.
 - Typed **before every stage of its kind**, it is the default for all of them (`--interpolate_resample`: for the first interpolation only). Typed there twice, the last one wins, as before.
@@ -1123,20 +1123,19 @@ A `-` means that form is an error for that stage.
 - It takes interpolation and detection values: `--smooth_dedup rife4.26 2x mse 20%` (or `sens=20`). A bare number is refused, because it could mean either.
 - Without interpolation values of its own it takes over a single plain `--interpolate`, whatever long flags were typed around them, so `--interpolate rife4.26 --smooth_dedup` and `--smooth_dedup --ensemble --interpolate rife4.26` are still one interpolation, as before. For two, give `--smooth_dedup` a value: `--smooth_dedup 1x --interpolate 2x`. It runs where `--smooth_dedup` was typed; smooth-dedup long flags alone (`--smooth_dedup_sens 20`) do not move a typed `--interpolate`.
 - With two or more plain `--interpolate`, put the method and factor of the smooth interpolation on `--smooth_dedup` itself: `--smooth_dedup rife4.26 2x --upscale --interpolate 2x`.
-- It disables every `--dedup` stage, with a warning. Its duplicate detector always runs first, on decoded frames.
+- It turns `--dedup` off, with a warning. Its duplicate detector always runs first, on decoded frames.
 
 ### Order notes
 
 - `--scenechange` is a modifier, not a stage. It runs before the first upscale or interpolation (a resize does not count).
-- `--dedup` after an interpolation still runs, with a warning: it discards most of the frames interpolated across held drawings. A `1x` interpolation inserts no frames, so it gets no warning.
-- A stage after `--upscale` (or an enlarging `--resize`) works on the larger frames, and a stage after `--interpolate` works on every interpolated frame. `--dedup flownets` after an N× upscale compares flow in upscaled pixels, so its sensitivity is about N× stricter.
+- A stage after `--upscale` (or an enlarging `--resize`) works on the larger frames, and a stage after `--interpolate` works on every interpolated frame.
 - The output frame rate is the source rate times every interpolation factor (`--interpolate --interpolate 3x` = 6x); `--slowmo` keeps the source rate.
-- Motion blur, depth, segmentation, object detection, stabilization and autoclip run outside the frame loop and have no place in the chain.
+- Motion blur, depth, segmentation, object detection, stabilization, autoclip and `--dedup` run outside the frame loop and have no place in the chain.
 - Frontends that build a command line or a `--json` file must emit the stages in the order the user chose.
 
 ### Shells
 
-- In a Windows `.bat`/`.cmd` file, `%` must be written `%%`: `--dedup 40%%`. `--dedup 40` and `sens=40` need no escaping and work in every shell.
+- In a Windows `.bat`/`.cmd` file, `%` must be written `%%`: `--smooth_dedup 40%%`. `sens=40` needs no escaping and work in every shell.
 - Quote values with spaces: `--upscale "D:/my models/4x_custom.pth"`.
 
 ### Removed flags
@@ -1170,14 +1169,11 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 # Smooth the motion of anime on twos (2x), then double it again: 4x the source frame rate
 ./python.exe ./main.py --input in.mp4 --smooth_dedup rife4.26 --interpolate 2x
 
-# Remove duplicates between two interpolations (warns: dedup after interpolate)
-./python.exe ./main.py --input in.mp4 --interpolate rife4.6 --dedup 20 --interpolate
-
 # Restore before and after upscaling, three restore stages
 ./python.exe ./main.py --input in.mp4 --restore deh264_real --upscale span --restore scunet --restore anime1080fixer
 
-# CPU restore, then a resize, then flownets dedup
-./python.exe ./main.py --input in.mp4 --restore scunet-directml --resize 0.5 --dedup flownets
+# CPU restore, then a resize
+./python.exe ./main.py --input in.mp4 --restore scunet-directml --resize 0.5
 
 # key=value form, any order
 ./python.exe ./main.py --input in.mp4 --interpolate factor=2.5 method=rife4.26 ensemble
@@ -1193,7 +1189,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 
 `--json <path>` loads options from a JSON file instead of the command line. It must be supplied alone (no other CLI flags); the script refuses to mix JSON with other CLI arguments. Unknown keys are reported and ignored. The key order in the file is the processing order, the same rule as the command line. A key that carries its default value takes no place in the order.
 
-`"chain"` describes the stages with the command line's value grammar, one string per stage, in processing order. The first word is the stage (`dedup`, `restore`, `upscale`, `interpolate`, `smooth_dedup`, `resize`), the rest are its values. Entries are split like a shell line, so quote paths with spaces:
+`"chain"` describes the stages with the command line's value grammar, one string per stage, in processing order. The first word is the stage (`restore`, `upscale`, `interpolate`, `smooth_dedup`, `resize`; `dedup` is not a stage and is refused), the rest are its values. Entries are split like a shell line, so quote paths with spaces:
 
 ```json
 {
@@ -1203,7 +1199,7 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 }
 ```
 
-- `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `dedup*`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`precision`, `slowmo`, `scenechange`, encode options, ...) are fine.
+- `"chain"` cannot be combined with a per-stage key (`upscale`, `upscale_method`, `upscale_factor`, `custom_model`, `interpolate*`, `ensemble`, `dynamic_scale`, `static_step`, `smooth_dedup*`, `restore*`, `resize`); put those values on the entries instead. Global keys (`precision`, `slowmo`, `scenechange`, encode options, ...) are fine.
 - An empty list means no frame-loop stages. A non-string or empty entry, or an unknown stage name, is an error naming the entry's index (`"chain"[2]`).
 - `"interpolate_resample"` configures the first interpolation, the smooth-dedup one included, where it is an error. A front end must send `0` (or leave the key out) while `--smooth_dedup` is selected; with no interpolation at all a non-zero value only warns.
 - Without `"chain"`, the key-order form below works as before: one stage per kind. `"resize": "1440p"` (or `0.5`) is a resize stage at that key's position; `"resize": true/false`, `"output_scale"`, `"resize_factor"` and `"half"` (now `"precision": "fp16"` or `"fp32"`) were removed and stop with a message.
@@ -1386,7 +1382,6 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
 ./python.exe ./main.py --input "gameplay.mp4" \
   --upscale --upscale_method open-proteus-tensorrt \
   --interpolate --interpolate_method rife4.20-tensorrt \
-  --dedup --dedup_method ssim-cuda \
   --encode_method nvenc_h264
 ```
 **Processing:** Optimized for gaming content  
@@ -1403,7 +1398,6 @@ Using a removed flag stops with a message naming its replacement. The JSON keys 
   --upscale --upscale_method span-tensorrt \
   --interpolate --interpolate_method rife4.25 \
   --restore --restore_method nafnet autocas \
-  --dedup --dedup_method ssim \
   --encode_method slow_x265 \
   --bit_depth 16bit
 ```

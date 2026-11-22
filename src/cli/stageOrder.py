@@ -60,7 +60,6 @@ STAGE_FLAGS = {kind: kind for kind in GRAMMAR_KINDS}
 # The chain kinds that carry a per-kind boolean on ``args``. ``smooth_dedup``
 # is True iff the smooth instance exists.
 STAGE_BOOLEANS = (
-    "dedup",
     "restore",
     "upscale",
     "interpolate",
@@ -75,8 +74,6 @@ STAGE_BOOLEANS = (
 # before (src/cli/config.py:PARENT_FLAG_DEFAULTS); --custom_model, --ensemble,
 # --dynamic_scale and --static_step never enabled anything and still do not.
 CHILD_FLAGS = {
-    "dedup_method": ("dedup", "method", True),
-    "dedup_sens": ("dedup", "sens", True),
     "restore_method": ("restore", "methods", True),
     "upscale_method": ("upscale", "method", True),
     "upscale_factor": ("upscale", "factor", True),
@@ -105,7 +102,6 @@ SMOOTH_KEYS = ("detector", "sens", "maxSpan", "maxDiff")
 
 # Settings keys each draft resolves, in a stable order.
 KIND_KEYS = {
-    "dedup": ("method", "sens"),
     "restore": ("methods",),
     "upscale": ("method", "factor", "customModel"),
     "interpolate": INTERPOLATE_KEYS,
@@ -116,8 +112,6 @@ KIND_KEYS = {
 # Used only when no parser is at hand (a namespace built by another
 # entrypoint); the parser's own defaults win otherwise.
 FALLBACK_DEFAULTS = {
-    ("dedup", "method"): "block",
-    ("dedup", "sens"): 35,
     ("restore", "methods"): ("anime1080fixer",),
     ("upscale", "method"): "shufflecugan",
     ("upscale", "factor"): 2,
@@ -164,6 +158,13 @@ def _halfAsPrecision(value):
 
 # Removed flags whose old value translates into the replacement's value.
 _REMOVED_FLAG_VALUES = {"half": _halfAsPrecision}
+
+DEDUP_NOT_A_STAGE_MESSAGE = (
+    "dedup is no longer a stage of the chain: --dedup runs on its own (with "
+    "--dedup_method / --dedup_sens) and only drops duplicate frames. To "
+    "interpolate across duplicates in a chain use smooth_dedup, which keeps "
+    "the duration and the audio."
+)
 
 BARE_RESIZE_MESSAGE = (
     "--resize needs a target, e.g. --resize 1440p, --resize 1920x1080 or "
@@ -348,6 +349,8 @@ def recordJsonChain(namespace, chain):
                 f"{where}: cannot split {entry!r}: {error}."
             ) from None
         kind = words[0].lower()
+        if kind == "dedup":
+            raise StageChainError(f"{where}: {DEDUP_NOT_A_STAGE_MESSAGE}")
         if kind not in STAGE_FLAGS:
             message = (
                 f"{where}: unknown stage {words[0]!r}. A chain entry starts with "
@@ -369,7 +372,7 @@ class StageDraft:
     :func:`buildStageDrafts` returns; the validator may still rewrite values
     (fallbacks, sensitivity mapping)."""
 
-    kind: str  # a chain kind: dedup, restore, upscale, interpolate, resize
+    kind: str  # a chain kind: restore, upscale, interpolate, resize
     smooth: bool
     position: int
     typed: bool  # a stage flag, not a long flag that created it
@@ -385,8 +388,8 @@ class StageDraft:
     repeated: bool = False
 
     def flagName(self, legacy):
-        """``dedup_method`` for a kind typed once (the wording it always had),
-        ``dedup #2: dedup_method`` when the kind repeats."""
+        """``upscale_method`` for a kind typed once (the wording it always had),
+        ``upscale #2: upscale_method`` when the kind repeats."""
         if not self.repeated:
             return legacy
         name = "smooth_dedup" if self.smooth else f"{self.kind} #{self.index}"
@@ -600,7 +603,7 @@ def buildStageDrafts(events, context):
         drafts.append(draft)
 
     # 2. a long flag with no stage of its kind anywhere creates one
-    for group in ("smooth_dedup", "dedup", "restore", "upscale", "interpolate"):
+    for group in ("smooth_dedup", "restore", "upscale", "interpolate"):
         if any(_accepts(draft, group) for draft in drafts):
             continue
         creating = [e for e in childEvents if e.group == group and e.creates]
@@ -660,8 +663,7 @@ def buildStageDrafts(events, context):
             sticky = previous.get(draft.kind)
         settings = {}
         for key in KIND_KEYS[group]:
-            # A plain dedup stage has a "sens" too: only the smooth stage's
-            # detection keys take the smooth-dedup defaults.
+            # The smooth stage's detection keys take the smooth-dedup defaults.
             defaultGroup = (
                 "smooth_dedup" if draft.smooth and key in SMOOTH_KEYS else draft.kind
             )
@@ -733,18 +735,10 @@ def syncStageGlobals(args, drafts=None):
     for draft in drafts:
         draft.repeated = perKind[draft.kind] > 1
     first = firstDrafts(drafts)
-    for kind in ("dedup", "restore", "upscale", "interpolate", "resize"):
+    for kind in ("restore", "upscale", "interpolate", "resize"):
         setattr(args, kind, kind in first)
     args.smooth_dedup = "smooth" in first
 
-    if "dedup" in first:
-        s = first["dedup"].settings
-        args.dedup_method = s["method"]
-        if "threshold" in s:
-            args.dedup_sens = s["threshold"]
-            args.dedup_sens_raw = s["sens"]
-        else:
-            args.dedup_sens = s["sens"]
     if "restore" in first:
         args.restore_method = list(first["restore"].settings["methods"])
     if "upscale" in first:
@@ -788,8 +782,6 @@ def specsFromDrafts(drafts):
         elif draft.kind == "upscale":
             settings["factor"] = int(settings["factor"])
             settings["customModel"] = settings["customModel"] or ""
-        elif draft.kind == "dedup":
-            settings["sens"] = float(settings["sens"])
         elif draft.kind == "restore":
             settings["methods"] = tuple(settings["methods"])
         specs.append(
@@ -808,41 +800,6 @@ def stageLabel(spec):
     name = "smooth_dedup" if spec.smooth else f"{spec.kind} #{spec.index}"
     summary = summarize(spec.kind, spec.settings)
     return f"{name} ({summary})" if summary else name
-
-
-def _insertsFrames(spec):
-    """An interpolate stage that adds frames; a 1x stage (resampling only, or
-    nothing) inserts none for a later dedup to discard."""
-    settings = getattr(spec, "settings", None) or {}
-    try:
-        return float(settings.get("factor", 2)) > 1
-    except TypeError, ValueError:
-        return True
-
-
-def stageOrderWarning(chain):
-    """The one order warning: a dedup stage after an interpolate stage that
-    inserts frames.
-
-    Dedup after interpolation runs the interpolation model on every held
-    drawing and then discards most of its in-between frames. The order is
-    still honoured; this only says the inference is wasted.
-    """
-    chain = list(chain)
-    kinds = [spec.kind if hasattr(spec, "kind") else spec for spec in chain]
-    inserting = [
-        position
-        for position, (kind, spec) in enumerate(zip(kinds, chain, strict=True))
-        if kind == "interpolate" and _insertsFrames(spec)
-    ]
-    if not inserting or "dedup" not in kinds[inserting[0] + 1 :]:
-        return None
-    return (
-        "--dedup comes after --interpolate, so the in-between frames it "
-        "interpolates across held drawings will mostly be discarded by dedup, "
-        "wasting that inference. Put --dedup first, or use --smooth_dedup to "
-        "interpolate across duplicates on purpose."
-    )
 
 
 def buildFromNamespace(args, parser):
@@ -865,6 +822,7 @@ __all__ = [
     "ChainContext",
     "ChildEvent",
     "ChildFlagAction",
+    "DEDUP_NOT_A_STAGE_MESSAGE",
     "DRAFTS_ATTRIBUTE",
     "KIND_KEYS",
     "PER_STAGE_JSON_KEYS",
@@ -891,7 +849,6 @@ __all__ = [
     "stageDrafts",
     "stageFlag",
     "stageLabel",
-    "stageOrderWarning",
     "summarize",
     "syncStageGlobals",
 ]

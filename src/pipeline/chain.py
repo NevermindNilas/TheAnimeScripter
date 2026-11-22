@@ -6,11 +6,13 @@ typed stage flags and their values; the engine side (``planner.planChain``,
 run decides what a stage does: per-stage settings live here, never on the
 global ``args.<stage>_method``-style attributes.
 
+``--dedup`` is not a stage: it drops frames in a run of its own
+(``src/dedup/standalone.py``). Only ``--smooth_dedup`` detects duplicates
+inside the chain, as the smooth interpolate stage.
+
 Settings keys per kind (all resolved: defaults, inheritance and validation are
 done before a spec is built, so every key is always present):
 
-- ``dedup``: ``method`` (str), ``sens`` (float, the typed 0-100 value),
-  ``threshold`` (float, ``sens`` mapped to the method's own scale).
 - ``restore``: ``methods`` (tuple of str, run in sequence by one driver).
 - ``upscale``: ``method`` (str), ``factor`` (int), ``customModel`` (str, "" if
   none).
@@ -30,7 +32,7 @@ done before a spec is built, so every key is always present):
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-KINDS = ("dedup", "restore", "upscale", "interpolate", "resize")
+KINDS = ("restore", "upscale", "interpolate", "resize")
 
 
 @dataclass(frozen=True)

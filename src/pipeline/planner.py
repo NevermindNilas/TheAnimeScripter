@@ -16,9 +16,6 @@ Placement rules:
 - ``scenechange`` is a modifier. It runs right before the first stage that
   changes the shape or the timeline (an ``upscale`` or ``interpolate``; a
   resize does not count), which is where the old engine ran it.
-- A hop to CUDA is inserted when a CPU-output backend (DirectML, OpenVINO, NCNN)
-  feeds a CUDA-only consumer (FlowNetS dedup). A resize keeps the device it is
-  given, so it neither causes nor clears a hop.
 - A resize whose target equals its incoming size has no unit (it is logged
   through ``Plan.skipped``).
 - An interpolate stage with ``resample`` N > 0 gets N ``resample`` units right
@@ -34,28 +31,14 @@ from src.pipeline.chain import KINDS, StageSpec
 
 _ROLES = {
     "smooth-dedup": "filter",
-    "dedup": "filter",
     "restore": "map",
     "upscale": "map",
     "resize": "map",
-    "hop": "map",
     "scenechange": "annotate",
     "resample": "resample",
     "interpolate": "expand",
 }
-_DEDUP_LIKE = ("dedup", "smooth-dedup")
 _SCENE_BEFORE = ("upscale", "resample", "interpolate")
-# Roles whose method decides where the stream leaves the stage (CPU or GPU).
-_MODEL_ROLES = ("map", "resample", "expand")
-_CPU_OUTPUT_SUFFIXES = ("-directml", "-openvino", "-ncnn")
-# LineThin runs on the CPU unless its method names a GPU backend.
-_CPU_OUTPUT_METHODS = frozenset(
-    {"linethinner-lite", "linethinner-medium", "linethinner-heavy"}
-)
-# Detectors that read their input on the GPU without moving it there first.
-_CUDA_ONLY_CONSUMER_METHODS = frozenset(
-    {"flownets", "flownets-rocm", "vmaf-cuda", "vmaf-rocm"}
-)
 # The smallest frame side a resize may produce.
 MIN_RESIZE_SIDE = 16
 # The interpolation factor is resolved to a fraction with this bound on its
@@ -68,11 +51,11 @@ class Unit:
     """One stage of the plan, with the frame size it receives and emits.
 
     ``name`` is the unit id (``upscale``, ``upscale#2``, ``smooth-dedup``,
-    ``scenechange``, ``hop``...). ``kind`` is the stage kind the executor and
+    ``scenechange``...). ``kind`` is the stage kind the executor and
     ``initializeModels`` dispatch on (one of ``KINDS`` or ``smooth-dedup``,
-    ``scenechange``, ``hop``, ``resample``). ``role`` is the node type: filter,
+    ``scenechange``, ``resample``). ``role`` is the node type: filter,
     map, annotate, resample or expand. ``spec`` is the typed stage (``None`` for
-    ``scenechange`` and ``hop``; the smooth stage for ``smooth-dedup``; the
+    ``scenechange``; the smooth stage for ``smooth-dedup``; the
     interpolate stage for its ``resample`` passes). ``passIndex`` is a resample
     unit's 1-based pass number (0 for every other unit).
     """
@@ -132,7 +115,7 @@ class Plan:
         return tuple(unit for unit in self.units if unit.kind == kind)
 
     def outputFrames(self, sourceFrames: int) -> int:
-        """Frames written for ``sourceFrames`` decoded frames, before any dedup.
+        """Frames written for ``sourceFrames`` decoded frames.
 
         Each interpolate stage writes ``floor((n - 1) * factor) + 1`` for the
         ``n`` frames it receives: its output grid starts on its first frame and
@@ -227,19 +210,9 @@ def resizeTargetText(target) -> str:
     return f"{_factorText(target[1])}"
 
 
-def _producesCpu(method: str) -> bool:
-    return method.endswith(_CPU_OUTPUT_SUFFIXES) or method in _CPU_OUTPUT_METHODS
-
-
-def _needsCuda(method: str) -> bool:
-    return method in _CUDA_ONLY_CONSUMER_METHODS
-
-
 def _methodOf(spec: StageSpec) -> str:
-    """The method that decides where a stage leaves the stream (hops, hints)."""
+    """The method a unit is labelled with (a restore stage's last one)."""
     if spec.kind == "restore":
-        # A restore stage runs its methods in sequence, so the stream lives where
-        # its last method leaves it.
         methods = spec.settings.get("methods", ())
         if isinstance(methods, str):
             return methods
@@ -269,8 +242,6 @@ def _validate(chain) -> None:
                 "the --smooth_dedup stage must be the first interpolate stage: its "
                 "gaps are measured in source frames"
             )
-        if any(spec.kind == "dedup" for spec in chain):
-            raise ValueError("--smooth_dedup and --dedup are mutually exclusive")
     _validateResample(chain)
 
 
@@ -279,7 +250,7 @@ def _validateResample(chain) -> None:
     firstInterpolate = next(
         (spec for spec in chain if spec.kind == "interpolate"), None
     )
-    for index, spec in enumerate(chain):
+    for spec in chain:
         count = resampleCount(spec)
         if count < 0:
             raise ValueError(f"{spec.id}: resample must be 0 or more, got {count}")
@@ -291,8 +262,6 @@ def _validateResample(chain) -> None:
             raise ValueError(
                 f"{spec.id}: resample is only allowed on the first interpolate stage"
             )
-        if any(prior.kind == "dedup" for prior in chain[:index]):
-            raise ValueError(f"{spec.id}: resample cannot follow a dedup stage")
         if str(spec["method"]).startswith("maxine"):
             raise ValueError(
                 f"{spec.id}: resample is not supported by {spec['method']}: two "
@@ -363,11 +332,7 @@ def planChain(
         entries.insert(at, ("scenechange", "scenechange", sceneChangeMethod, None, 0))
 
     units = []
-    hops = 0
     w, h = decodeW, decodeH
-    # Filters, the scene-cut detector and resizes keep the stream wherever the
-    # last model stage left it.
-    onCpu = False
     for name, kind, method, spec, passIndex in entries:
         if kind == "upscale":
             factor = int(spec["factor"])
@@ -381,16 +346,9 @@ def planChain(
                 continue
         else:
             outW, outH = w, h
-        if onCpu and _needsCuda(method):
-            hops += 1
-            hopName = "hop" if hops == 1 else f"hop#{hops}"
-            units.append(Unit(hopName, "map", w, h, w, h, "cuda", "hop"))
-            onCpu = False
         unit = Unit(name, _ROLES[kind], w, h, outW, outH, method, kind, spec, passIndex)
         units.append(unit)
         labels.append(_label(unit))
-        if unit.role in _MODEL_ROLES and kind != "resize":
-            onCpu = _producesCpu(method)
         w, h = outW, outH
 
     units = tuple(units)
@@ -403,7 +361,7 @@ def planChain(
         outWidth=w,
         outHeight=h,
         line=orderLine(units, labels),
-        hints=tuple(costHints(units, decodeW)),
+        hints=tuple(costHints(units)),
         decodeWidth=decodeW,
         decodeHeight=decodeH,
         decodeResize=decoderResizes,
@@ -427,8 +385,6 @@ def _label(unit) -> str:
         return ""
     if kind == "smooth-dedup":
         return f"smooth-dedup {unit.method}".rstrip()
-    if kind == "dedup":
-        return f"dedup {settings.get('method', '')}".rstrip()
     if kind == "restore":
         methods = settings.get("methods", ())
         if isinstance(methods, str):
@@ -480,9 +436,7 @@ def orderLine(units, labels=None) -> str:
     derived from ``units``.
     """
     if labels is None:
-        labels = [
-            _label(unit) for unit in units if unit.kind not in ("scenechange", "hop")
-        ]
+        labels = [_label(unit) for unit in units if unit.kind != "scenechange"]
     labels = [label for label in labels if label]
     if not labels:
         return ""
@@ -499,17 +453,15 @@ def orderLine(units, labels=None) -> str:
     return text
 
 
-def costHints(units, decodeWidth: int | None = None) -> list:
+def costHints(units) -> list:
     """Plain-language costs of a stage placed after one that changes the cost.
 
-    A restore or dedup after interpolation runs on the product of the preceding
+    A restore after interpolation runs on the product of the preceding
     interpolate factors times the source frames; one after an upscale or an
     enlarging resize runs at its (bigger) input size. A resampling stage costs
     one model run per frame and one more model in memory per pass.
     """
     hints = []
-    if decodeWidth is None:
-        decodeWidth = units[0].inWidth if units else 0
     for index, unit in enumerate(units):
         if unit.kind == "resample" and unit.passIndex == 1:
             passes = resampleCount(unit.spec)
@@ -518,7 +470,7 @@ def costHints(units, decodeWidth: int | None = None) -> list:
                 f"pass{'es' if passes > 1 else ''} at {unit.inWidth}x{unit.inHeight}, "
                 f"each one more model run per frame and one more model in memory"
             )
-        if unit.kind not in ("restore",) + _DEDUP_LIKE:
+        if unit.kind != "restore":
             continue
         before = units[:index]
         interps = [prior for prior in before if prior.kind == "interpolate"]
@@ -541,17 +493,6 @@ def costHints(units, decodeWidth: int | None = None) -> list:
             hints.append(
                 f"{unit.name} runs at {unit.inWidth}x{unit.inHeight} (after {names})"
             )
-            scale = unit.inWidth / decodeWidth if decodeWidth else 1
-            if (
-                unit.kind in _DEDUP_LIKE
-                and unit.method.startswith("flownets")
-                and scale > 1
-            ):
-                hints.append(
-                    f"FlowNetS dedup after {names} is about {_factorText(scale)} "
-                    f"stricter: its threshold is a mean flow in pixels, so "
-                    f"--dedup_sens counts pixels at the upscaled size"
-                )
     return hints
 
 

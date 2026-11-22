@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--upscale smovsr` (`-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): umzi's 2x_umzi_anime_smovsr, a 2x anime video upscaler for compression removal that reads frames before and after each one. It streams in 12-frame windows, 8 written per window, with the forward state carried across windows. Compared with running the model over each whole shot: mean difference 0.13/255, no visible seam between windows. Scene cuts from `--scenechange` restart it.
 
 ### Changed
+- `--dedup` is no longer a stage of the chain: it runs on its own, like `--depth` (decode, drop duplicates, encode; one `--resize` allowed). `--dedup` next to `--upscale`, `--interpolate` or `--restore` now stops with a message, and so does a `"dedup ..."` entry in a JSON `"chain"`; use `--smooth_dedup` to interpolate across duplicates, or run `--dedup` as a first pass. It takes no inline values any more: `--dedup mse 40` is `--dedup --dedup_method mse --dedup_sens 40`.
 - `--half True/False` is replaced by `--precision fp16|fp32` (default `fp16`). `--half` and the JSON `"half"` key now stop with the `--precision` value to use (`--half False` → `--precision fp32`).
 
 ### Fixed

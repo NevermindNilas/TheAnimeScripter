@@ -3,7 +3,7 @@
 # 🎬 The Anime Scripter
 
 **Free, open-source AI video enhancement for anime and beyond.**<br>
-Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Windows desktop app, or directly inside After Effects.
+Upscale, interpolate and restore in a single GPU pass from the CLI, a Windows desktop app, or directly inside After Effects.
 
 [![Release](https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square&color=blue)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 [![Downloads](https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
@@ -24,7 +24,7 @@ Upscale, interpolate, restore and dedup in a single GPU pass from the CLI, a Win
 ## ✨ Why TAS
 
 - **Anime-first models.** Line-art-tuned upscalers (ShuffleCUGAN, Adore, Fallin, AniScale 2, Cyte), RIFE up to 4.26, anime depth (Limbo) and anime segmentation, plus general-purpose models for live action and games.
-- **One pass, in memory.** Decode → dedup → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
+- **One pass, in memory.** Decode → restore → interpolate ↔ upscale → encode runs as one pipeline with no intermediate files. NVDEC decoding, TensorRT engines and CUDA graphs keep the GPU busy.
 - **Built for animation.** `--smooth_dedup` detects frames held on twos and threes and interpolates across them while keeping the original length and audio. `--scenechange` holds the frame at hard cuts so nothing morphs between shots. `--mask` keeps HUDs and hardsubs from warping.
 - **Runs on most GPUs.** CUDA, TensorRT, DirectML, OpenVINO, NCNN/Vulkan, Apple Silicon (MPS) and AMD ROCm on Linux and Windows.
 - **Works where you edit.** A native After Effects panel, a standalone Windows app and a scriptable CLI with batch input and YouTube URLs.
@@ -109,7 +109,7 @@ tas --input old_show.mkv --restore deh264_real anime1080fixer --encode_method x2
 tas --input clip.mp4 --depth_method video_small_v2
 ```
 
-`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 2x`, `--dedup 40`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
+`--input` also takes folders, `;`-separated lists, `.txt` batch files and URLs. Run `tas --list_methods` to explore, or `tas -h` for every option. Stages run in the order you type them (`--upscale --interpolate` upscales first), any stage can be typed again, and each takes its settings as values (`--upscale span 2x`, `--interpolate rife4.26 3x`, `--resize 1440p`); the `--upscale_method`-style flags still work. See PARAMETERS.MD, Stages and values.
 
 <details>
 <summary><b>Run from source</b></summary>

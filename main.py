@@ -296,6 +296,10 @@ class VideoProcessor:
         # args.<stage>_method-style attributes are not read here.
         self.chain: tuple = tuple(getattr(args, "chain", None) or ())
         self.smoothDedup: bool = getattr(args, "smooth_dedup", False)
+        # --dedup runs on its own (src/factories/standalone.py:dedup); the
+        # sensitivity is already on the method's own scale.
+        self.dedupMethod: str = getattr(args, "dedup_method", "block")
+        self.dedupSens: float = getattr(args, "dedup_sens", 35)
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
         self.segmentBatch: int = getattr(args, "segment_batch", 1)
@@ -455,7 +459,7 @@ class VideoProcessor:
             if len(resizes) > 1:
                 raise ValueError(
                     "a standalone capability (depth, segment, autoclip, stabilize, "
-                    "obj_detect, moblur) accepts at most one --resize"
+                    "obj_detect, moblur, dedup) accepts at most one --resize"
                 )
             if resizes:
                 from src.pipeline.planner import resizeDims
@@ -474,6 +478,7 @@ class VideoProcessor:
             or self.objDetect
             or self.stabilize
             or self.moblur
+            or self.dedup
         )
 
     def _selectProcessingMethod(self) -> None:
@@ -481,7 +486,7 @@ class VideoProcessor:
         Select and execute the appropriate processing method based on user options.
 
         Prioritizes specialized operations (autoclip, depth, segment, object detection)
-        over standard video processing.
+        and --dedup over standard video processing.
         """
         if self.autoclip:
             logging.info("Detecting scene changes")
@@ -514,6 +519,12 @@ class VideoProcessor:
             from src.factories.standalone import motionBlur
 
             motionBlur(self)
+
+        elif self.dedup:
+            logging.info("Removing duplicate frames")
+            from src.factories.standalone import dedup
+
+            dedup(self)
 
         else:
             from src.infra.cudaAllocator import expandableSegments, runsTorchCudaModel
@@ -558,7 +569,7 @@ class VideoProcessor:
 
         ``self.plan`` is the chain the typed flag order resolved to (see start()).
         The pipeline keeps its own counters, so a partial run still reports what
-        it actually decoded and dropped.
+        it actually decoded and smoothed.
         """
         from src.io.ffmpegSettings import adaptiveQueueDepth, closeWriterAndDrainReader
         from src.pipeline.executor import Pipeline
@@ -625,8 +636,8 @@ class VideoProcessor:
                 shownStats = (0, 0)
                 read = self.readBuffer.read
                 while pipeline.pull(read):
-                    # The bar tracks decoded frames, not kept ones, so dedup'd
-                    # frames still advance it.
+                    # The bar tracks decoded frames, so the duplicates smooth
+                    # dedup folds away still advance it.
                     position = outputPosition(pipeline.consumed)
                     if position != emitted:
                         bar(position - emitted)
@@ -684,13 +695,9 @@ class VideoProcessor:
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
-            # Under --smooth_dedup nothing is removed from the output: the
-            # duplicates are folded into wider interpolation gaps, so reporting
-            # them as deduplicated would contradict the frame count.
-            if self.smoothDedup:
-                logging.info(f"Interpolated across {self.dedupCount} duplicate frames")
-            else:
-                logging.info(f"Deduplicated {self.dedupCount} frames")
+            # Nothing is removed from the output: --smooth_dedup folds the
+            # duplicates into wider interpolation gaps.
+            logging.info(f"Interpolated across {self.dedupCount} duplicate frames")
 
     def _barTitleDetail(self) -> str:
         """The encoded output's resolution and frame rate, e.g. 2160p/60fps."""
@@ -706,8 +713,7 @@ class VideoProcessor:
         if dropped:
             # --smooth_dedup folds duplicates into wider gaps instead of
             # removing them, so "removed" would contradict the frame count.
-            verb = "smoothed" if self.smoothDedup else "removed"
-            full.append(f"{dropped} dupes {verb}")
+            full.append(f"{dropped} dupes smoothed")
             short.append(f"{dropped} dup")
         if cuts:
             full.append(f"{cuts} cut{'s' if cuts != 1 else ''}")

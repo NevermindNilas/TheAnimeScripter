@@ -740,7 +740,7 @@ def _addInterpolationOptions(argParser):
         "detection: each pass replaces every frame by the flow midpoint of it and "
         "its neighbour. 2 for twos, 3 for threes, 0-6; alone it means 2 (inline: "
         "resample=N, or resample). Only on the first interpolation, not with "
-        "--smooth_dedup or a --dedup before it. Binds to the last --interpolate "
+        "--smooth_dedup. Binds to the last --interpolate "
         "typed before it; never adds a stage",
         **childFlag(),
     )
@@ -906,9 +906,11 @@ def _addDedupOptions(argParser):
     dedupGroup = argParser.add_argument_group("Deduplication")
     dedupGroup.add_argument(
         "--dedup",
-        help="Deduplicate. Values: a method (ssim), a sensitivity 0-100 (40 or "
-        "40%%), or method=/sens=. Repeatable",
-        **stageFlag("dedup"),
+        action="store_true",
+        help="Remove duplicate frames. Runs on its own, like --depth: it cannot "
+        "be combined with --upscale, --interpolate or --restore, the output is "
+        "shorter and has no audio. To interpolate across duplicates and keep "
+        "the duration, use --smooth_dedup",
     )
     dedupGroup.add_argument(
         "--dedup_method",
@@ -928,15 +930,13 @@ def _addDedupOptions(argParser):
             "vmaf-cuda",
             "vmaf-rocm",
         ],
-        help="Deduplication method. Binds to the last --dedup typed before it; typed before every --dedup it is their default",
-        **childFlag(),
+        help="Deduplication method",
     )
     dedupGroup.add_argument(
         "--dedup_sens",
         type=float,
         default=35,
-        help="Deduplication sensitivity. Binds to the last --dedup typed before it; typed before every --dedup it is their default",
-        **childFlag(),
+        help="Deduplication sensitivity, 0-100",
     )
 
 
@@ -944,7 +944,7 @@ def _addSmoothDedupOptions(argParser):
     smoothDedupGroup = argParser.add_argument_group("Smooth Deduplication")
     smoothDedupGroup.add_argument(
         "--smooth_dedup",
-        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. It is an interpolate stage of its own (at most one, and the first interpolation) and disables every --dedup. Values: an interpolation method, a detection method, a factor (2x), a sensitivity (40%% or sens=40), ensemble, dynamic_scale, static_step, detector=, max_span=, max_diff=. Without interpolation values it takes over a single --interpolate",
+        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. It is an interpolate stage of its own (at most one, and the first interpolation) and disables --dedup. Values: an interpolation method, a detection method, a factor (2x), a sensitivity (40%% or sens=40), ensemble, dynamic_scale, static_step, detector=, max_span=, max_diff=. Without interpolation values it takes over a single --interpolate",
         **stageFlag("smooth_dedup"),
     )
     smoothDedupGroup.add_argument(

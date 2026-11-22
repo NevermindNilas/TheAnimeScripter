@@ -19,7 +19,7 @@ _OTHER_BACKEND_SUFFIXES = (
     "-rocm",
 )
 # The duplicate detectors that run a PyTorch CUDA model (a CUDA graph).
-_TORCH_CUDA_DETECTORS = frozenset({"flownets"})
+TORCH_CUDA_DETECTORS = frozenset({"flownets"})
 
 
 def _isTorchCudaModel(method: str) -> bool:
@@ -43,10 +43,7 @@ def runsTorchCudaModel(chain) -> bool:
             methods = ()
         if any(_isTorchCudaModel(method) for method in methods):
             return True
-        detectors = (settings.get("method", ""),) if spec.kind == "dedup" else ()
-        if spec.smooth:
-            detectors = (settings.get("detector", ""),)
-        if any(detector in _TORCH_CUDA_DETECTORS for detector in detectors):
+        if spec.smooth and settings.get("detector", "") in TORCH_CUDA_DETECTORS:
             return True
     return False
 

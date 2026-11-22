@@ -441,9 +441,6 @@ def _chainSuffixes(chain):
         if spec.kind == "resize":
             suffixes.append(f"-Resize{_sanitize(_resizeSuffix(spec['target']))}")
     for spec in chain:
-        if spec.kind == "dedup":
-            suffixes.append(f"-Dedup{_sanitize(_number(spec['sens']))}")
-    for spec in chain:
         if spec.kind == "interpolate" and spec.smooth:
             suffixes.append(f"-SmoothDedup{_sanitize(_number(spec['sens']))}")
     for spec in chain:
@@ -475,7 +472,6 @@ def generateOutputName(args, videoInput, title=None):
     chain = getattr(args, "chain", None)
 
     stageFeatures = [
-        ("dedup", "Dedup", "dedup_sens"),
         ("smooth_dedup", "SmoothDedup", "smooth_dedup_sens"),
         ("interpolate", "Int", "interpolate_factor"),
         ("upscale", "Up", "upscale_factor"),
@@ -489,6 +485,9 @@ def generateOutputName(args, videoInput, title=None):
     ]
     if chain is None:
         features = stageFeatures + features
+    # --dedup is a run of its own, never a chain stage, so its suffix always
+    # comes from the flag; it keeps its old place ahead of the stage suffixes.
+    features = [("dedup", "Dedup", "dedup_sens")] + features
 
     isUrl = isUrlInput(videoInput)
     suffixes = [] if chain is None else _chainSuffixes(chain)

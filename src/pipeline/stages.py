@@ -1,7 +1,7 @@
 """Stage-adapter vocabulary shared by the planner and the executor.
 
-A stage is one unit of the processing chain (dedup, restore, upscale,
-interpolate, resize, scene-cut, a device hop). The driver objects in
+A stage is one unit of the processing chain (smooth-dedup detection, restore,
+upscale, interpolate, resize, scene-cut). The driver objects in
 ``src/upscale``, ``src/interpolate``, ``src/unifiedRestore.py`` and the rest are
 not changed to fit this: the executor calls them the way the old engine did.
 The one stage implemented in this package, ``Resize``, lives in

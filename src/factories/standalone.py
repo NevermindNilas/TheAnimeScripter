@@ -949,3 +949,35 @@ def stabilize(self):
     # VideoStabilize swallows its own pipeline exception, and this path never
     # reaches start(), so this is what lets main.py count the video as failed.
     self.processingError = stabilizer.processingError
+
+
+def dedup(self):
+    from src.dedup.standalone import DedupVideo
+    from src.factories.dedup import buildDedupProcess
+    from src.infra.cudaAllocator import TORCH_CUDA_DETECTORS, expandableSegments
+
+    # Expandable segments only where torch holds a model's memory (FlowNetS'
+    # CUDA graph), as the frame loop does.
+    with expandableSegments(enabled=self.dedupMethod in TORCH_CUDA_DETECTORS):
+        # Built at self.width/self.height: VideoProcessor already set those to
+        # the run's one --resize, the size the decoder hands the detector.
+        driver = DedupVideo(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            buildDedupProcess(self),
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.benchmark,
+            self.totalFrames,
+            self.bitDepth,
+            half=self.half,
+            decodeMethod=self.decodeMethod,
+            decodeResize=_decodeResize(self),
+        )
+    # DedupVideo swallows its own pipeline exception, and this path never
+    # reaches start(), so this is what lets main.py count the video as failed.
+    self.processingError = driver.processingError

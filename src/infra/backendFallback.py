@@ -144,7 +144,6 @@ STAGE_METHOD_ATTRIBUTES = {
     "interpolate": "interpolate_method",
     "upscale": "upscale_method",
     "restore": "restore_method",
-    "dedup": "dedup_method",
 }
 
 

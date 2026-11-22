@@ -9,7 +9,6 @@ from src.cli.stageOrder import (
     recordedEvents,
     stageDrafts,
     stageLabel,
-    stageOrderWarning,
     syncStageGlobals,
 )
 from src.cli.startup import _handleDependencies, _resolveRequestedProfile
@@ -248,29 +247,22 @@ def _applyImpliedFlags(args):
     if not getattr(args, "smooth_dedup", False):
         return
 
-    drafts = stageDrafts(args)
-    if drafts is not None:
-        # Every dedup stage goes, wherever it was typed; it gets no place in
-        # the chain. The smooth stage is an interpolate stage, so syncing
-        # turns --interpolate on.
-        if any(draft.kind == "dedup" for draft in drafts):
-            logAndPrint(
-                "--smooth_dedup handles duplicate frames itself, disabling --dedup",
-                "yellow",
-            )
-            drafts[:] = [draft for draft in drafts if draft.kind != "dedup"]
-        syncStageGlobals(args, drafts)
-        return
-
     # --smooth_dedup runs the duplicate detector itself and turns each dropped
     # frame into extra interpolation slots instead of shortening the video, so
-    # the frame-dropping --dedup path must not also run.
+    # the frame-dropping --dedup run must not take over.
     if args.dedup:
         logAndPrint(
             "--smooth_dedup handles duplicate frames itself, disabling --dedup",
             "yellow",
         )
         args.dedup = False
+
+    drafts = stageDrafts(args)
+    if drafts is not None:
+        # The smooth stage is an interpolate stage, so syncing turns
+        # --interpolate on.
+        syncStageGlobals(args, drafts)
+        return
 
     if not args.interpolate:
         logging.info("Auto-enabling --interpolate because --smooth_dedup was provided")
@@ -286,6 +278,15 @@ _STANDALONE_CAPABILITIES = (
     "obj_detect",
     "stabilize",
     "moblur",
+    "dedup",
+)
+
+# What --dedup refuses next to it: it stopped being a stage of the chain.
+_DEDUP_ALONE_MESSAGE = (
+    "--dedup runs on its own and cannot be combined with {stages}. To "
+    "interpolate across duplicate frames use --smooth_dedup (it keeps the "
+    "duration and the audio); to drop them, run --dedup as a separate pass "
+    "first."
 )
 
 
@@ -365,14 +366,6 @@ def _checkResample(args):
                 f"drawings, and {_resampleLabel(interpolations[0], chain)} comes "
                 "before it. Put resample= on the first --interpolate."
             )
-        before = chain[: chain.index(spec)]
-        dedup = next((other for other in before if other.kind == "dedup"), None)
-        if dedup is not None:
-            raise CliValidationError(
-                f"{label}: resample={passes} needs the source's held frames, but "
-                f"{stageLabel(dedup)} before it removes them. Remove --dedup: "
-                "resample handles held drawings without it."
-            )
         method = spec["method"]
         for prefix, reason in _RESAMPLE_REFUSED.items():
             if method.startswith(prefix):
@@ -400,10 +393,9 @@ def _finalizeChain(args):
     """Set ``args.chain``, the per-kind booleans and the first-instance globals.
 
     Must run after :func:`_applyImpliedFlags` and every other enable/disable
-    step, because it reads the final state. Also prints the one order warning
-    (a dedup stage after an interpolate stage) and the resample warnings. Raises
-    :class:`CliValidationError` for a standalone capability given more than
-    one ``--resize``, a single-instance backend used twice, an upscale stage
+    step, because it reads the final state. Also prints the resample warnings.
+    Raises :class:`CliValidationError` for a standalone capability given more
+    than one ``--resize``, ``--dedup`` next to a stage, a single-instance backend used twice, an upscale stage
     whose model cannot produce its factor (``span 4x``), an NCNN upscale
     stage whose package is not installed, and a resample= the chain cannot
     run (:func:`_checkResample`).
@@ -419,6 +411,14 @@ def _finalizeChain(args):
         None,
     )
     resizes = [spec for spec in args.chain if spec.kind == "resize"]
+    if standalone == "dedup" and len(resizes) < len(args.chain):
+        # Every other standalone capability ignores the stages; --dedup was one
+        # of them until now, so a chain that still names it must not silently
+        # lose its upscale or interpolation.
+        kinds = dict.fromkeys(
+            f"--{spec.kind}" for spec in args.chain if spec.kind != "resize"
+        )
+        raise CliValidationError(_DEDUP_ALONE_MESSAGE.format(stages=", ".join(kinds)))
     if standalone and len(resizes) > 1:
         raise CliValidationError(
             f"--{standalone} runs outside the frame loop and takes at most one "
@@ -454,10 +454,6 @@ def _finalizeChain(args):
     from src.cli.validation import validateMaskPath
 
     validateMaskPath(args)
-
-    warning = stageOrderWarning(args.chain)
-    if warning:
-        logAndPrint(warning, "yellow")
     return args.chain
 
 
@@ -549,12 +545,6 @@ def _legacyStages(args):
         )
     elif getattr(args, "interpolate", False):
         stages.append(_LegacyStage("interpolate", interpolate))
-    if getattr(args, "dedup", False):
-        stages.append(
-            _LegacyStage(
-                "dedup", {"method": args.dedup_method, "sens": args.dedup_sens}
-            )
-        )
     return stages
 
 
@@ -574,10 +564,6 @@ def _writeLegacyStages(args, stages):
             args.smooth_dedup_method = settings["detector"]
             args.smooth_dedup_sens_raw = settings["sens"]
             args.smooth_dedup_sens = settings["threshold"]
-        if stage.kind == "dedup":
-            args.dedup_method = settings["method"]
-            args.dedup_sens_raw = settings["sens"]
-            args.dedup_sens = settings["threshold"]
 
 
 def _resolveStaticStep(stage):
@@ -722,24 +708,28 @@ def _configureProcessingSettings(args, cudaAvailable=_UNPROBED):
             f"New smooth_dedup sensitivity for {settings['detector']} is: {settings['threshold']}"
         )
 
-    dedupStages = [stage for stage in stages if stage.kind == "dedup"]
-    if dedupStages:
+    if getattr(args, "dedup", False):
+        # The run drops frames and keeps the frame rate, so the source audio
+        # no longer fits.
         cs.AUDIO = False
         logging.info("Deduplication enabled, audio processing disabled")
-    for stage in dedupStages:
         # Before the sensitivity mapping, which is grouped by metric and so
         # unaffected by the swap.
-        settings = stage.settings
         if cudaAvailable is _UNPROBED:
             cudaAvailable = _probeCudaAvailability()
-        settings["method"] = _downgradeCudaDetector(
-            settings["method"], stage.flagName("dedup_method"), cudaAvailable
+        args.dedup_method = _downgradeCudaDetector(
+            args.dedup_method, "dedup_method", cudaAvailable
         )
-        settings["threshold"] = _mapDedupSensitivity(
-            settings["method"], settings["sens"]
-        )
+        # dedup_sens_raw keeps the typed value: output naming reads it, and a
+        # second pass through here maps from it again instead of from the
+        # mapped value.
+        typed = getattr(args, "dedup_sens_raw", None)
+        if typed is None:
+            typed = args.dedup_sens
+        args.dedup_sens_raw = typed
+        args.dedup_sens = _mapDedupSensitivity(args.dedup_method, typed)
         logging.info(
-            f"New dedup sensitivity for {settings['method']} is: {settings['threshold']}"
+            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
 
     if drafts is not None:

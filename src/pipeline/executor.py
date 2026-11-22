@@ -46,11 +46,10 @@ from src.io.frameWindow import FrameSlot, LagRing, Window, temporalDemand
 from src.pipeline.planner import factorFraction
 from src.pipeline.stages import DROP, isStatelessUpscale
 
-_DEDUP_LIKE = ("dedup", "smooth-dedup")
 # Stages that hand a slot's cacheKey on: what they emit for two copies of one
 # held frame is identical, so a stateless upscaler after them may still serve
 # both copies from one computation.
-_KEY_FORWARDING = ("dedup", "smooth-dedup", "scenechange", "resize")
+_KEY_FORWARDING = ("smooth-dedup", "scenechange", "resize")
 
 
 def _syncAfter(frame) -> None:
@@ -80,15 +79,6 @@ def _slotPositions(slot) -> tuple[int, ...]:
     if slot.gapPositions is not None:
         return slot.gapPositions
     return (slot.sourcePos - 1,)
-
-
-def _toDevice(device: str):
-    def move(frame):
-        moved = frame.to(device)
-        _syncAfter(moved)
-        return moved
-
-    return move
 
 
 # (device type, dtype, antialias) -> whether bicubic F.interpolate runs natively.
@@ -193,19 +183,16 @@ class _Node:
 
 
 class FilterNode(_Node):
-    """Drops the slots its detector calls duplicates.
+    """The smooth-dedup detector: drops the slots it calls duplicates.
 
-    ``carriesDups`` (smooth dedup) hands the drop count to the next admitted slot
-    as ``dupsBefore``, so the interpolation gap that follows is widened to cover
-    the source frames that were dropped.
+    The drop count goes to the next admitted slot as ``dupsBefore``, so the
+    interpolation gap that follows is widened to cover the source frames that
+    were dropped.
     """
 
-    def __init__(
-        self, name, detector, downstream, *, carriesDups=False, outShape=(0, 0)
-    ):
+    def __init__(self, name, detector, downstream, *, outShape=(0, 0)):
         super().__init__(name, (0, 0), downstream, outShape)
         self.detector = detector
-        self.carriesDups = carriesDups
         self.drops = 0
         self.pendingDups = 0
         self._pendingCut = False
@@ -215,11 +202,10 @@ class FilterNode(_Node):
         verdict = self.detector(slot.frame)
         if verdict is DROP or bool(verdict):
             self.drops += 1
-            if self.carriesDups:
-                self.pendingDups += 1
+            self.pendingDups += 1
             self._pendingCut = self._pendingCut or slot.isCut
             return
-        dups = self.pendingDups if self.carriesDups else 0
+        dups = self.pendingDups
         isCut = slot.isCut or self._pendingCut
         self.pendingDups = 0
         self._pendingCut = False
@@ -794,7 +780,7 @@ class Pipeline:
         for index in range(len(plan.units) - 1, -1, -1):
             unit = plan.units[index]
             precedingDetector = None
-            if index > 0 and plan.units[index - 1].kind in _DEDUP_LIKE:
+            if index > 0 and plan.units[index - 1].kind == "smooth-dedup":
                 precedingDetector = drivers.get(plan.units[index - 1].name)
             node = self._build(
                 unit, drivers, downstream, maskedSinkFactory, precedingDetector
@@ -824,14 +810,8 @@ class Pipeline:
         name = unit.name
         kind = unit.kind
         outShape = (unit.outWidth, unit.outHeight)
-        if kind in _DEDUP_LIKE:
-            return FilterNode(
-                name,
-                drivers[name],
-                downstream,
-                carriesDups=(kind == "smooth-dedup"),
-                outShape=outShape,
-            )
+        if kind == "smooth-dedup":
+            return FilterNode(name, drivers[name], downstream, outShape=outShape)
         if kind == "scenechange":
             return AnnotateNode(
                 name,
@@ -863,14 +843,6 @@ class Pipeline:
                 unit.passIndex % 2 == 1,
                 downstream,
                 maskedSink=maskedSinkFactory() if maskedSinkFactory else None,
-                outShape=outShape,
-            )
-        if kind == "hop":
-            return MapNode(
-                name,
-                _toDevice(unit.method),
-                (0, 0),
-                downstream,
                 outShape=outShape,
             )
         if kind == "resize":

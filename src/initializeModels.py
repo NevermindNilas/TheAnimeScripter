@@ -35,7 +35,6 @@ _BUILD_ORDER = {
     # A resampling stage's passes build with it, before it (chain order).
     "resample": 1,
     "restore": 2,
-    "dedup": 3,
     "smooth-dedup": 3,
     "scenechange": 4,
     "resize": 5,
@@ -56,7 +55,6 @@ _STAGE_ATTRIBUTES = {
         "staticStep",
     ),
     "restore": ("restoreMethod",),
-    "dedup": ("dedupMethod", "dedupSens"),
     "smooth-dedup": (
         "smoothDedupMethod",
         "smoothDedupSens",
@@ -108,8 +106,6 @@ def stageSettings(unit) -> dict:
         return {
             "restoreMethod": [methods] if isinstance(methods, str) else list(methods)
         }
-    if kind == "dedup":
-        return {"dedupMethod": settings["method"], "dedupSens": settings["threshold"]}
     if kind == "smooth-dedup":
         return {
             "smoothDedupMethod": settings["detector"],
@@ -159,7 +155,7 @@ def initializeModels(self, plan):
     buffers (and CUDA graphs) of the interpolation, restore and dedup backends
     are sized at construction.
 
-    Returns ``{unit id: driver}``. A ``hop`` unit has no driver.
+    Returns ``{unit id: driver}``.
 
     Drivers are built in a fixed order by kind, then in chain order within a
     kind: the order they are built in decides where their weights, engines and
@@ -190,8 +186,6 @@ def initializeModels(self, plan):
     ):
         name = unit.name
         kind = unit.kind
-        if kind == "hop":
-            continue
         view = StageView(self, unit, fpsAt[name])
         if kind == "upscale":
             _announce(f"Initializing upscale model: {view.upscaleMethod}...")
@@ -226,13 +220,12 @@ def initializeModels(self, plan):
                 view, width=unit.inWidth, height=unit.inHeight
             )
 
-        elif kind in ("dedup", "smooth-dedup"):
+        elif kind == "smooth-dedup":
             # --smooth_dedup reuses the dedup detectors, but off its own knobs: it
             # turns each duplicate into extra interpolation slots rather than
             # dropping a frame from the output.
-            smooth = kind == "smooth-dedup"
-            method = view.smoothDedupMethod if smooth else view.dedupMethod
-            sens = view.smoothDedupSens if smooth else view.dedupSens
+            method = view.smoothDedupMethod
+            sens = view.smoothDedupSens
             _announce(f"Initializing duplicate detection: {method}...")
 
             from src.factories.dedup import buildDedupProcess
@@ -242,7 +235,7 @@ def initializeModels(self, plan):
             )
             # "block" already scores every block at full resolution, so the
             # per-pixel guard would only add its noise vetoes on top.
-            if smooth and view.smoothDedupMaxDiff < 255 and method != "block":
+            if view.smoothDedupMaxDiff < 255 and method != "block":
                 # The detectors score a 224px downsample; a dropped frame would
                 # be replaced by an interpolated one, so a small local change
                 # (a mouth flap) must veto the verdict at full resolution.
