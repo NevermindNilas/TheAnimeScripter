@@ -326,7 +326,7 @@ C:\Videos\episode3.mp4
 | `--upscale` | values | - | method, `2x`/`3x`/`4x`, model path | **AI upscaling stage** — `--upscale span 2x`; repeatable (`--upscale span --upscale` is 4x); see [Stages and values](#-stages-and-values). Also enabled by `--upscale_method` alone |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)**. Every bundled model is 2x; 3x and 4x need a `maxine-*` method or a `--custom_model` of that scale, any other method refuses them before loading |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods. The `animesr*` methods load only their own weights and refuse one |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA, ROCm methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods. The `animesr*` and `smovsr*` methods load only their own weights and refuse one |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
@@ -349,6 +349,7 @@ C:\Videos\episode3.mp4
 | **smosr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA SmoSR v1 (2x) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **figsr** | ⚡⚡ | ⭐⭐⭐ | 2GB | enhancr DA FigSR (2x) | CUDA, ROCm, MPS |
 | **animesr** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | High-quality restoration (temporal, uses the next frame) | CUDA, ROCm, TRT, DML, OpenVINO |
+| **smovsr** | ⚡ | ⭐⭐⭐⭐ | 3GB (720p) | umzi's anime compression-removal video upscaler (2x, bidirectional: reads up to 11 frames ahead) | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
 | **artcnn_c4f16** / `_dn` / `_ds` | ⚡⚡⚡⚡ | ⭐⭐ | <2GB | Luma-only 2x, very light | TRT, DML, OpenVINO |
 | **artcnn_c4f32** / `_dn` / `_ds` | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | Luma-only 2x, `_dn` denoises, `_ds` de-sharpens | TRT, DML, OpenVINO |
 | **artcnn_r8f64** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | Luma-only 2x, heavier | TRT, DML, OpenVINO |
@@ -357,6 +358,8 @@ C:\Videos\episode3.mp4
 | **maxine-highbitrate_low / _medium / _high / _ultra** | ⚡⚡⚡ | ⭐⭐⭐ | varies | Maxine VSR tuned for high-bitrate sources | CUDA |
 
 Cyte (`cyte`, `cyte-tensorrt`, `cyte-directml`, `cyte-openvino`, `cyte-mps`) is a 45,156-parameter anime upscaler with a fixed **2×** scale. Use `--upscale_method cyte --upscale_factor 2`. Weights download from the [Cyte model folder](https://github.com/NevermindNilas/Ai-models/tree/main/Cyte-V1-SuperUltraCompact).
+
+SMoVSR (`smovsr`, `smovsr-tensorrt`, `smovsr-directml`, `smovsr-openvino`, `smovsr-rocm`, `smovsr-mps`) is umzi's 2x_umzi_anime_smovsr ([enhancr/SMoVSR](https://github.com/enhancr/SMoVSR), MIT), a fixed **2×** anime video upscaler trained to remove compression. Each output frame uses the frames before and after it, so the stage runs in 12-frame windows and writes 8 per window: it holds 12 input frames and up to 8 output frames, and starts 11 frames behind the decoder. Add `--scenechange` to keep it from reading across cuts. TensorRT builds one static engine per input size; the first build takes a few minutes.
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality. On Apple Silicon use `shufflecugan-mps` or `span-mps`.
 

@@ -43,6 +43,9 @@ def modelsList() -> list[str]:
         "smosr-tensorrt",
         "smosr-directml",
         "smosr-openvino",
+        "smovsr",
+        "smovsr-tensorrt",
+        "smovsr-directml",
         "artcnn_c4f16-tensorrt",
         "artcnn_c4f16-directml",
         "artcnn_c4f16-openvino",
@@ -162,6 +165,7 @@ def modelsList() -> list[str]:
         "gauss-mps",
         "figsr-mps",
         "smosr-mps",
+        "smovsr-mps",
         # No "animesr-mps": AnimeSR has CUDA/TensorRT/DirectML classes only.
         # Listing it made applyBackendFallbacks rewrite "animesr" to it on macOS,
         # and the upscale factory then matched nothing and returned None.
@@ -207,6 +211,7 @@ def modelsList() -> list[str]:
         "gauss-rocm",
         "figsr-rocm",
         "smosr-rocm",
+        "smovsr-rocm",
         "animesr-rocm",
         "rife-rocm",
         "rife4.6-rocm",
@@ -466,6 +471,15 @@ def modelsMap(
 
         case "figsr":
             return "2x_enhancr_da_figsr.pth"
+
+        case "smovsr" | "smovsr-directml" | "smovsr-tensorrt" | "smovsr-openvino":
+            # The ONNX is TAS's streaming window (src/extraArches/smovsr.py:
+            # 12 frames in, 8 out, forward state in/out), not the release's
+            # whole-clip opset-28 export, which ONNX Runtime refuses to load.
+            if modelType == "pth":
+                return "2x_umzi_anime_smovsr.pth"
+            precision = "fp16" if half else "fp32"
+            return f"2x_umzi_anime_smovsr_w12s8_{precision}_op20.onnx"
 
         case "smosr" | "smosr-directml" | "smosr-tensorrt":
             if modelType == "pth":

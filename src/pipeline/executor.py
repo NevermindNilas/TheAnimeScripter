@@ -240,8 +240,11 @@ class MapNode(_Node):
     """Replaces each frame with the driver's output. The input is never modified.
 
     ``takesNext`` gives the driver its neighbour (upscalers always take one). A
-    stateless upscaler with ``memo`` set serves every copy of one held source slot
-    from one computation within the current interpolation gap.
+    driver that sets ``takesLookahead`` is handed every frame its window holds
+    after the centre instead (``Window.ahead``: up to its declared future, cut at
+    a scene cut or the stream end), as a tuple. A stateless upscaler with
+    ``memo`` set serves every copy of one held source slot from one computation
+    within the current interpolation gap.
     """
 
     def __init__(
@@ -258,6 +261,7 @@ class MapNode(_Node):
         super().__init__(name, window, downstream, outShape)
         self.fn = fn
         self.takesNext = takesNext
+        self.takesLookahead = takesNext and bool(getattr(fn, "takesLookahead", False))
         self.memo = None
         # A stateless function of the frame alone (resize): two copies of one
         # held frame stay identical through it, so their cacheKey is kept.
@@ -266,7 +270,9 @@ class MapNode(_Node):
     def _run(self, window) -> None:
         slot = window.centre
         nextFrame = None
-        if self.takesNext and window.following is not None:
+        if self.takesLookahead:
+            nextFrame = tuple(following.frame for following in window.ahead)
+        elif self.takesNext and window.following is not None:
             nextFrame = window.following.frame
         if self.memo is not None and slot.cacheKey is not None:
             frame = self._reuse(slot, nextFrame)

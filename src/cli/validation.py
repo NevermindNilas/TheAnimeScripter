@@ -307,15 +307,16 @@ def validateCustomModelPath(customModel, upscaleMethod, label=None):
     onnxExtensions = {".onnx"}
     selectedBackend, baseMethod = selectedUpscaleBackend(upscaleMethod)
 
-    if upscaleMethod.startswith("animesr"):
-        # Its drivers are dedicated classes built at 2x that load only the
-        # AnimeSR weights: the file was silently ignored, and a 3x/4x stage
-        # was planned at the custom scale while the driver still wrote 2x.
+    if upscaleMethod.startswith(("animesr", "smovsr")):
+        # Their drivers are dedicated classes built at 2x that load only their
+        # own weights: the file was silently ignored, and a 3x/4x stage was
+        # planned at the custom scale while the driver still wrote 2x.
+        model = "SMoVSR" if upscaleMethod.startswith("smovsr") else "AnimeSR"
         raise CliValidationError(
             f"{_prefix(label)}{upscaleMethod} cannot load a custom model "
             f"({customModel}). Use a general upscale method for it (for "
             "example span or shufflecugan with the matching backend suffix), "
-            "or drop --custom_model to run AnimeSR itself."
+            f"or drop --custom_model to run {model} itself."
         )
 
     if extension in onnxExtensions:

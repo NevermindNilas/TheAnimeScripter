@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Added
+- `--upscale smovsr` (`-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): umzi's 2x_umzi_anime_smovsr, a 2x anime video upscaler for compression removal that reads frames before and after each one. It streams in 12-frame windows, 8 written per window, with the forward state carried across windows. Compared with running the model over each whole shot: mean difference 0.13/255, no visible seam between windows. Scene cuts from `--scenechange` restart it.
+
 ### Changed
 - `--half True/False` is replaced by `--precision fp16|fp32` (default `fp16`). `--half` and the JSON `"half"` key now stop with the `--precision` value to use (`--half False` → `--precision fp32`).
 

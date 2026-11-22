@@ -38,3 +38,28 @@ See the authoritative [Limbo V2 license](https://github.com/NevermindNilas/Ai-mo
 and [Cyte license](https://github.com/NevermindNilas/Ai-models/blob/main/Cyte-V1-SuperUltraCompact/LICENSE.MD).
 Limbo's upstream DA3 material retains its Apache-2.0 terms;
 Cyte uses the BSD-3-Clause Real-ESRGAN SRVGGNetCompact architecture.
+
+## SMoVSR (2x_umzi_anime_smovsr)
+
+Copyright (c) 2026 enhancr. Architecture and weights by umzi, MIT License.
+`src/extraArches/smovsr.py` is adapted from
+[enhancr/SMoVSR](https://github.com/enhancr/SMoVSR) `smovsr_arch.py`; the
+streaming window and the ONNX exports TAS downloads are TAS additions.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -219,6 +219,31 @@ def buildUpscaleProcess(self, width=None, height=None):
                 self.compileMode,
             )
 
+        case "smovsr":
+            from src.upscale.smovsr import SMoVSRCuda
+
+            return SMoVSRCuda(self.half, width, height)
+
+        case "smovsr-rocm":
+            from src.upscale.smovsr import SMoVSRROCm
+
+            return SMoVSRROCm(self.half, width, height)
+
+        case "smovsr-mps":
+            from src.upscale.smovsr import SMoVSRMPS
+
+            return SMoVSRMPS(self.half, width, height)
+
+        case "smovsr-tensorrt":
+            from src.upscale.smovsr import SMoVSRTensorRT
+
+            return SMoVSRTensorRT(self.half, width, height)
+
+        case "smovsr-directml" | "smovsr-openvino":
+            from src.upscale.smovsr import SMoVSRDirectML
+
+            return SMoVSRDirectML(self.upscaleMethod, self.half, width, height)
+
         case "animesr-tensorrt":
             from src.upscale.tensorrt import AnimeSRTensorRT
 

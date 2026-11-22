@@ -19,6 +19,11 @@ _LAZY_BACKENDS = {
     "UniversalPytorch": ".pytorch",
     "UniversalPytorchMPS": ".pytorch",
     "AnimeSRTensorRT": ".tensorrt",
+    "SMoVSRCuda": ".smovsr",
+    "SMoVSRDirectML": ".smovsr",
+    "SMoVSRMPS": ".smovsr",
+    "SMoVSRROCm": ".smovsr",
+    "SMoVSRTensorRT": ".smovsr",
     "UniversalTensorRT": ".tensorrt",
 }
 

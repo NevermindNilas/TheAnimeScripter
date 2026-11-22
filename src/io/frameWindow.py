@@ -29,10 +29,12 @@ sequence.
 
 from collections import namedtuple
 
-Window = namedtuple("Window", "centre past following")
+Window = namedtuple("Window", "centre past following ahead", defaults=((),))
 """One run of a stage: the slot being processed, the slots before it (oldest
-first), and the slot after it (``None`` at the end of the stream or across a
-scene cut)."""
+first), the slot after it (``None`` at the end of the stream or across a scene
+cut), and every slot after it up to the declared ``future`` (oldest first,
+stopping before a cut or at the end of the stream, so ``ahead[0]`` is
+``following``)."""
 
 
 class FrameSlot:
@@ -127,24 +129,29 @@ class LagRing:
         local = index - self._base
         centre = self._buf[local]
         past = tuple(self._buf[max(0, local - self.past) : local])
-        following = self._successor(index)
+        ahead = self._ahead(index)
+        following = ahead[0] if ahead else None
         self._next += 1
         # Slots older than the new centre's past are no longer reachable.
         keepFrom = self._next - self.past - self._base
         if keepFrom > 0:
             del self._buf[:keepFrom]
             self._base += keepFrom
-        return Window(centre, past, following)
+        return Window(centre, past, following, ahead)
 
-    def _successor(self, index: int):
-        """The slot after ``index``, unless the stream ended or a cut separates them."""
-        following = index + 1
-        if following >= self._seen:
-            return None
-        slot = self._buf[following - self._base]
-        if slot.isCut:
-            return None
-        return slot
+    def _ahead(self, index: int) -> tuple:
+        """The slots after ``index`` in its shot, at most ``future`` of them.
+
+        Stops at the end of the stream or before the first slot that opens a
+        new shot: a frame across a cut is not context.
+        """
+        slots = []
+        for following in range(index + 1, min(index + 1 + self.future, self._seen)):
+            slot = self._buf[following - self._base]
+            if slot.isCut:
+                break
+            slots.append(slot)
+        return tuple(slots)
 
 
 def temporalDemand(*stages) -> tuple[int, int]:
