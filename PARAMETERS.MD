@@ -157,14 +157,14 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 |---------|--------|----------|--------|
 | **CUDA** | *(none)* | NVIDIA | Everything except object detection (ONNX-only) |
 | **ROCm** | `-rocm` | AMD (Linux, Windows; HIP) | Upscale, interpolate, restore, dedup, scene-cut, segment, depth, motion blur, autoclip (transnetv2, omnishotcut), stabilize (dut) — eager, no CUDA graphs |
-| **Kernel** | `-kernel` | NVIDIA RTX 30 series or newer (Windows, Linux) | Upscale (`shufflecugan`, `cyte`, `span`, `open-proteus`, `aniscale2`, `fallin_soft`, `fallin_strong`), restore (`real-plksr`, `anime1080fixer`, `deh264_real`, `deh264_span`, `hurrdeblur`, `dehalo`) |
+| **Kernel** | `-kernel` | NVIDIA RTX 30 series or newer (Windows, Linux) | Upscale (`shufflecugan`, `cyte`, `span`, `open-proteus`, `aniscale2`, `fallin_soft`, `fallin_strong`), restore (`real-plksr`, `anime1080fixer`, `deh264_real`, `deh264_span`, `hurrdeblur`, `dehalo`), interpolate (every CUDA RIFE method, `rife_elexor`, `distildrba`, `distildrba-lite`) |
 | **TensorRT** | `-tensorrt` | NVIDIA RTX | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **DirectML** | `-directml` | AMD / Intel / NVIDIA (Windows) | Upscale, interpolate, restore, depth, segment, object detection, autoclip, scene-cut, motion blur |
 | **OpenVINO** | `-openvino` | Intel CPU/GPU/NPU (Windows; runs on the CPU on Linux, where no Python 3.14 `onnxruntime-openvino` wheel exists) | Upscale, interpolate, restore, depth, object detection |
 | **NCNN** | `-ncnn` | Vulkan / low-power (AMD, Intel, NVIDIA) | Interpolate (RIFE), upscale (`shufflecugan`, `span`). Runs on the best GPU in the machine and tiles frames that do not fit its memory |
 | **MPS** | `-mps` | Apple Silicon | Upscale, interpolate, restore, depth, motion blur |
 
-> **⚙️ Kernel note:** a `-kernel` method runs the same `.pth`/`.safetensors` weights as its CUDA method on the hand-written CUDA kernels of the `tas-kernels` package (installed by the `windows-cuda` and `linux-cuda` profiles). There is no engine build and nothing extra to download. Output matches the CUDA method to within its own fp16/TF32 rounding. On a GPU older than the RTX 30 series, or without the package, the stage warns and runs the CUDA method instead. `--custom_model` works with a `-kernel` upscale method when the file is a Compact (24 or 64 features), SPAN, Real-CUGAN 2x / ShuffleCUGAN or RealPLKSR (non-DySample) model, 1x to 4x; any other architecture is refused with a message.
+> **⚙️ Kernel note:** a `-kernel` method runs the same `.pth`/`.safetensors` weights as its CUDA method on the hand-written CUDA kernels of the `tas-kernels` package (installed by the `windows-cuda` and `linux-cuda` profiles). There is no engine build and nothing extra to download. Output matches the CUDA method to within its own fp16/TF32 rounding. On a GPU older than the RTX 30 series, or without the package, the stage warns and runs the CUDA method instead. `--custom_model` works with a `-kernel` upscale method when the file is a Compact (24 or 64 features), SPAN, Real-CUGAN 2x / ShuffleCUGAN or RealPLKSR (non-DySample) model, 1x to 4x; any other architecture is refused with a message. An interpolate `-kernel` method runs TAS's fast RIFE path (per-pair encode, per-frame flow) and keeps warp coordinates, flow and the final blend in fp32 in both precisions, so it does not flicker on slow pans the way the fp16 CUDA and TensorRT paths can; RTX 3090, 1080p fp16, 2x: 1.8x (`rife4.6`) to 4.1x (`rife4.26-ultra`) the `-tensorrt` method's speed, 5.4x for `distildrba`. `--ensemble`, `--dynamic_scale` and `--static_step` are not implemented by the kernels: with any of them the stage warns and runs the CUDA method.
 >
 > **🎮 ROCm note:** install the `linux-rocm` or `windows-rocm` profile (`python main.py --download_requirements windows-rocm`) for AMD HIP torch. `-rocm` shares `.pth` weights with CUDA and runs eager (no graphs/CUDA-graph windowing). TensorRT and Maxine stay NVIDIA-only. `windows-rocm` (experimental) installs AMD's torch build plus the kernels for the GPU target it detects; set `ROCM_BOOTSTRAP_FORCE_GFX_ARCH` (e.g. `gfx1100` for an RX 7900, `gfx1201` for an RX 9070) if detection fails or picks the wrong GPU.
 >
@@ -385,26 +385,26 @@ SMoVSR (`smovsr`, `smovsr-tensorrt`, `smovsr-directml`, `smovsr-openvino`, `smov
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **rife4.26** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Newer weights on the rife4.25 architecture, same speed | CUDA, TRT, DML, OpenVINO, MPS |
-| **rife4.26-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Anime; 16-channel feature encoder (not a wider rife4.25-heavy) | CUDA, TRT, DML, OpenVINO, MPS |
-| **rife4.26-ultra** | ¼⚡ | ⭐⭐⭐⭐⭐ | ~4× heavy (≈4 GB at 1080p, ≈21 GB at 4K) | Final renders: rife4.26-heavy's weights run as four flipped views (as-is, left-right, top-bottom, both) averaged after every block, finished with a sharper Catmull-Rom warp. About 3–4× heavy's time. Cleaner thin moving shapes and no every-other-frame softness on pans; it cannot fix very large motion. Ignores `--ensemble` and `--dynamic_scale` | CUDA, ROCm, TRT, DML, OpenVINO, MPS |
-| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice (default) | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.26** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Newer weights on the rife4.25 architecture, same speed | CUDA, Kernel, TRT, DML, OpenVINO, MPS |
+| **rife4.26-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Anime; 16-channel feature encoder (not a wider rife4.25-heavy) | CUDA, Kernel, TRT, DML, OpenVINO, MPS |
+| **rife4.26-ultra** | ¼⚡ | ⭐⭐⭐⭐⭐ | ~4× heavy (≈4 GB at 1080p, ≈21 GB at 4K) | Final renders: rife4.26-heavy's weights run as four flipped views (as-is, left-right, top-bottom, both) averaged after every block, finished with a sharper Catmull-Rom warp. About 3–4× heavy's time. Cleaner thin moving shapes and no every-other-frame softness on pans; it cannot fix very large motion. Ignores `--ensemble` and `--dynamic_scale` | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, MPS |
+| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice (default) | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
 | **rife** | ⚡⚡ | ⭐⭐⭐ | 4GB | Alias for the current recommended RIFE build | TRT, NCNN, MPS |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | TRT, DML, OpenVINO |
-| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, ROCm, NCNN, MPS |
-| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, ROCm, NCNN, MPS |
-| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
-| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, ROCm, TRT, MPS |
-| **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, ROCm, TRT |
-| **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, ROCm, TRT |
+| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, Kernel, ROCm, NCNN, MPS |
+| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, Kernel, ROCm, NCNN, MPS |
+| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, Kernel, ROCm, TRT, DML, OpenVINO, NCNN, MPS |
+| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, Kernel, ROCm, TRT, MPS |
+| **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | Distilled DRBA; uses the next frame as a motion cue | CUDA, Kernel, ROCm, TRT |
+| **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | Lighter DRBA variant | CUDA, Kernel, ROCm, TRT |
 | **maxine-low / -medium / -high** | varies | varies | varies | NVIDIA Maxine Video Frame Generation (SDK-provided, no download). RTX 40/50 (Ada, Blackwell) only; fp32 internally; ignores `--ensemble`. Holds on shot changes it detects itself | CUDA (NVIDIA-only, no ROCm) |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews. On Apple Silicon use `rife4.6-mps` or `rife4.25-mps`.

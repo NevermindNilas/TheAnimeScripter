@@ -1,5 +1,4 @@
-"""
-Interpolate backend factory.
+"""Builds interpolation backends.
 
 buildInterpolateProcess(self, interpWidth, interpHeight) -> callable
   interpWidth/interpHeight: the resolution the interpolation driver will actually
@@ -219,6 +218,94 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 interpWidth,
                 interpHeight,
                 self.interpolateMethod,
+                interpolateFactor=self.interpolateFactor,
+                compileMode=self.compileMode,
+            )
+
+        case (
+            "rife4.6-kernel"
+            | "rife4.15-lite-kernel"
+            | "rife4.16-lite-kernel"
+            | "rife4.17-kernel"
+            | "rife4.18-kernel"
+            | "rife4.20-kernel"
+            | "rife4.21-kernel"
+            | "rife4.22-kernel"
+            | "rife4.22-lite-kernel"
+            | "rife4.25-kernel"
+            | "rife4.25-lite-kernel"
+            | "rife_elexor-kernel"
+            | "rife4.25-heavy-kernel"
+            | "rife4.26-kernel"
+            | "rife4.26-heavy-kernel"
+            | "rife4.26-ultra-kernel"
+        ):
+            from src.interpolate.kernel import (
+                RifeKernel,
+                baseMethod,
+                kernelFallbackReason,
+            )
+            from src.upscale.kernel import kernelUnavailableReason
+
+            method = self.interpolateMethod
+            reason = kernelUnavailableReason() or kernelFallbackReason(
+                method, self.ensemble, self.dynamicScale, self.staticStep
+            )
+            if reason is None:
+                try:
+                    return RifeKernel(
+                        self.half,
+                        interpWidth,
+                        interpHeight,
+                        method,
+                        self.interpolateFactor,
+                    )
+                except (ValueError, RuntimeError) as error:
+                    reason = str(error)
+            from src.infra.logAndPrint import logWarning
+            from src.interpolate.rife import RifeCuda
+
+            base = baseMethod(method)
+            logWarning(f"{method} cannot run here: {reason}. Using {base} instead.")
+            return RifeCuda(
+                self.half,
+                interpWidth,
+                interpHeight,
+                base,
+                self.ensemble,
+                self.interpolateFactor,
+                self.dynamicScale,
+                self.staticStep,
+                compileMode=self.compileMode,
+            )
+
+        case "distildrba-kernel" | "distildrba-lite-kernel":
+            from src.interpolate.kernel import DrbaKernel, baseMethod
+            from src.upscale.kernel import kernelUnavailableReason
+
+            method = self.interpolateMethod
+            reason = kernelUnavailableReason()
+            if reason is None:
+                try:
+                    return DrbaKernel(
+                        self.half,
+                        interpWidth,
+                        interpHeight,
+                        method,
+                        self.interpolateFactor,
+                    )
+                except (ValueError, RuntimeError) as error:
+                    reason = str(error)
+            from src.infra.logAndPrint import logWarning
+            from src.interpolate.distildrba import DistilDRBACuda
+
+            base = baseMethod(method)
+            logWarning(f"{method} cannot run here: {reason}. Using {base} instead.")
+            return DistilDRBACuda(
+                self.half,
+                interpWidth,
+                interpHeight,
+                base,
                 interpolateFactor=self.interpolateFactor,
                 compileMode=self.compileMode,
             )

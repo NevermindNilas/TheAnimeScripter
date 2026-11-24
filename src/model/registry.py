@@ -1,4 +1,4 @@
-"""Static model registry data without network or runtime startup imports."""
+"""Static model tables only: importing this never touches the network or runtime start-up code."""
 
 import importlib.util
 import os
@@ -6,8 +6,9 @@ import sys
 
 from src.infra.logAndPrint import logAndPrint
 
-weightsBaseDir = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# src/model/registry.py -> the directory that holds `src`
+weightsBaseDir = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
 )
 weightsDir = os.path.join(weightsBaseDir, "weights")
 
@@ -212,6 +213,25 @@ def modelsList() -> list[str]:
         "deh264_span-kernel",
         "hurrdeblur-kernel",
         "dehalo-kernel",
+        # Interpolation -kernel methods: RIFE reads the CUDA .pth, DistilDRBA its .pkl.
+        "rife4.6-kernel",
+        "rife4.15-lite-kernel",
+        "rife4.16-lite-kernel",
+        "rife4.17-kernel",
+        "rife4.18-kernel",
+        "rife4.20-kernel",
+        "rife4.21-kernel",
+        "rife4.22-kernel",
+        "rife4.22-lite-kernel",
+        "rife4.25-kernel",
+        "rife4.25-lite-kernel",
+        "rife4.25-heavy-kernel",
+        "rife4.26-kernel",
+        "rife4.26-heavy-kernel",
+        "rife4.26-ultra-kernel",
+        "rife_elexor-kernel",
+        "distildrba-kernel",
+        "distildrba-lite-kernel",
         # ROCm (-rocm) mirrors the CUDA .pth weights; the runtime strips the
         # suffix before modelsMap like it does for -mps, so no modelsMap arm
         # is needed. TensorRT/Maxine/NVENC have no ROCm counterpart (NVIDIA-only).

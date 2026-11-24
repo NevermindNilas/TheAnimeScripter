@@ -246,7 +246,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if width is None:
             try:
                 width = os.get_terminal_size().columns
-            except (ValueError, OSError) as _e:
+            except ValueError, OSError:
                 width = 100
         super().__init__(
             prog, indent_increment, max_help_position, min(max(width, 60), 120)
@@ -602,6 +602,24 @@ def _addInterpolationOptions(argParser):
         "distildrba-lite-tensorrt",
         "distildrba-rocm",
         "distildrba-lite-rocm",
+        "rife4.6-kernel",
+        "rife4.15-lite-kernel",
+        "rife4.16-lite-kernel",
+        "rife4.17-kernel",
+        "rife4.18-kernel",
+        "rife4.20-kernel",
+        "rife4.21-kernel",
+        "rife4.22-kernel",
+        "rife4.22-lite-kernel",
+        "rife4.25-kernel",
+        "rife4.25-lite-kernel",
+        "rife4.25-heavy-kernel",
+        "rife4.26-kernel",
+        "rife4.26-heavy-kernel",
+        "rife4.26-ultra-kernel",
+        "rife_elexor-kernel",
+        "distildrba-kernel",
+        "distildrba-lite-kernel",
         "rife4.6",
         "rife4.15-lite",
         "rife4.16-lite",
