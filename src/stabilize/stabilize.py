@@ -682,13 +682,14 @@ class VideoStabilize:
                 )
 
                 if self.writeHwcUint8:
+                    # warpAffine made a new image: wrap it, uint8 or uint16.
                     outputTensor = torch.from_numpy(np.ascontiguousarray(stabilized))
                 else:
                     outputTensor = (
                         torch.from_numpy(stabilized)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
-                        .to(torch.float32)
+                        .float()
                     )
                     # A >8-bit source decodes to uint16: scaled by 1/255 it
                     # clamped to white. The reader knows its own uint16 white.

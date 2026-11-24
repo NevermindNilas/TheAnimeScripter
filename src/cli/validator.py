@@ -883,9 +883,9 @@ def _adjustMethodsBasedOnCuda(
         from src.infra.backendFallback import applyBackendFallbacks
 
         if availableModels is None:
-            from src.model.registry import modelsList
+            from src.model import registry
 
-            availableModels = modelsList()
+            availableModels = registry.modelsList()
 
         if methodChoices is None:
             if parser is not None:
@@ -901,10 +901,11 @@ def _adjustMethodsBasedOnCuda(
                 methodChoices = capabilityMethods(_buildParser("."))
 
         drafts = stageDrafts(args)
+        onMacos = cs.SYSTEM == "Darwin"
         applyBackendFallbacks(
             args,
             availableModels,
-            preferMps=cs.SYSTEM == "Darwin",
+            preferMps=onMacos,
             methodChoices=methodChoices,
             preferRocm=preferRocm,
             stages=drafts,
@@ -951,8 +952,8 @@ def prepareRuntimeArgs(args, outputPath, parser):
 
         sys.exit(_listMethods(parser, args.list_methods))
 
-    cliConfig = CliConfig.fromArgs(args, parser, sys.argv[1:])
-    args = cliConfig.args
+    config = CliConfig.fromArgs(args, parser, sys.argv[1:])
+    args = config.args
 
     if args.download_requirements is not None:
         from src.infra.dependencyHandler import DependencyChecker
@@ -1043,9 +1044,9 @@ def prepareRuntimeArgs(args, outputPath, parser):
     logging.info(f"TAS: {__version__}\n")
 
     logging.info("============== Arguments ==============")
-    for arg, value in vars(args).items():
-        if arg in cliConfig.providedOptions and value not in [None, "", "none"]:
-            logging.info(f"{arg.upper()}: {value}")
+    for name, value in vars(args).items():
+        if name in config.providedOptions and value not in (None, "", "none"):
+            logging.info(f"{name.upper()}: {value}")
 
     if not args.benchmark:
         from src.infra.checkSpecs import checkSystem
@@ -1136,20 +1137,15 @@ def prepareRuntimeArgs(args, outputPath, parser):
         cs.AUDIO = False
 
     try:
-        shouldContinue = normalizeInputArgs(
-            args,
-            outputPath,
-            isAnyOtherProcessingMethodEnabled(args),
+        keepGoing = normalizeInputArgs(
+            args, outputPath, isAnyOtherProcessingMethodEnabled(args)
         )
     except InputNormalizationError as e:
         logging.error(str(e))
         logAndPrint(str(e), "red")
         sys.exit(1)
-
-    # shouldContinue is False only for the URL-download-without-processing
-    # short-circuit (see processUrlInput): the download already succeeded and
-    # was renamed to the output, so there is nothing left to do — exit 0.
-    if not shouldContinue:
+    if not keepGoing:
+        # The URL download was the whole job and it is done.
         sys.exit()
 
     try:
@@ -1157,7 +1153,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
     except CliValidationError as e:
         logAndPrint(str(e), "red")
         sys.exit(1)
-
     if warning:
         logAndPrint(warning, "yellow")
         logging.info(warning)

@@ -924,6 +924,8 @@ class NeluxWriteBuffer:
         # src/io/runOutcome.py:truncatedDecodeError, the same way the decoder's
         # own failure is.
         self.encodeError: Exception | None = None
+        # Producers may write() a finished 8-bit frame as an HWC integer
+        # tensor; a writer without this attribute takes float frames only.
         self.acceptsHwcUint8 = True
         # Preview is sampled from the frames handed to the encoder (demand-gated
         # and wall-clock throttled, see PreviewSampler), so it cannot perturb
@@ -1099,16 +1101,19 @@ class NeluxWriteBuffer:
         _LIVE_NELUX_WRITERS.add(self)
         try:
             if self.benchmark:
+                # Nothing is encoded: only drain what the pipeline produces.
                 while not self._stopNow.is_set():
                     try:
-                        frame = self.writeBuffer.get(timeout=0.5)
+                        item = self.writeBuffer.get(timeout=0.5)
                     except Empty:
                         continue
-                    if frame is None:
+                    if item is None:
                         self._sawSentinel = True
                         break
                     self.writtenFrames += 1
-                logging.info(f"Nelux benchmark consumed {self.writtenFrames} frames")
+                logging.info(
+                    f"Benchmark mode consumed {self.writtenFrames} frames without encoding"
+                )
                 return
 
             # Cancelling during model init/warmup parks the writer here, before
@@ -1199,9 +1204,9 @@ class NeluxWriteBuffer:
                 # rather than scrambling through the BCHW branch below.
                 if (
                     isinstance(frame, torch.Tensor)
-                    and frame.ndim == 3
-                    and (frame.dtype == torch.uint8 or frame.dtype == torch.uint16)
-                    and frame.shape[2] == 3
+                    and frame.dim() == 3
+                    and frame.shape[-1] == 3
+                    and frame.dtype in (torch.uint8, torch.uint16)
                 ):
                     # nelux (>= 0.21.0) reads a strided frame (CHW view,
                     # padded rows) where it lies, CPU or CUDA: no copy here.

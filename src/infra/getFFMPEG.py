@@ -88,9 +88,11 @@ _KEEP_FROM_ARCHIVE = ("licenses", "manifest.json", "share")
 def getFFMPEG():
     ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
     cs.FFMPEGPATH = ffmpegPath
-    if not cs.FFPROBEPATH or not os.path.exists(cs.FFPROBEPATH):
-        ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
-        cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
+    # A probe that already exists is kept: on macOS it is the system one.
+    if cs.FFPROBEPATH and os.path.exists(cs.FFPROBEPATH):
+        return
+    probeName = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
+    cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), probeName)
 
 
 def ensureFFMPEG() -> None:
@@ -209,27 +211,21 @@ def ffmpegNeedsInstall(ffmpegPath: str, ffprobePath: str) -> bool:
     return False
 
 
+# Searched after PATH, in this order.
+_SYSTEM_FFMPEG_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin")
+
+
 def findSystemFfmpeg() -> tuple[str, str] | None:
-    """Return system ffmpeg/ffprobe when both are available."""
-    searchPaths = [
-        None,
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        "/usr/bin",
-    ]
+    """An (ffmpeg, ffprobe) pair already on this machine, both from one place.
 
-    ffmpegPath = None
-    ffprobePath = None
-    for searchPath in searchPaths:
-        ffmpegCandidate = shutil.which("ffmpeg", path=searchPath)
-        ffprobeCandidate = shutil.which("ffprobe", path=searchPath)
-        if ffmpegCandidate and ffprobeCandidate:
-            ffmpegPath = ffmpegCandidate
-            ffprobePath = ffprobeCandidate
-            break
-
-    if ffmpegPath and ffprobePath:
-        return ffmpegPath, ffprobePath
+    PATH is searched first, then the usual install directories, because a
+    GUI-launched macOS process often has a PATH without the Homebrew prefix.
+    """
+    for directory in (None, *_SYSTEM_FFMPEG_DIRS):
+        ffmpeg = shutil.which("ffmpeg", path=directory)
+        ffprobe = shutil.which("ffprobe", path=directory)
+        if ffmpeg and ffprobe:
+            return ffmpeg, ffprobe
     return None
 
 
@@ -251,23 +247,19 @@ def _downloadFile(
     # Without a timeout a stalled connection blocked here forever; see
     # src/model/download.py:DOWNLOAD_TIMEOUT (per blocking call, not a total).
     with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
-        # Check for HTTP errors manually (like raise_for_status)
-        if response.getcode() != 200:
-            raise HTTPError(url, response.getcode(), None, None, None)
+        status = response.getcode()
+        if status != 200:
+            raise HTTPError(url, status, None, None, None)
 
-        totalSizeInBytes = int(response.headers.get("content-length", 0))
-
+        total = int(response.headers.get("content-length") or 0) or 1
         with (
-            ProgressBarDownloadLogic(totalSizeInBytes or 1, label) as bar,
             open(destination, "wb") as file,
+            ProgressBarDownloadLogic(total, label) as advance,
         ):
-            while True:
-                data = response.read(1024 * 1024)
-                if not data:
-                    break
-                digest.update(data)
-                file.write(data)
-                bar(len(data))
+            while chunk := response.read(1024 * 1024):
+                digest.update(chunk)
+                file.write(chunk)
+                advance(len(chunk))
 
     if expectedSha256 is None:
         return
@@ -290,8 +282,7 @@ def _downloadFile(
 def _safeExtractZip(archive, destination: str) -> None:
     """Extract a zip, refusing any member that would land outside `destination`.
 
-    Mirrors src/build_support/python_runtime.py, which already guards its
-    archives this way.
+    Mirrors the guard the portable build applies to the archives it unpacks.
     """
     resolved = os.path.realpath(destination)
     for member in archive.infolist():
@@ -543,9 +534,9 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     if cs.SYSTEM == "Darwin":
         systemFfmpeg = findSystemFfmpeg() or installMacosFfmpegViaHomebrew()
         if systemFfmpeg is not None:
-            cs.FFPROBEPATH = systemFfmpeg[1]
-            logging.info(f"Using system FFmpeg: {systemFfmpeg[0]}")
-            return systemFfmpeg[0]
+            systemPath, cs.FFPROBEPATH = systemFfmpeg
+            logging.info(f"Using the system FFmpeg at {systemPath}")
+            return systemPath
 
         if findHomebrew() is None:
             raise RuntimeError(

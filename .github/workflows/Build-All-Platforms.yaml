@@ -6,6 +6,12 @@ on:
 permissions:
   contents: write
 
+# One release build at a time. Two runs of the same version would both pass the
+# "already published" check and then race each other onto the GitHub release.
+concurrency:
+  group: build-all-platforms
+  cancel-in-progress: false
+
 jobs:
   create_release:
     runs-on: ubuntu-latest
@@ -36,6 +42,37 @@ jobs:
       - name: Print version
         id: print_version
         run: echo ${{ steps.get_version.outputs.version }}
+
+      # A version already on the update host cannot be replaced, and a rebuild is never
+      # byte-identical. Stop before anything is rebuilt, so the GitHub release cannot end
+      # up with different archives than the update host. To retry a failed publish_cdn,
+      # use "Re-run failed jobs", which skips this job.
+      - name: Refuse a version that cannot be published
+        run: |
+          version="${{ steps.get_version.outputs.version }}"
+          # curl fails the step on an outage or a missing index: nothing is built against an unknown host state.
+          curl -fsS --retry 3 -o "$RUNNER_TEMP/engine-index.json" https://updates.nevermindnilas.dev/engine/stable/index.json
+          VERSION="$version" python3 - "$RUNNER_TEMP/engine-index.json" <<'PY'
+          import json, os, re, sys
+
+          version = os.environ["VERSION"]
+          strict = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+          if not strict.match(version):
+              sys.exit(f"::error::src/version.py says {version!r}; a release version must be X.Y.Z with no leading zeros.")
+          try:
+              index = json.load(open(sys.argv[1], encoding="utf-8"))
+              releases, retired = index["releases"], index.get("retired", [])
+              published = [r["version"] for r in releases] + [r["version"] for r in retired]
+          except Exception as error:  # an unreadable index must stop the build, not wave it through
+              sys.exit(f"::error::engine/stable/index.json on the update host is not readable ({error}).")
+          key = lambda v: tuple(int(p) for p in v.split("-")[0].split("."))
+          if version in published:
+              sys.exit(f"::error::Engine {version} was already published on the update host and a version can never be replaced. Bump src/version.py, or use 'Re-run failed jobs' to retry a failed job of the original run.")
+          newer = [v for v in published if key(v) >= key(version)]
+          if newer:
+              sys.exit(f"::error::Engine {version} is not higher than {max(newer, key=key)}, which the update host has already published.")
+          print(f"Engine {version} has not been published; highest so far: {max(published, key=key) if published else 'none'}.")
+          PY
 
       - name: Extract changelog for current version
         id: get_changelog
@@ -85,6 +122,15 @@ jobs:
           body_path: ${{ steps.get_changelog.outputs.changelog_path }}
           draft: true
 
+      - name: Upload release notes for the update host
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: /tmp/changelog.txt
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
   build_windows:
     needs: create_release
     runs-on: windows-latest
@@ -117,6 +163,17 @@ jobs:
           files: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
           draft: true
 
+      # The same archive, handed to publish_cdn below.
+      - name: Upload archive for the update host
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdn-windows
+          path: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
+
   build_macos:
     needs: create_release
     runs-on: macos-15
@@ -147,6 +204,17 @@ jobs:
           tag_name: v${{ needs.create_release.outputs.version }}
           files: TAS-${{ needs.create_release.outputs.version_nodots }}-macOS-arm64.zip
           draft: true
+
+      # The same archive, handed to publish_cdn below.
+      - name: Upload archive for the update host
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdn-macos
+          path: TAS-${{ needs.create_release.outputs.version_nodots }}-macOS-arm64.zip
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
 
   #build_lite_windows:
   #  needs: create_release
@@ -221,3 +289,52 @@ jobs:
           tag_name: v${{ needs.create_release.outputs.version }}
           files: TAS-${{ needs.create_release.outputs.version_nodots }}-Linux-x86_64.tar.gz
           draft: true
+
+      # The same archive, handed to publish_cdn below.
+      - name: Upload archive for the update host
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdn-linux
+          path: TAS-${{ needs.create_release.outputs.version_nodots }}-Linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
+
+  # Publishes the three archives to the update host (https://updates.nevermindnilas.dev),
+  # which is where the frontends download the engine from. It runs only after every
+  # platform built, so a release is never half there. The frontends cannot publish a
+  # build pinned to this version until this job has succeeded.
+  #
+  # The GitHub release stays a draft. Publish it by hand once sync-frontends.yml has
+  # attached the Standalone and Adobe builds pinned to this version.
+  publish_cdn:
+    needs: [create_release, build_windows, build_macos, build_linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download the archives
+        uses: actions/download-artifact@v4
+        with:
+          path: cdn
+          merge-multiple: true
+
+      - name: Publish to the update host
+        env:
+          CDN_PUBLISH_TOKEN: ${{ secrets.CDN_PUBLISH_TOKEN }}
+          VERSION: ${{ needs.create_release.outputs.version }}
+          NODOTS: ${{ needs.create_release.outputs.version_nodots }}
+        run: |
+          node .github/scripts/cdn-publish.mjs release \
+            --product engine --channel stable --version "$VERSION" \
+            --file "windows:zip:cdn/TAS-$NODOTS-Windows.zip" \
+            --file "macos:zip:cdn/TAS-$NODOTS-macOS-arm64.zip" \
+            --file "linux:tar.gz:cdn/TAS-$NODOTS-Linux-x86_64.tar.gz" \
+            --notes-file cdn/changelog.txt

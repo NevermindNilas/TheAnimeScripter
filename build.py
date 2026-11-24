@@ -1,24 +1,25 @@
 import argparse
+from pathlib import Path
 
-from src.build_support.context import create_build_context
-from src.build_support.pipeline import build_portable
+from src.portableBuild import buildPortable, defaultSettings
 
 
-def main() -> None:
+def parseArguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build script for The Anime Scripter portable version."
     )
     parser.add_argument(
         "--develop",
         action="store_true",
-        help=(
-            "If active, it will overwrite the platform development install "
-            "directory with the newly generated build. ONLY USE IN DEVELOPMENT!"
-        ),
+        help="If active, it will overwrite the platform development install directory with the newly generated build. ONLY USE IN DEVELOPMENT!",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    build_portable(create_build_context(), develop=args.develop)
+
+def main() -> None:
+    args = parseArguments()
+    settings = defaultSettings(Path(__file__).resolve().parent)
+    buildPortable(settings, develop=args.develop)
 
 
 if __name__ == "__main__":

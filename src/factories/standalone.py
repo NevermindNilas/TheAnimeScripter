@@ -1,7 +1,7 @@
-"""
-Standalone processing drivers that bypass the main frame loop.
-Each function receives the VideoProcessor instance and runs its own
-read/process/write pipeline to completion.
+"""Drivers for the capabilities that do not go through the main frame loop.
+
+Each function is given the VideoProcessor and runs its own decode, process and
+encode to the end.
 """
 
 

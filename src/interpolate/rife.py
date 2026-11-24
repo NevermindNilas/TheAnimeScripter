@@ -696,13 +696,14 @@ class RifeCuda:
             self.processFrame(None, "prepare")
 
         for i in range(framesToInsert):
-            t = interpolateTimestep(i, framesToInsert, timesteps)
+            timestep = interpolateTimestep(i, framesToInsert, timesteps)
             # The common 2x path uses the same 0.5 timestep every frame. Avoid
             # refilling the full HxW tensor unless the requested timestep changes.
             waitForCaller(self.normStream)
             with torch.cuda.stream(self.normStream):
+                # In place only: the captured graph reads this buffer.
                 self._cachedTimestepValue = fillTimestepBuffer(
-                    self._timestep_buffer, self._cachedTimestepValue, t
+                    self._timestep_buffer, self._cachedTimestepValue, timestep
                 )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
@@ -804,15 +805,12 @@ class RifeMPS:
                         mode="max-autotune-no-cudagraphs", fullgraph=True
                     )
             except Exception as e:
-                logging.error(
-                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
-                    f"with mode {self.compileMode}: {e}"
+                message = (
+                    f"Could not compile the MPS RIFE model {self.interpolateMethod} "
+                    f"with compile mode '{self.compileMode}', running it uncompiled: {e}"
                 )
-                logAndPrint(
-                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
-                    f"with mode {self.compileMode}: {e}",
-                    "red",
-                )
+                logging.error(message)
+                logAndPrint(message, "red")
             self.compileMode = "default"
 
         # rife_elexor's arch has no dynamic-scale path; see RifeCuda.handleModel.
@@ -889,8 +887,9 @@ class RifeMPS:
                     output = step(self.I0, self.I1, frame)[
                         :, :, : self.height, : self.width
                     ].clone()
-                # `output.cpu()` will wait for the pending MPS work to finish.
-                return output.contiguous().cpu()
+                # No explicit MPS synchronize: the copy to the host already
+                # blocks until the pending device work is done.
+                return output.cpu().contiguous()
 
             case "model":
                 self.model.cacheReset(frame)
@@ -932,9 +931,9 @@ class RifeMPS:
             self.model.prepare(self.I0, self.I1)
 
         for i in range(framesToInsert):
-            t = interpolateTimestep(i, framesToInsert, timesteps)
+            timestep = interpolateTimestep(i, framesToInsert, timesteps)
             self._cachedTimestepValue = fillTimestepBuffer(
-                self._timestep_buffer, self._cachedTimestepValue, t
+                self._timestep_buffer, self._cachedTimestepValue, timestep
             )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
@@ -1158,9 +1157,9 @@ class RifeROCm:
             self.model.prepare(self.I0, self.I1)
 
         for i in range(framesToInsert):
-            t = interpolateTimestep(i, framesToInsert, timesteps)
+            timestep = interpolateTimestep(i, framesToInsert, timesteps)
             self._cachedTimestepValue = fillTimestepBuffer(
-                self._timestep_buffer, self._cachedTimestepValue, t
+                self._timestep_buffer, self._cachedTimestepValue, timestep
             )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)

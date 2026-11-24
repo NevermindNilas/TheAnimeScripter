@@ -58,7 +58,9 @@ def _ncnnCanRun():
 
 
 def hasExplicitBackend(method):
-    return any(backend in method.lower() for backend in BACKEND_SUFFIXES)
+    """Whether ``method`` names a backend anywhere in it, in any letter case."""
+    name = method.lower()
+    return any(suffix in name for suffix in BACKEND_SUFFIXES)
 
 
 def _suffixOrder(preferMps, capability=None, preferRocm=False):
@@ -169,7 +171,9 @@ def _adjustedMethods(
         adjusted = []
         for method in currentMethod:
             if hasExplicitBackend(method):
-                logging.info(f"{attr} method {method} already uses a backend")
+                logging.info(
+                    f"Keeping {attr} entry {method}: it already names a backend"
+                )
                 adjusted.append(method)
                 continue
 
@@ -191,7 +195,7 @@ def _adjustedMethods(
         return type(currentMethod)(adjusted)
 
     if hasExplicitBackend(currentMethod):
-        logging.info(f"{attr} already uses a backend: {currentMethod}")
+        logging.info(f"Keeping {attr} {currentMethod}: it already names a backend")
         return currentMethod
 
     newMethod = fallbackMethod(
@@ -268,9 +272,10 @@ def applyBackendFallbacks(
 
     if getattr(args, "moblur", False):
         moblurMethod = args.moblur_method
+        # -tensorrt and -ncnn are not here: both still go through the lookup.
         if not any(
-            backend in moblurMethod
-            for backend in ("-directml", "-openvino", "-mps", "-rocm")
+            suffix in moblurMethod
+            for suffix in ("-directml", "-openvino", "-mps", "-rocm")
         ):
             base = moblurMethod.replace("-tensorrt", "")
             # Checked against the choice list rather than assigned blind: this

@@ -414,6 +414,21 @@ def installDependencies(
     return success, message
 
 
+def _profileSystem() -> str:
+    """This system's name as dependency profiles spell it."""
+    if sys.platform == "win32":
+        return "windows"
+    return "macos" if sys.platform == "darwin" else "linux"
+
+
+def _isForeignProfile(profile: str) -> bool:
+    """Whether `profile` is a known profile of another operating system."""
+    normalized = profile.strip().lower()
+    if normalized not in DEPENDENCY_PROFILE_REQUIREMENTS:
+        return False
+    return normalized.split("-", 1)[0] != _profileSystem()
+
+
 class DependencyChecker:
     def __init__(self):
         self.cachePath = _getRuntimeRoot() / ".dependencyCache.json"
@@ -423,18 +438,46 @@ class DependencyChecker:
     def loadStoredProfile(self) -> str | None:
         """Return the profile the user previously installed, or None."""
         cache = self._loadCache()
-        return cache.get("profile")
+        ownSystem = _profileSystem()
+        others = cache.get("profiles")
+        if isinstance(others, dict) and isinstance(others.get(ownSystem), str):
+            return others[ownSystem]
+        profile = cache.get("profile")
+        if isinstance(profile, str) and _isForeignProfile(profile):
+            return None
+        return profile
 
     def storeProfile(self, profile: str) -> bool:
         """Persist the user's chosen profile. Returns False if it could not."""
         try:
+            record = self._recordWith(profile)
             with open(self.cachePath, "w") as f:
-                json.dump({"profile": profile}, f)
-            self._cache = {"profile": profile}
+                json.dump(record, f)
+            self._cache = record
             return True
         except Exception as e:
             logging.warning(f"Failed to store dependency profile: {e}")
             return False
+
+    def _recordWith(self, profile: str) -> dict:
+        """The record to write for `profile`, keeping another OS's own.
+
+        A checkout shared by two systems (dual boot) has one record file. The
+        top-level "profile" stays with the system that wrote it, since the
+        hosts read it; this system's goes under "profiles" by system name.
+        """
+        current = self._loadCache()
+        kept = current.get("profiles")
+        others = dict(kept) if isinstance(kept, dict) else {}
+        topLevel = current.get("profile")
+        if isinstance(topLevel, str) and _isForeignProfile(topLevel):
+            others[_profileSystem()] = profile
+            return {"profile": topLevel, "profiles": others}
+        others.pop(_profileSystem(), None)
+        record: dict = {"profile": profile}
+        if others:
+            record["profiles"] = others
+        return record
 
     def clearCache(self):
         """Delete the cache file (used by --cleanup)."""

@@ -35,9 +35,6 @@ __all__ = [
 ]
 
 
-_INV_255 = 1.0 / 255.0
-
-
 def _rgb8(frame):
     """A decoded frame as 8-bit RGB, the range the model and the palette use.
 
@@ -50,42 +47,51 @@ def _rgb8(frame):
     return (frame >> 8).astype(np.uint8)
 
 
+# 1/255 kept in double precision: the float32 multiply rounds it, which is
+# not the same last bit as dividing by 255.
+_UNIT_PER_8BIT = 1.0 / 255.0
+
+
 def _writeRgbFrame(
     writeBuffer, outputImg, writeHwcUint8: bool, copyHwc: bool = False
 ) -> None:
-    if writeHwcUint8:
-        outputImg = (
-            np.array(outputImg, copy=True, order="C")
-            if copyHwc
-            else np.ascontiguousarray(outputImg)
-        )
-        writeBuffer.write(torch.from_numpy(outputImg))
-        return
+    """Give one RGB HWC image to the writer in the form that writer takes.
 
-    outputTensor = (
-        torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).to(torch.float32)
-    )
-    outputTensor.mul_(_INV_255)
-    writeBuffer.write(outputTensor)
+    ``copyHwc`` is for an image whose memory the caller may reuse while the
+    frame still waits in the writer's queue.
+    """
+    if writeHwcUint8:
+        if copyHwc:
+            pixels = np.array(outputImg, order="C", copy=True)
+        else:
+            pixels = np.ascontiguousarray(outputImg)
+        writeBuffer.write(torch.from_numpy(pixels))
+        return
+    batched = torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0)
+    writeBuffer.write(batched.to(torch.float32, copy=True).mul_(_UNIT_PER_8BIT))
 
 
 def _rescaleBoxes(owner, boxes):
+    """Boxes (x, y, x, y) from model-input pixels to frame pixels.
+
+    float32 boxes are scaled in place; the factors are cached on ``owner``
+    for the frame size they were built for.
+    """
     if boxes.size == 0:
         return boxes.reshape(0, 4)
-    shape = (owner.imgWidth, owner.imgHeight)
-    if getattr(owner, "_boxScaleShape", None) != shape:
-        owner._boxScale = np.array(
-            [
-                owner.imgWidth / owner.inputWidth,
-                owner.imgHeight / owner.inputHeight,
-                owner.imgWidth / owner.inputWidth,
-                owner.imgHeight / owner.inputHeight,
-            ],
-            dtype=np.float32,
-        )
-        owner._boxScaleShape = shape
-    boxes = boxes.astype(np.float32, copy=False)
-    boxes *= owner._boxScale
+    frameSize = (owner.imgWidth, owner.imgHeight)
+    scale = getattr(owner, "_boxScale", None)
+    if scale is None or getattr(owner, "_boxScaleShape", None) != frameSize:
+        # One division per factor: dividing by the input size and then
+        # multiplying by the frame size rounds differently.
+        scaleX = owner.imgWidth / owner.inputWidth
+        scaleY = owner.imgHeight / owner.inputHeight
+        scale = np.array([scaleX, scaleY, scaleX, scaleY], dtype=np.float32)
+        owner._boxScale = scale
+        owner._boxScaleShape = frameSize
+    if boxes.dtype != np.float32:
+        boxes = boxes.astype(np.float32)
+    boxes *= scale
     return boxes
 
 
@@ -148,12 +154,12 @@ class _ObjectDetector:
 
     def prepareInput(self, image):
         self.imgHeight, self.imgWidth = image.shape[:2]
-        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
-        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
-            np.float32
-        )
-        inputTensor *= _INV_255
-        return inputTensor
+        # Resize while still uint8: resizing after the float conversion
+        # changes the result.
+        resized = cv2.resize(image, (self.inputWidth, self.inputHeight))
+        tensor = resized.transpose(2, 0, 1)[np.newaxis].astype(np.float32, order="C")
+        tensor *= np.float32(_UNIT_PER_8BIT)
+        return tensor
 
     def rescaleBoxes(self, boxes):
         return _rescaleBoxes(self, boxes)
@@ -164,6 +170,8 @@ class _ObjectDetector:
             frame = _rgb8(frame)
             classIds, boxes, confidences = self.detect(frame)
             if boxes.size == 0:
+                # The decoder may reuse this memory while the frame waits
+                # in the writer's queue, so the writer gets its own copy.
                 _writeRgbFrame(
                     self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
                 )
@@ -347,9 +355,11 @@ class ObjectDetectionDML(_ObjectDetector):
     def processOutput(self, output):
         confidences = output[:, -2]
         mask = confidences > self.confThreshold
+        # Index the kept rows only; both results are copies, so the in-place
+        # rescale below cannot write into `output`.
         boxes = output[mask, :-2]
-        confidences = confidences[mask]
         classIds = output[mask, -1].astype(int)
+        confidences = confidences[mask]
 
         boxes = self.rescaleBoxes(boxes)
         return classIds, boxes, confidences
@@ -538,9 +548,11 @@ class ObjectDetectionTensorRT(_ObjectDetector):
 
         confidences = output[:, -2]
         mask = confidences > self.confThreshold
+        # Index the kept rows only; both results are copies, so the in-place
+        # rescale below cannot write into `output`.
         boxes = output[mask, :-2]
-        confidences = confidences[mask]
         classIds = output[mask, -1].astype(int)
+        confidences = confidences[mask]
         classIds = np.clip(classIds, 0, len(colors) - 1)
 
         boxes = self.rescaleBoxes(boxes)

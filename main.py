@@ -255,8 +255,8 @@ class VideoProcessor:
         self.input = results["videoPath"]
         self.output = results["outputPath"]
         self.encodeMethod = results["encodeMethod"]
-        # Set by process() if the frame loop raises. start() reads this to
-        # decide whether success stats are meaningful.
+        # None unless process() (the frame loop) fails and stores its exception
+        # here; start() checks it before showing the end-of-run success stats.
         self.processingError: Exception | None = None
         # Set once start() has printed the failure itself, so main() does not
         # repeat it.

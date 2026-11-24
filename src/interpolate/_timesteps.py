@@ -75,13 +75,23 @@ def cutHoldSplit(prevPos, curPos, factorNum, factorDen):
 
 
 def interpolateTimestep(index, framesToInsert, timesteps=None):
+    """Position in ``(0, 1)`` of inserted frame ``index`` (0-based).
+
+    A plan entry is returned as is; without one the frame sits on the even
+    ladder.
+    """
     if timesteps is not None and index < len(timesteps):
         return timesteps[index]
-    return (index + 1) * 1 / (framesToInsert + 1)
+    # One true division: a precomputed reciprocal changes the last bit.
+    return (index + 1) / (framesToInsert + 1)
 
 
 def fillTimestepBuffer(buffer, cachedValue, timestep):
-    if cachedValue != timestep:
+    """Fill ``buffer`` in place only when ``timestep`` is not what it holds.
+
+    Returns the value the buffer now contains, for the caller to remember.
+    """
+    stale = timestep != cachedValue
+    if stale:
         buffer.fill_(timestep)
-        return timestep
-    return cachedValue
+    return timestep if stale else cachedValue

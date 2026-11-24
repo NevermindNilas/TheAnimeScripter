@@ -31,16 +31,120 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
 def ignoreMpsCompileMode(driver):
-    if driver.compileMode != "default":
-        logAndPrint(
-            f"compileMode '{driver.compileMode}' ignored on MPS depth backend (unsupported).",
-            "yellow",
+    """Nothing is compiled on MPS: say so once and fall back to the default mode."""
+    if driver.compileMode == "default":
+        return
+    logAndPrint(
+        f"MPS depth cannot use compileMode '{driver.compileMode}'; running with 'default'.",
+        "yellow",
+    )
+    driver.compileMode = "default"
+
+
+def _requireMps():
+    if not torch.backends.mps.is_available():
+        raise RuntimeError(
+            "This depth method needs MPS, and torch reports MPS as unavailable here"
         )
-        driver.compileMode = "default"
 
 
-class DepthMPS(DepthRunOutcome):
+def _frameFailed(driver, error):
+    """Record a swallowed frame/batch error; call from inside the ``except``."""
+    driver.recordFailure(error)
+    logging.exception(f"Something went wrong while processing the frame, {error}")
+
+
+def _stackTensors(frames):
+    return frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+
+
+def _disparityGray(depth):
+    """One raw DA3 depth map -> [0, 1] disparity with a 2/98-percentile stretch.
+
+    Two scalar percentile calls on purpose: asking for both quantiles at once
+    interpolates in another precision and moves the upper bound by ~1e-6.
+    """
+    depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+    valid = depth > 0
+    if valid.sum() <= 10:
+        return np.zeros(depth.shape, dtype=np.float32)
+    disparity = np.zeros_like(depth, dtype=np.float32)
+    disparity[valid] = 1.0 / depth[valid]
+    samples = disparity[valid]
+    low = np.percentile(samples, 2)
+    high = np.percentile(samples, 98)
+    if low == high:
+        low -= 1e-6
+        high += 1e-6
+    return ((disparity - low) / (high - low)).clip(0, 1)
+
+
+class _MpsDepthRun(DepthRunOutcome):
+    """What the MPS depth classes share: arguments, load status, the frame loop."""
+
+    def _storeArguments(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint,
+        outpoint,
+        encode_method,
+        depth_method,
+        benchmark,
+        totalFrames,
+        bitDepth,
+        depthQuality,
+        compileMode,
+        depth_batch,
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+        self.compileMode = compileMode
+        self.depthBatch = max(1, int(depth_batch))
+        self.device = torch.device("mps")
+        self.baseMethod = depth_method.replace("-mps", "")
+
+    def _announceLoad(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading depth model: {self.depth_method}..."}
+            )
+
+    def process(self):
+        frameCount = 0
+        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
+            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
+
+        logging.info(f"Processed {frameCount} frames")
+
+        self.writeBuffer.close()
+
+
+class DepthMPS(_MpsDepthRun):
     def __init__(
         self,
         input,
@@ -60,38 +164,33 @@ class DepthMPS(DepthRunOutcome):
         compileMode: str = "default",
         depth_batch: int = 1,
     ):
-        if not torch.backends.mps.is_available():
-            raise RuntimeError(
-                "MPS depth backend requested, but torch.mps is unavailable"
-            )
-
-        self.input = input
-        self.output = output
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.half = half
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        self.encode_method = encode_method
-        self.depth_method = depth_method
-        self.baseMethod = depth_method.replace("-mps", "")
-        self.benchmark = benchmark
-        self.totalFrames = totalFrames
-        self.bitDepth = bitDepth
-        self.depthQuality = depthQuality
-        self.compileMode = compileMode
-        self.depthBatch = max(1, int(depth_batch))
-        self.device = torch.device("mps")
+        _requireMps()
+        self._storeArguments(
+            input,
+            output,
+            width,
+            height,
+            fps,
+            half,
+            inpoint,
+            outpoint,
+            encode_method,
+            depth_method,
+            benchmark,
+            totalFrames,
+            bitDepth,
+            depthQuality,
+            compileMode,
+            depth_batch,
+        )
 
         self.handleModels()
 
-        self.meanTensor = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(
+        # After handleModels: a subclass loader decides dtype and half.
+        self.meanTensor = torch.tensor(IMAGENET_MEAN, device=self.device).view(
             1, 3, 1, 1
         )
-        self.stdTensor = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(
-            1, 3, 1, 1
-        )
+        self.stdTensor = torch.tensor(IMAGENET_STD, device=self.device).view(1, 3, 1, 1)
         if self.dtype == torch.float16:
             self.meanTensor = self.meanTensor.half()
             self.stdTensor = self.stdTensor.half()
@@ -130,49 +229,13 @@ class DepthMPS(DepthRunOutcome):
 
         self.reportOutcome()
 
-    def _finalizeModelPrecision(self):
-        self.model = self.model.eval()
-        if self.half:
-            try:
-                self.model = self.model.half()
-                self.dtype = torch.float16
-            except Exception as e:
-                logging.warning(f"Falling back to fp32 for MPS depth model: {e}")
-                self.model = self.model.float()
-                self.half = False
-                self.dtype = torch.float32
-        else:
-            self.model = self.model.float()
-            self.dtype = torch.float32
-
-        self.model = self.model.to(self.device)
-
-        ignoreMpsCompileMode(self)
-
-    def _warmup(self):
-        with torch.inference_mode():
-            dummy = torch.zeros(
-                (1, 3, self.newHeight, self.newWidth),
-                device=self.device,
-                dtype=self.dtype,
-            )
-            for _ in range(2):
-                _ = self.model(dummy)
-            torch.mps.synchronize()
-
     def handleModels(self):
-        if ADOBE:
-            progressState.update(
-                {"status": f"Loading MPS depth model: {self.depth_method}..."}
-            )
+        self._announceLoad()
 
         from ..dpt_v2 import DepthAnythingV2
 
-        match self.baseMethod:
-            case "small_v2":
-                method = "vits"
-            case _:
-                raise ValueError(f"Unsupported MPS depth method: {self.depth_method}")
+        if self.baseMethod != "small_v2":
+            raise ValueError(f"{self.depth_method} has no MPS depth implementation")
 
         self.filename = modelsMap(
             model=self.baseMethod, modelType="pth", half=self.half
@@ -184,16 +247,9 @@ class DepthMPS(DepthRunOutcome):
             modelType="pth",
         )
 
-        modelConfigs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-        }
-
-        self.model = DepthAnythingV2(**modelConfigs[method])
-
+        self.model = DepthAnythingV2(
+            encoder="vits", features=64, out_channels=[48, 96, 192, 384]
+        )
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict)
         del stateDict
@@ -201,8 +257,40 @@ class DepthMPS(DepthRunOutcome):
         self.newHeight, self.newWidth = aspectKeepingInputSize(
             self.width, self.height, self.depthQuality
         )
-        self._finalizeModelPrecision()
+
+        self._settlePrecision()
+        self.model = self.model.to(self.device)
+
+        ignoreMpsCompileMode(self)
         self._warmup()
+
+    def _settlePrecision(self):
+        """fp16 when asked for and the module converts, fp32 otherwise."""
+        self.model = self.model.eval()
+        if self.half:
+            try:
+                self.model = self.model.half()
+                self.dtype = torch.float16
+                return
+            except Exception as e:
+                logging.warning(
+                    f"MPS depth model failed in fp16 ({e}); continuing in fp32"
+                )
+                self.half = False
+        self.model = self.model.float()
+        self.dtype = torch.float32
+
+    @torch.inference_mode()
+    def _warmup(self):
+        # Straight through the model: normFrame's tensors do not exist yet.
+        dummy = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=self.device,
+            dtype=self.dtype,
+        )
+        for _ in range(2):
+            self.model(dummy)
+        torch.mps.synchronize()
 
     @torch.inference_mode()
     def normFrame(self, frame):
@@ -210,15 +298,9 @@ class DepthMPS(DepthRunOutcome):
         return (frame - self.meanTensor) / self.stdTensor
 
     @torch.inference_mode()
-    def _normalizeDepth(self, depth):
-        return (depth - depth.min()) / (depth.max() - depth.min())
-
-    @torch.inference_mode()
     def processBatch(self, frames):
         try:
-            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
-            batch = self.normFrame(batch)
-            depth = self.model(batch)
+            depth = self.model(self.normFrame(_stackTensors(frames)))
             depth = F.interpolate(
                 depth,
                 (self.height, self.width),
@@ -226,22 +308,13 @@ class DepthMPS(DepthRunOutcome):
                 align_corners=True,
             ).cpu()
             torch.mps.synchronize()
+            # Per-frame min-max, so batching never changes a frame's output.
             for i in range(depth.shape[0]):
-                self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
+                frame = depth[i : i + 1]
+                low = frame.min()
+                self.writeBuffer.write((frame - low) / (frame.max() - low))
         except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
-
-    def process(self):
-        frameCount = 0
-        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
-                self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
-
-        logging.info(f"Processed {frameCount} frames")
-        self.writeBuffer.close()
+            _frameFailed(self, e)
 
 
 class LimboMPS(DepthMPS):
@@ -252,10 +325,7 @@ class LimboMPS(DepthMPS):
     """
 
     def handleModels(self):
-        if ADOBE:
-            progressState.update(
-                {"status": f"Loading MPS depth model: {self.depth_method}..."}
-            )
+        self._announceLoad()
 
         from .. import depth_anything_3 as depth_anything_3_pkg
 
@@ -287,52 +357,48 @@ class LimboMPS(DepthMPS):
             self.width, self.height, self.depthQuality
         )
 
-        # fp32 whatever --precision says, matching DepthV3MPS: DA3's forward only
-        # autocasts on CUDA, so a halved model would run the whole DINOv2 stack
-        # in pure fp16 on MPS. The other v3 methods do not take that risk.
+        # fp32 whatever --precision says: DA3's forward only autocasts on CUDA, so a
+        # halved model would run the whole DINOv2 stack in pure fp16 here.
         self.model = self.model.float().eval().to(self.device)
         self.dtype = torch.float32
         self.half = False
 
         ignoreMpsCompileMode(self)
-
         self._warmup()
 
+    @torch.inference_mode()
     def _warmup(self):
-        with torch.inference_mode():
-            dummy = torch.zeros(
-                (1, 1, 3, self.newHeight, self.newWidth),
-                device=self.device,
-                dtype=self.dtype,
-            )
-            for _ in range(2):
-                _ = self.model.forward(dummy)
-            torch.mps.synchronize()
+        # DA3 layout: [batch, views, C, H, W].
+        dummy = torch.zeros(
+            (1, 1, 3, self.newHeight, self.newWidth),
+            device=self.device,
+            dtype=self.dtype,
+        )
+        for _ in range(2):
+            self.model.forward(dummy)
+        torch.mps.synchronize()
 
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
-            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
-            batch = self.normFrame(batch)
+            batch = self.normFrame(_stackTensors(frames))
+            # One frame is one single-view scene: [B, 1, C, H, W] in.
             depth = self.model.forward(batch.unsqueeze(1))["depth"][:, 0]
-            depth = depth.unsqueeze(1).cpu()
+            depth = depth.unsqueeze(1).cpu()  # [B, 1, h, w]
             torch.mps.synchronize()
+            size = (self.height, self.width)
             for i in range(depth.shape[0]):
                 gray = limboDisparity(depth[i : i + 1])
-                if gray.shape[-2:] != (self.height, self.width):
+                if tuple(gray.shape[-2:]) != size:
                     gray = F.interpolate(
-                        gray,
-                        (self.height, self.width),
-                        mode="bilinear",
-                        align_corners=True,
+                        gray, size, mode="bilinear", align_corners=True
                     ).clamp(0.0, 1.0)
                 self.writeBuffer.write(gray)
         except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
+            _frameFailed(self, e)
 
 
-class DepthV3MPS(DepthRunOutcome):
+class DepthV3MPS(_MpsDepthRun):
     """Depth Anything 3 on MPS, one frame per scene."""
 
     def __init__(
@@ -354,42 +420,38 @@ class DepthV3MPS(DepthRunOutcome):
         compileMode: str = "default",
         depth_batch: int = 1,
     ):
-        if not torch.backends.mps.is_available():
-            raise RuntimeError(
-                "MPS depth backend requested, but torch.mps is unavailable"
-            )
-
-        self.input = input
-        self.output = output
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.half = half
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        self.encode_method = encode_method
-        self.depth_method = depth_method
-        self.baseMethod = depth_method.replace("-mps", "")
-        self.benchmark = benchmark
-        self.totalFrames = totalFrames
-        self.bitDepth = bitDepth
-        self.depthQuality = depthQuality
-        self.compileMode = compileMode
-        self.depthBatch = max(1, int(depth_batch))
-        self.device = torch.device("mps")
+        _requireMps()
+        self._storeArguments(
+            input,
+            output,
+            width,
+            height,
+            fps,
+            half,
+            inpoint,
+            outpoint,
+            encode_method,
+            depth_method,
+            benchmark,
+            totalFrames,
+            bitDepth,
+            depthQuality,
+            compileMode,
+            depth_batch,
+        )
 
         self.handleModels()
 
-        decodeW = getattr(self, "_decodeWidth", self.width)
-        decodeH = getattr(self, "_decodeHeight", self.height)
+        decodeWidth = getattr(self, "_decodeWidth", self.width)
+        decodeHeight = getattr(self, "_decodeHeight", self.height)
         decodeResize = getattr(self, "_decodeResize", False)
         try:
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                width=decodeW,
-                height=decodeH,
+                width=decodeWidth,
+                height=decodeHeight,
                 half=self.half,
                 resize=decodeResize,
                 toTorch=False,
@@ -407,6 +469,7 @@ class DepthV3MPS(DepthRunOutcome):
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
             )
+
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
@@ -418,22 +481,8 @@ class DepthV3MPS(DepthRunOutcome):
 
         self.reportOutcome()
 
-    def process(self):
-        frameCount = 0
-        with ProgressBarLogic(self.totalFrames, title="Depth") as bar:
-            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
-                self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
-
-        logging.info(f"Processed {frameCount} frames")
-        self.writeBuffer.close()
-
     def handleModels(self):
-        if ADOBE:
-            progressState.update(
-                {"status": f"Loading MPS depth model: {self.depth_method}..."}
-            )
+        self._announceLoad()
 
         from .. import depth_anything_3 as depth_anything_3_pkg
 
@@ -442,17 +491,17 @@ class DepthV3MPS(DepthRunOutcome):
             "depth_anything_3.mono"
         ).MonocularDepthAnything3
 
-        toDownload = self.baseMethod
-        modelMap = {
+        modelName = {
             "small_v3": "da3-small",
             "base_v3": "da3-base",
             "large_v3": "da3mono-large",
-        }
-        modelName = modelMap[self.baseMethod]
+        }[self.baseMethod]
 
-        self.filename = modelsMap(model=toDownload, modelType="pth", half=self.half)
+        self.filename = modelsMap(
+            model=self.baseMethod, modelType="pth", half=self.half
+        )
         modelPath = resolveWeightPath(
-            toDownload,
+            self.baseMethod,
             self.filename,
             half=self.half,
             modelType="pth",
@@ -471,10 +520,8 @@ class DepthV3MPS(DepthRunOutcome):
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )
-        # processRes is a longest-side target at every quality ("high" is the
-        # source's own longest side), so it must bound the longest side. A
-        # lower_bound_resize stretched the shortest side to that length -- 4K
-        # 16:9 decoded at 6832x3850, OOMing the DPT head even on 24 GB.
+        # processRes bounds the LONGEST side; a lower-bound resize once blew a
+        # 4K frame up to 6832x3850.
         self.processResMethod = "upper_bound_resize"
         self._decodeHeight, self._decodeWidth = longestSideShape(
             self.width, self.height, self.processRes
@@ -485,74 +532,49 @@ class DepthV3MPS(DepthRunOutcome):
 
     @torch.inference_mode()
     def _inferBatch(self, frames):
+        """Raw fp32 depth per uint8 [H, W, 3] frame, at the frame's own size."""
         import cv2
 
-        imgsList = []
+        images = []
         sizes = []
         for frame in frames:
-            imgsCpu, _, _ = self.model.input_processor(
+            processed = self.model.input_processor(
                 [frame], None, None, self.processRes, self.processResMethod
             )
-            imgsList.append(imgsCpu)
-            sizes.append(frame.shape[:2])
+            images.append(processed[0])  # [1, C, h, w]
+            sizes.append(tuple(frame.shape[:2]))
 
-        batch = torch.stack(imgsList, dim=0).to(self.device).float()
+        # [N, 1, C, h, w]: N single-view scenes in one forward.
+        batch = torch.stack(images).to(self.device).float()
         prediction = self.model.output_processor(self.model.forward(batch))
         torch.mps.synchronize()
 
         depths = []
-        for i, (h, w) in enumerate(sizes):
-            depth = np.asarray(prediction.depth[i]).squeeze()
-            if depth.shape[0] != h or depth.shape[1] != w:
-                depth = cv2.resize(depth, (w, h), interpolation=cv2.INTER_LINEAR)
-            depths.append(
-                np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-            )
+        for i, (height, width) in enumerate(sizes):
+            depth = np.squeeze(np.asarray(prediction.depth[i]))
+            if depth.shape != (height, width):
+                depth = cv2.resize(
+                    depth, (width, height), interpolation=cv2.INTER_LINEAR
+                )
+            depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+            depths.append(depth.astype(np.float32))
         return depths
 
     @torch.inference_mode()
     def processBatch(self, frames):
         try:
-            rawDepths = self._inferBatch(frames)
+            depths = self._inferBatch(frames)
         except Exception as e:
-            self.recordFailure(e)
-            logging.exception(f"Something went wrong while processing the frame, {e}")
+            _frameFailed(self, e)
             return
 
-        for depth in rawDepths:
+        for depth in depths:
             try:
-                depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
-                validMask = depth > 0
-
-                if validMask.sum() <= 10:
-                    self._writeGray(np.zeros(depth.shape, dtype=np.float32))
-                    continue
-
-                disparity = np.zeros_like(depth, dtype=np.float32)
-                disparity[validMask] = 1.0 / depth[validMask]
-
-                # Two scalar calls on purpose: one call with a q array interpolates
-                # in a different precision and moves the 98th percentile by ~1e-6.
-                disp_min = np.percentile(disparity[validMask], 2)
-                disp_max = np.percentile(disparity[validMask], 98)
-                if disp_min == disp_max:
-                    disp_min -= 1e-6
-                    disp_max += 1e-6
-                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
-                self._writeGray(gray)
+                self._writeGray(_disparityGray(depth))
             except Exception as e:
-                self.recordFailure(e)
-                logging.exception(
-                    f"Something went wrong while processing the frame, {e}"
-                )
+                _frameFailed(self, e)
 
     def _writeGray(self, gray):
-        """[H, W] float in [0, 1] -> the [1, 1, H, W] frame the writer expects.
-
-        The writer resizes a frame that does not match the output dimensions,
-        so the cv2.resize the old encode thread did here is not needed."""
-        self.writeBuffer.write(
-            torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))
-            .unsqueeze(0)
-            .unsqueeze(0)
-        )
+        """[H, W] float in [0, 1] -> the [1, 1, H, W] CPU frame the writer expects."""
+        gray = torch.from_numpy(np.ascontiguousarray(gray, dtype=np.float32))
+        self.writeBuffer.write(gray[None, None])

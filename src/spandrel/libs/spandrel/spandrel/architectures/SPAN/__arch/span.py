@@ -253,9 +253,11 @@ class SPAN(nn.Module):
         self.in_channels = num_in_ch
         self.out_channels = num_out_ch
         self.img_range = img_range
-        mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
+        # Non-persistent buffers: they follow .to()/.half() but stay out of
+        # the state dict, so checkpoints keep loading with strict keys.
+        mean = torch.tensor(rgb_mean, dtype=torch.float32).view(1, 3, 1, 1)
+        self.register_buffer("mean_float", mean, persistent=False)
         self.register_buffer("mean_half", mean.half(), persistent=False)
-        self.register_buffer("mean_float", mean.float(), persistent=False)
 
         self.no_norm: torch.Tensor | None
         if not norm:
@@ -292,7 +294,7 @@ class SPAN(nn.Module):
         else:
             self.mean = self.mean_float
         if self.is_norm:
-            self.mean = self.mean.to(device=x.device, dtype=x.dtype)
+            self.mean = self.mean.to(x)
             x = (x - self.mean) * self.img_range
 
         out_feature = self.conv_1(x)

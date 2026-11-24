@@ -40,7 +40,9 @@ jobs:
               return all;
             }
 
-            const releases = await fetchAllReleases();
+            // Drafts and prereleases are neither counted nor pruned. A draft waiting for its
+            // frontends would otherwise push a published release out of the latest three.
+            const releases = (await fetchAllReleases()).filter((rel) => !rel.draft && !rel.prerelease);
             core.info(`Found ${releases.length} releases.`);
 
             let totalDeleted = 0;

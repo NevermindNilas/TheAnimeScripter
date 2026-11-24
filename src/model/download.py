@@ -1,4 +1,4 @@
-"""Network and filesystem I/O for model downloads."""
+"""Network and disk work of fetching model weights; the static name tables are in registry.py."""
 
 import logging
 import os
@@ -16,6 +16,15 @@ from .registry import (
 # hung the run forever instead of reaching the retry below. Per blocking call,
 # not a total, so a slow but moving download is never cut off.
 DOWNLOAD_TIMEOUT = 60
+
+# Requested names that reuse another model's weights.
+_SHARED_WEIGHTS = {
+    "video_small_v3": "small_v3",
+    "video_base_v3": "base_v3",
+    "video_limbo": "limbo",
+    "video_limbo_v2": "limbo_v2",
+    "video_limbo_v3": "limbo_v3",
+}
 
 
 def downloadAndLog(
@@ -238,6 +247,16 @@ def resolveWeightPath(
     )
 
 
+def _weightsFolderName(registryName: str) -> str:
+    """The folder under the weights root that holds this model's files."""
+    if not registryName.endswith(("-tensorrt", "-directml")):
+        return registryName
+    if "rife" in registryName:
+        # RIFE TensorRT shares the base folder; RIFE DirectML keeps its own.
+        return registryName.replace("-tensorrt", "")
+    return registryName.removesuffix("-tensorrt").removesuffix("-directml") + "-onnx"
+
+
 def downloadModels(
     model: str = None,
     upscaleFactor: int = 2,
@@ -258,28 +277,17 @@ def downloadModels(
     ):
         downloadModel = downloadModel.removesuffix("-tensorrt")
         modelType = "pth"  # The multi-view ONNX is generated locally on first use.
-    registryModel = {
-        "video_small_v3": "small_v3",
-        "video_base_v3": "base_v3",
-        "video_limbo": "limbo",
-        "video_limbo_v2": "limbo_v2",
-        "video_limbo_v3": "limbo_v3",
-    }.get(downloadModel, downloadModel)
 
-    filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
-    if registryModel.endswith("-tensorrt") or registryModel.endswith("-directml"):
-        if "rife" in registryModel:
-            folderName = registryModel.replace("-tensorrt", "")
+    registryName = _SHARED_WEIGHTS.get(downloadModel, downloadModel)
+    filename = modelsMap(
+        registryName,
+        upscaleFactor=upscaleFactor,
+        modelType=modelType,
+        half=half,
+        ensemble=ensemble,
+    )
 
-        else:
-            folderName = registryModel.replace("-tensorrt", "-onnx").replace(
-                "-directml", "-onnx"
-            )
-    else:
-        folderName = registryModel
-
-    folderPath = os.path.join(weightsDir, folderName)
+    folderPath = os.path.join(weightsDir, _weightsFolderName(registryName))
     os.makedirs(folderPath, exist_ok=True)
 
-    fullUrl = f"{TASURL}{filename}"
-    return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
+    return downloadAndLog(downloadModel, filename, f"{TASURL}{filename}", folderPath)

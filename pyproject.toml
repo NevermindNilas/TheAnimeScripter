@@ -21,7 +21,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
-"src/io/ffmpegSettings.py" = ["E402", "I001"]  # nelux raises if imported before torch and after macOS link repair
+"src/io/ffmpegSettings.py" = ["E402", "I001"] # nelux raises unless torch is imported first, so the import block is unsorted on purpose
 
 [tool.ruff.format]
 # Defaults: double quotes, 4-space indent, magic trailing comma.

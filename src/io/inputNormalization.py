@@ -12,7 +12,7 @@ from src.io.inputOutputHandler import (
 
 
 class InputNormalizationError(ValueError):
-    pass
+    """The input cannot be used as given; the message is shown to the user."""
 
 
 def processUrlInput(args, outputPath, processingEnabled):
@@ -125,14 +125,16 @@ def normalizeInputArgs(args, outputPath, processingEnabled):
     if not args.input:
         raise InputNormalizationError("No input specified")
 
+    # A URL may end in an image extension, so it is tested first.
     if isUrlInput(args.input):
         return processUrlInput(args, outputPath, processingEnabled)
 
-    if args.input.lower().endswith((".png", ".jpg", ".jpeg")):
+    lowered = args.input.lower()
+    if lowered.endswith((".png", ".jpg", ".jpeg")):
         normalizeImageInput(args, processingEnabled)
         return True
 
-    if args.input.lower().endswith(".gif"):
+    if lowered.endswith(".gif"):
         # An --output naming another container keeps the method asked for:
         # gif forced into `--output clip.mp4` processed every frame and then
         # failed at the muxer.
@@ -149,7 +151,6 @@ def normalizeInputArgs(args, outputPath, processingEnabled):
 
     try:
         args.input = os.path.abspath(args.input)
-    except Exception as e:
-        raise InputNormalizationError("Error processing input") from e
-
+    except Exception as error:
+        raise InputNormalizationError("Error processing input") from error
     return True

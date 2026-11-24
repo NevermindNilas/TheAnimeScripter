@@ -275,14 +275,9 @@ class CliConfig:
 
     @classmethod
     def fromArgs(cls, args, parser, argv=None):
-        argv = list(sys.argv[1:] if argv is None else argv)
+        tokens = list(sys.argv[1:] if argv is None else argv)
         config = cls(
-            args=args,
-            parser=parser,
-            argv=argv,
-            providedOptions=cls.collectProvidedOptions(argv, parser),
-            jsonKeys=set(),
-            jsonPresentKeys=set(),
+            args, parser, tokens, cls.collectProvidedOptions(tokens, parser), set()
         )
         config.normalize()
         return config
@@ -329,9 +324,9 @@ class CliConfig:
         return _defaultsByDest(self.parser)
 
     def normalize(self):
+        # Order matters: each step reads what the one before it wrote.
         if self.args.json:
             self.mergeJsonConfig()
-
         self.autoEnableParentFlags()
         self.buildChain()
 
@@ -393,9 +388,7 @@ class CliConfig:
         )
 
     def mergeJsonConfig(self):
-        extraCliOptions = self.providedOptions - {"json"}
-
-        if extraCliOptions:
+        if self.providedOptions - {"json"}:
             logAndPrint(
                 "Cannot use --json with other command line arguments. Use --json alone.",
                 "red",
@@ -565,39 +558,33 @@ class CliConfig:
             sys.exit(1)
 
     def autoEnableParentFlags(self):
-        logging.debug("jsonKeys: %s", self.jsonKeys)
-
-        for optionName, (parentFlag, defaultValue) in PARENT_FLAG_DEFAULTS.items():
-            if not hasattr(self.args, optionName):
+        logging.debug(f"Options requested by the JSON config: {sorted(self.jsonKeys)}")
+        args = self.args
+        for option, (switch, default) in PARENT_FLAG_DEFAULTS.items():
+            if not hasattr(args, option):
                 continue
 
-            currentValue = getattr(self.args, optionName)
-            isExplicitlyProvided = self.optionWasProvided(optionName)
-
-            if optionName == "interpolate_method":
+            provided = self.optionWasProvided(option)
+            if option == "interpolate_method":
                 logging.info(
-                    f"[DEBUG] interpolate_method - providedOnCLI: {optionName in self.providedOptions}, isExplicitlyProvided: {isExplicitlyProvided}"
+                    f"[DEBUG] interpolate_method - providedOnCLI: "
+                    f"{option in self.providedOptions}, "
+                    f"isExplicitlyProvided: {provided}"
                 )
 
-            if parentFlag in self.jsonPresentKeys and not getattr(
-                self.args, parentFlag
-            ):
-                # The config named the capability itself and said off. A sibling
-                # key must not overrule that: a JSON carrying both
-                # "upscale": false and "upscale_method" used to upscale anyway.
+            if getattr(args, switch):
+                continue
+            if switch in self.jsonPresentKeys:
                 logging.info(
-                    f"Not auto-enabling --{parentFlag}: the config sets it explicitly"
+                    f"Not auto-enabling --{switch}: the config sets it explicitly"
                 )
                 continue
 
-            if isExplicitlyProvided:
-                if not getattr(self.args, parentFlag):
-                    setattr(self.args, parentFlag, True)
-                    logging.info(
-                        f"Auto-enabling --{parentFlag} because --{optionName} was provided"
-                    )
-            elif currentValue != defaultValue and not getattr(self.args, parentFlag):
-                setattr(self.args, parentFlag, True)
-                logging.info(
-                    f"Auto-enabling --{parentFlag} because {optionName} differs from default"
-                )
+            if provided:
+                reason = f"--{option} was provided"
+            elif getattr(args, option) != default:
+                reason = f"{option} differs from default"
+            else:
+                continue
+            setattr(args, switch, True)
+            logging.info(f"Auto-enabling --{switch} because {reason}")

@@ -1,7 +1,8 @@
 """
 Global Constants Configuration
 
-These constants should not change their values once runtime arguments are prepared.
+These values are settled during startup and are not meant to change once
+the run's arguments have been prepared.
 They're defined here to avoid populating the code with excessive arguments
 and to improve code readability.
 """

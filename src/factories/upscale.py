@@ -1,11 +1,11 @@
-"""
-Upscale backend factory.
+"""Builds upscale backends.
 
 buildUpscaleProcess(self, width=None, height=None) -> callable
-  Instantiates and returns the correct upscale backend for self.upscaleMethod.
+  Constructs and returns the backend matching ``self.upscaleMethod``.
   ``width``/``height`` are the frame size the backend receives (the pipeline
   planner resolves it); they default to the source size.
-  Returns None when self.upscale is False (callers should guard before calling).
+  Returns ``None`` when ``self.upscale`` is false, so callers check before
+  calling it.
 """
 
 import logging

@@ -1,0 +1,50 @@
+name: Sync frontends to release
+
+# Copies the current TAS-Standalone and TAS-AdobeEdition builds from the update
+# host (https://updates.nevermindnilas.dev) onto the GitHub release of the engine
+# version they pin, drafts included. See .github/scripts/sync-frontends.mjs.
+#
+# The frontends live in private repos and publish to the update host on their own
+# schedule, so this polls instead of being triggered by them. A run that finds
+# nothing to do takes a few seconds.
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would change"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-frontends
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sync frontend builds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node .github/scripts/sync-frontends.mjs --dry-run
+          else
+            node .github/scripts/sync-frontends.mjs
+          fi

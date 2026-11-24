@@ -104,15 +104,18 @@ def getLinuxInfo():
 
 
 def getMacosInfo():
-    osName = platform.system()
-    osVersion = platform.mac_ver()[0] or platform.release()
+    # macOS reports its product version separately from the Darwin kernel
+    # release; the kernel release is only the stand-in when it is missing.
+    productVersion, _, _ = platform.mac_ver()
+    if not productVersion:
+        productVersion = platform.release()
+    chip = platform.processor()
+    if not chip:
+        chip = platform.machine()
 
-    cpuInfo = platform.processor() or platform.machine()
-    totalRam = round(_totalRamBytes() / (1024.0**3), 2)
-
-    logging.info(f"OS: {osName} {osVersion}")
-    logging.info(f"CPU: {cpuInfo}")
-    logging.info(f"Total RAM: {totalRam} GB")
+    logging.info(f"OS: {platform.system()} {productVersion}")
+    logging.info(f"CPU: {chip}")
+    logging.info(f"Total RAM: {round(_totalRamBytes() / (1024.0**3), 2)} GB")
 
 
 def checkSystem():

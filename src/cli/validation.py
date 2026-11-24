@@ -3,7 +3,8 @@ import os
 
 
 class CliValidationError(ValueError):
-    pass
+    """A CLI validation step failed; the message is for the user, and the
+    caller prints it and exits 1."""
 
 
 def validateTrimRange(args):
@@ -99,9 +100,9 @@ def upscaleFactorValue(rawFactor, label=None):
 
 
 def normalizeUpscaleFactor(args):
-    if not args.upscale or not hasattr(args, "upscale_factor"):
-        return None
-    args.upscale_factor, warning = upscaleFactorValue(args.upscale_factor)
+    warning = None
+    if args.upscale and hasattr(args, "upscale_factor"):
+        args.upscale_factor, warning = upscaleFactorValue(args.upscale_factor)
     return warning
 
 
@@ -286,10 +287,10 @@ def validateInterpolateFactor(args):
 
 
 def selectedUpscaleBackend(upscaleMethod):
-    backendSuffixes = ("-directml", "-openvino", "-tensorrt", "-ncnn")
-    for suffix in backendSuffixes:
+    for backend in ("directml", "openvino", "tensorrt", "ncnn"):
+        suffix = f"-{backend}"
         if upscaleMethod.endswith(suffix):
-            return suffix[1:], upscaleMethod[: -len(suffix)]
+            return backend, upscaleMethod[: -len(suffix)]
     return "pytorch", upscaleMethod
 
 

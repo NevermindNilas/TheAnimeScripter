@@ -1,9 +1,11 @@
-"""
-Restore backend factory.
+"""Builds restore backends.
 
-RestoreChain: chains multiple restore callables into one.
+RestoreChain runs several restore callables one after another as a single
+callable.
+
 buildRestoreProcess(self, width=None, height=None) -> callable
-  Builds either a single backend or a RestoreChain for multi-method restore.
+  Returns one backend for a single method and a RestoreChain when several
+  methods are given.
 """
 
 import logging

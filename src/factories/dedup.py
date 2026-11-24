@@ -1,5 +1,4 @@
-"""
-Dedup backend factory.
+"""Builds duplicate-frame detectors.
 
 buildDedupProcess(self, method=None, sens=None, width=None, height=None) -> callable
 """
