@@ -25,8 +25,8 @@ What the drivers rely on (tas_kernels.rife):
     features) unless fresh=True; DrbaKernel passes fresh=True whenever `frame` is not the tensor it
     was handed as the previous nextFrame.
 
-Settings the kernels do not implement (--ensemble, --dynamic_scale, --static_step) make the factory
-build the CUDA method instead: kernelFallbackReason() says why.
+Settings the kernels do not implement (--ensemble, --dynamic_scale, --static_step) make buildRife()
+(the interpolate factory and motion blur) build the CUDA method instead: kernelFallbackReason() says why.
 """
 
 import importlib
@@ -75,6 +75,49 @@ def kernelFallbackReason(
     if staticStep and base in _STATIC_STEP_METHODS:
         return "--static_step (TAS's reference arch) is not implemented by the kernels"
     return None
+
+
+def buildRife(
+    half,
+    width,
+    height,
+    interpolateMethod,
+    interpolateFactor=2,
+    ensemble=False,
+    dynamicScale=False,
+    staticStep=False,
+    compileMode="default",
+):
+    """A RifeKernel for a RIFE `-kernel` method, or the CUDA method's RifeCuda (with a warning) when
+    the kernels cannot run here or the settings need TAS's CUDA path. Shared by the interpolate
+    factory and motion blur."""
+    # looked up at call time: the fallback tests patch these
+    from src.upscale.kernel import kernelUnavailableReason
+
+    reason = kernelUnavailableReason() or kernelFallbackReason(
+        interpolateMethod, ensemble, dynamicScale, staticStep
+    )
+    if reason is None:
+        try:
+            return RifeKernel(half, width, height, interpolateMethod, interpolateFactor)
+        except (ValueError, RuntimeError) as error:
+            reason = str(error)
+    from src.infra.logAndPrint import logWarning
+    from src.interpolate.rife import RifeCuda
+
+    base = baseMethod(interpolateMethod)
+    logWarning(f"{interpolateMethod} cannot run here: {reason}. Using {base} instead.")
+    return RifeCuda(
+        half,
+        width,
+        height,
+        base,
+        ensemble,
+        interpolateFactor,
+        dynamicScale,
+        staticStep,
+        compileMode=compileMode,
+    )
 
 
 def _loadStateDict(interpolateMethod: str) -> dict:
@@ -147,9 +190,8 @@ class RifeKernel(_KernelDriver):
         self.dType = self.model.dtype
         self.stream = torch.cuda.Stream()
         self.firstRun = True
-        self.useGraph = (
-            False  # RifeCuda's flag for src/motionBlur.py (no -kernel methods there)
-        )
+        # RifeCuda's flag; src/motionBlur.py windows RifeKernel by its class instead (any timesteps)
+        self.useGraph = False
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):

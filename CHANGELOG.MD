@@ -6,9 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 
+### Highlight: `-kernel` interpolation
+
+RIFE and DistilDRBA on the hand-written CUDA kernels of `tas-kernels` 0.2.0, against the same model's `-tensorrt` engines. Full TAS runs (`--benchmark`: decode + interpolate, no encode), 1920×1080 anime clip, fp16, RTX 3090, output frames per second:
+
+| Method | 2x `-kernel` | 2x `-tensorrt` | 4x `-kernel` | 4x `-tensorrt` | Speed-up 2x / 4x |
+|:--|--:|--:|--:|--:|:-:|
+| `rife4.6-kernel` | **663** | 378 | **525** | 266 | **1.8× / 2.0×** |
+| `rife4.22-kernel` | **493** | 215 | **390** | 164 | **2.3× / 2.4×** |
+| `rife4.25-kernel` | **829** | 312 | **722** | 237 | **2.7× / 3.0×** |
+| `rife4.26-kernel` | **826** | 310 | **717** | 236 | **2.7× / 3.0×** |
+| `rife4.26-heavy-kernel` | **643** | 208 | **528** | 163 | **3.1× / 3.2×** |
+| `rife4.26-ultra-kernel` | **200** | 49 | **146** | 36 | **4.1× / 4.0×** |
+| `rife_elexor-kernel` | **566** | 246 | **460** | 178 | **2.3× / 2.6×** |
+| `distildrba-kernel` | **717** | 161 | **672** | 110 | **4.4× / 6.1×** |
+| `distildrba-lite-kernel` | **1,595** | 780 | **1,912** | 634 | **2.0× / 3.0×** |
+
+Every RIFE method and both DistilDRBA models have a `-kernel` variant, and all of them beat `-tensorrt` at every size and factor tested (1.6× to 6.0× at 720p). Warps, flow and the final blend run in fp32, so slow pans do not flicker the way the fp16 CUDA and TensorRT paths can. Repeated runs, and runs with every GPU call forced synchronous, produce bit-identical frames.
+
 ### Added
 - `-kernel` upscale and restore methods (NVIDIA RTX 30 series or newer, Windows and Linux): `shufflecugan-kernel`, `cyte-kernel`, `span-kernel`, `open-proteus-kernel`, `aniscale2-kernel`, `fallin_soft-kernel`, `fallin_strong-kernel` and `real-plksr-kernel`, `anime1080fixer-kernel`, `deh264_real-kernel`, `deh264_span-kernel`, `hurrdeblur-kernel`, `dehalo-kernel`. They run the CUDA method's weights on the hand-written CUDA kernels of the new `tas-kernels` dependency (in the `windows-cuda` and `linux-cuda` profiles), with no engine build. `--custom_model` works with a `-kernel` upscale method for Compact, SPAN, Real-CUGAN 2x and RealPLKSR files. On an unsupported GPU the stage warns and runs the CUDA method.
-- `-kernel` interpolate methods for every CUDA RIFE method (`rife4.6-kernel` ... `rife4.26-ultra-kernel`, `rife_elexor-kernel`) and `distildrba-kernel`, `distildrba-lite-kernel` (tas-kernels 0.2.0): 1.8x to 4.1x the `-tensorrt` speed for RIFE and 5.4x for DistilDRBA at 1080p 2x on an RTX 3090, with fp32 warps that do not flicker on slow pans. `--ensemble`, `--dynamic_scale` and `--static_step` fall back to the CUDA method.
+- `-kernel` interpolate methods for every CUDA RIFE method (`rife4.6-kernel` ... `rife4.26-ultra-kernel`, `rife_elexor-kernel`) and `distildrba-kernel`, `distildrba-lite-kernel` (tas-kernels 0.2.0): 1.75x to 4.1x the `-tensorrt` speed for RIFE and 4.4x for DistilDRBA in full 1080p 2x runs on an RTX 3090 (table above), with fp32 warps that do not flicker on slow pans. `--ensemble`, `--dynamic_scale` and `--static_step` fall back to the CUDA method.
+- `--moblur_method rife4.6-kernel` and `rife4.25-kernel`: motion blur's samples on the same RIFE kernels, interpolating only the timesteps inside the shutter window. Same fallbacks as the interpolate stage; without CUDA they are downgraded like `-tensorrt`.
 - `--upscale smovsr` (`-tensorrt`, `-directml`, `-openvino`, `-rocm`, `-mps`): umzi's 2x_umzi_anime_smovsr, a 2x anime video upscaler for compression removal that reads frames before and after each one. It streams in 12-frame windows, 8 written per window, with the forward state carried across windows. Compared with running the model over each whole shot: mean difference 0.13/255, no visible seam between windows. Scene cuts from `--scenechange` restart it.
 
 ### Changed

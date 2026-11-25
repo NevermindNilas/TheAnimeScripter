@@ -272,12 +272,13 @@ def applyBackendFallbacks(
 
     if getattr(args, "moblur", False):
         moblurMethod = args.moblur_method
-        # -tensorrt and -ncnn are not here: both still go through the lookup.
+        # -tensorrt, -kernel and -ncnn are not here: all still go through the lookup
+        # (the first two need CUDA, so they are downgraded like the bare CUDA method).
         if not any(
             suffix in moblurMethod
             for suffix in ("-directml", "-openvino", "-mps", "-rocm")
         ):
-            base = moblurMethod.replace("-tensorrt", "")
+            base = moblurMethod.replace("-tensorrt", "").replace("-kernel", "")
             # Checked against the choice list rather than assigned blind: this
             # used to append "-directml" unconditionally, so any method without
             # a DirectML sibling was rewritten to a string nothing can build.

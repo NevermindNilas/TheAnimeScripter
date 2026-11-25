@@ -1176,10 +1176,13 @@ def _addMotionBlurOptions(argParser):
             "rife4.25-mps",
             "rife4.6-rocm",
             "rife4.25-rocm",
+            "rife4.6-kernel",
+            "rife4.25-kernel",
         ],
         help="Interpolation model + backend used to synthesize the motion-blur samples. "
         "rife4.25 is sharper/slower, rife4.6 is faster. Suffix picks the backend: "
-        "none = CUDA (NVIDIA; the only path that gets the windowed-sample speedup), "
+        "none = CUDA (NVIDIA; windowed-sample speedup), "
+        "-kernel = tas-kernels CUDA kernels (NVIDIA RTX 30+, windowed; falls back to the CUDA method), "
         "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs, -mps = Apple Silicon, "
         "-rocm = AMD ROCm/HIP (eager, no windowing).",
     )

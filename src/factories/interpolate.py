@@ -240,40 +240,15 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.26-heavy-kernel"
             | "rife4.26-ultra-kernel"
         ):
-            from src.interpolate.kernel import (
-                RifeKernel,
-                baseMethod,
-                kernelFallbackReason,
-            )
-            from src.upscale.kernel import kernelUnavailableReason
+            from src.interpolate.kernel import buildRife
 
-            method = self.interpolateMethod
-            reason = kernelUnavailableReason() or kernelFallbackReason(
-                method, self.ensemble, self.dynamicScale, self.staticStep
-            )
-            if reason is None:
-                try:
-                    return RifeKernel(
-                        self.half,
-                        interpWidth,
-                        interpHeight,
-                        method,
-                        self.interpolateFactor,
-                    )
-                except (ValueError, RuntimeError) as error:
-                    reason = str(error)
-            from src.infra.logAndPrint import logWarning
-            from src.interpolate.rife import RifeCuda
-
-            base = baseMethod(method)
-            logWarning(f"{method} cannot run here: {reason}. Using {base} instead.")
-            return RifeCuda(
+            return buildRife(
                 self.half,
                 interpWidth,
                 interpHeight,
-                base,
-                self.ensemble,
+                self.interpolateMethod,
                 self.interpolateFactor,
+                self.ensemble,
                 self.dynamicScale,
                 self.staticStep,
                 compileMode=self.compileMode,

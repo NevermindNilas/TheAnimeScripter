@@ -245,6 +245,43 @@ class MotionBlurPipeline:
                 self.windowed = self.interpolateProcess.useGraph
 
             case (
+                "rife4.6-kernel"
+                | "rife4.15-lite-kernel"
+                | "rife4.16-lite-kernel"
+                | "rife4.17-kernel"
+                | "rife4.18-kernel"
+                | "rife4.20-kernel"
+                | "rife4.21-kernel"
+                | "rife4.22-kernel"
+                | "rife4.22-lite-kernel"
+                | "rife4.25-kernel"
+                | "rife4.25-lite-kernel"
+                | "rife_elexor-kernel"
+                | "rife4.25-heavy-kernel"
+            ):
+                from src.interpolate.kernel import RifeKernel, buildRife
+
+                # The CUDA method (with a warning) when the kernels cannot run here.
+                self.interpolateProcess = buildRife(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    self.interpolateFactor,
+                    self.ensemble,
+                    self.dynamicScale,
+                    self.staticStep,
+                    compileMode=self.compileMode,
+                )
+                # RifeKernel computes each timestep on its own (flows(ts) is
+                # bit-identical to flow(t) per t), with no encode counter to
+                # desync, so the shutter-window subset is always safe.
+                self.windowed = (
+                    isinstance(self.interpolateProcess, RifeKernel)
+                    or self.interpolateProcess.useGraph
+                )
+
+            case (
                 "rife4.6-mps"
                 | "rife4.15-lite-mps"
                 | "rife4.16-lite-mps"
@@ -378,7 +415,7 @@ class MotionBlurPipeline:
                 raise ValueError(
                     f"Motion blur does not support interpolate_method "
                     f"'{self.interpolateMethod}'. Supported methods are the "
-                    f"rife (cuda/rocm/ncnn/tensorrt/directml/openvino) variants."
+                    f"rife (cuda/kernel/rocm/mps/ncnn/tensorrt/directml/openvino) variants."
                 )
 
     def _run(self):
